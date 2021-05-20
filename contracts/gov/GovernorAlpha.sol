@@ -33,7 +33,6 @@ contract GovernorAlpha {
     // The total number of proposals
     uint public proposalCount;
 
-    // 提议对象
     struct Proposal {
         // Unique id for looking up a proposal
         uint id;
@@ -156,7 +155,6 @@ contract GovernorAlpha {
 
         proposalCount++;
 
-        //  记录提议人的 提议
         proposals[proposalCount] = Proposal({
         id : proposalCount,
         proposer : msg.sender,
@@ -173,14 +171,12 @@ contract GovernorAlpha {
         executed : false
         });
 
-        // 记录提议人的 提议Id
         latestProposalIds[msg.sender] = proposalCount;
 
         emit ProposalCreated(proposalCount, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
         return proposalCount;
     }
 
-    // 操作建议 排队？？
     function queue(uint proposalId) public {
         require(state(proposalId) == ProposalState.Succeeded, "GovernorAlpha::queue: proposal can only be queued if it is succeeded");
         Proposal storage proposal = proposals[proposalId];
@@ -198,7 +194,6 @@ contract GovernorAlpha {
         timelock.queueTransaction(target, value, signature, data, eta);
     }
 
-    // 执行提议
     function execute(uint proposalId) public payable {
         require(state(proposalId) == ProposalState.Queued, "GovernorAlpha::execute: proposal can only be executed if it is queued");
         Proposal storage proposal = proposals[proposalId];
@@ -209,7 +204,6 @@ contract GovernorAlpha {
         emit ProposalExecuted(proposalId);
     }
 
-    // 取消提议
     function cancel(uint proposalId) public {
         ProposalState state = state(proposalId);
         require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
@@ -271,13 +265,11 @@ contract GovernorAlpha {
     }
 
     function _castVote(address voter, uint proposalId, bool support) internal {
-        // 判断提议是否为激活状态
+
         require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
 
-        //获取提议
         Proposal storage proposal = proposals[proposalId];
 
-        //获取当前地址投票记录
         Receipt storage receipt = receipts[proposalId][voter];
         require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
         uint votes = oleToken.getPriorVotes(voter, proposal.startBlock);

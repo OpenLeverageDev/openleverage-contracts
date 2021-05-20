@@ -84,7 +84,6 @@ contract("GovernorAlphaTest", async accounts => {
 
     await lToken.transfer(accounts[1], toWei(10));
 
-
     await gov.castVote(1, true, {from: proposalAccount});
 
     try {
@@ -263,9 +262,7 @@ contract("GovernorAlphaTest", async accounts => {
     let timelock = await Timelock.new(initBalanceAccount, 180 + '');
     let tlAdmin = await MockTLAdmin.new(timelock.address);
 
-
     let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 410001);
-
 
     await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
 

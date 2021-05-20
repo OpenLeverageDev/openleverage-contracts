@@ -368,20 +368,21 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         Types.Market storage market = markets[marketId];
         uint fees = tradeSize.mul(feesRate).div(10000);
         uint newInsurance = fees.mul(insuranceRatio).div(100);
-        uint referralReward = 0;
+        uint referralReward;
+        uint refereeDiscount;
         if (address(referral) != address(0)) {
-            referralReward = referral.calReferralReward(msg.sender, referrer, fees, token);
+            (referralReward, refereeDiscount) = referral.calReferralReward(msg.sender, referrer, fees, token);
             if (referralReward != 0) {
                 IERC20(token).transfer(address(referral), referralReward);
             }
         }
-        IERC20(token).transfer(treasury, fees.sub(newInsurance).sub(referralReward));
+        IERC20(token).transfer(treasury, fees.sub(newInsurance).sub(referralReward).sub(refereeDiscount));
         if (token == market.pool1.underlying()) {
             market.pool1Insurance = market.pool1Insurance.add(newInsurance);
         } else {
             market.pool0Insurance = market.pool0Insurance.add(newInsurance);
         }
-        return fees;
+        return fees.sub(refereeDiscount);
     }
 
     /*** Admin Functions ***/

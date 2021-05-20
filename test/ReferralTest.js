@@ -52,7 +52,6 @@ contract("Referral", async accounts => {
     await referral.withdrawReward(dai.address, {from: user_referrer});
     let rewardAfterWithdraw = await referral.getReward(user_referrer, dai.address);
     assertPrint("Referer reward is 0 after withdraw", 0, rewardAfterWithdraw);
-
   })
 
   it("Two level reward", async () => {
@@ -85,7 +84,13 @@ contract("Referral", async accounts => {
     await referral.calReferralReward(user_referree1, user_referrer, 10000, dai.address, {from: openlev});
     let reward_user_referrer = await referral.getReward(user_referrer, dai.address);
     assertPrint("Not to pay inactive referrer", 0, reward_user_referrer);
+  })
 
+  it("Set rates", async () => {
+    await referral.setRate(17, 9, 9, {from: admin});
+    assertPrint("firstLevelRate", 17, await referral.firstLevelRate());
+    assertPrint("firstLevelRate", 9, await referral.secondLevelRate());
+    assertPrint("refereeDiscount", 9, await referral.refereeDiscount());
   })
 
 })

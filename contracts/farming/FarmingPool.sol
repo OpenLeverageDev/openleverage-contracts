@@ -173,8 +173,6 @@ contract FarmingPool is LPTokenWrapper, IRewardDistributionRecipient {
             periodFinish = block.timestamp.add(duration);
             emit RewardAdded(reward);
         } else {
-
-            //  奖励额度 / 总周期    1000
             rewardRate = reward.div(duration);
             lastUpdateTime = starttime;
             periodFinish = starttime.add(duration);

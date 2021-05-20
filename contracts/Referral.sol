@@ -18,7 +18,6 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
         openLev = _openLev;
     }
 
-
     function registerReferrer() override external {
         Account storage account = accounts[msg.sender];
         require(account.isActive == false, "Already registered");
@@ -26,7 +25,7 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
         emit NewReferrer(msg.sender);
     }
 
-    function calReferralReward(address referee, address referrer, uint baseAmount, address token) external override returns (uint) {
+    function calReferralReward(address referee, address referrer, uint baseAmount, address token) external override returns (uint referrerReward, uint refereeDiscount) {
         require(msg.sender == openLev, "Only call from OpenLev allowed");
         require(referee != address(0), "Referee empty");
 
@@ -44,7 +43,7 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
             return payReward(registeredReferrerAcct, baseAmount, token);
         } else {
             if (referrer == address(0)) {// not found registeredReferrer and not passed-in any referrer
-                return 0;
+                return (0, 0);
             } else {// new referrer
                 require(!isCircularReference(referrer, referee), "Circular referral");
                 Account storage referrerAcct = accounts[referrer];
@@ -56,7 +55,7 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
                     emit RegisteredReferral(referee, referrer);
                     return payReward(referrerAcct, baseAmount, token);
                 } else {// referrer inactive
-                    return 0;
+                    return (0, 0);
                 }
             }
         }
@@ -72,17 +71,18 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
         IERC20(token).transfer(msg.sender, withdrawAmt);
     }
 
-    function payReward(Account storage referrerAcct, uint baseAmount, address token) internal returns (uint) {
+    function payReward(Account storage referrerAcct, uint baseAmount, address token) internal returns (uint, uint) {
         uint firstLevelReward = calAmount(firstLevelRate, baseAmount);
         referrerAcct.reward[token] = referrerAcct.reward[token] + firstLevelReward;
+        uint refereeDiscount = calAmount(refereeDiscount, baseAmount);
 
         if (referrerAcct.referrer != address(0)) {// two level referral
             uint secondLevelReward = calAmount(secondLevelRate, baseAmount);
             Account storage upperReferrerAcct = accounts[referrerAcct.referrer];
             upperReferrerAcct.reward[token] = upperReferrerAcct.reward[token] + secondLevelReward;
-            return firstLevelReward + secondLevelReward;
+            return (firstLevelReward + secondLevelReward, refereeDiscount);
         } else {
-            return firstLevelReward;
+            return (firstLevelReward, refereeDiscount);
         }
     }
 
@@ -107,9 +107,10 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
 
     /*** Admin Functions ***/
 
-    function setRate(uint _firstLevelRate, uint _secondLevelRate) override external onlyAdmin {
+    function setRate(uint _firstLevelRate, uint _secondLevelRate, uint _refereeDiscount) override external onlyAdmin {
         firstLevelRate = _firstLevelRate;
         secondLevelRate = _secondLevelRate;
+        refereeDiscount = _refereeDiscount;
     }
 
     function setOpenLev(address _openLev) override external onlyAdmin {

@@ -39,10 +39,10 @@ contract ReferralDelegator is DelegatorInterface, ReferralInterface, ReferralSto
         delegateToImplementation(abi.encodeWithSignature("registerReferrer()"));
     }
 
-    function calReferralReward(address referee, address referrer, uint baseAmount, address token) external override returns (uint) {
+    function calReferralReward(address referee, address referrer, uint baseAmount, address token) external override returns (uint, uint) {
         bytes memory data = delegateToImplementation(abi.encodeWithSignature("calReferralReward(address,address,uint256,address)",
             referee, referrer, baseAmount, token));
-        return abi.decode(data, (uint));
+        return abi.decode(data, (uint, uint));
     }
 
     function getReward(address referrer, address token) external view override returns (uint){
@@ -55,8 +55,8 @@ contract ReferralDelegator is DelegatorInterface, ReferralInterface, ReferralSto
         delegateToImplementation(abi.encodeWithSignature("withdrawReward(address)", token));
     }
 
-    function setRate(uint _firstLevelRate, uint _secondLevelRate) external override {
-        delegateToImplementation(abi.encodeWithSignature("setRate(uint256,uint256)", _firstLevelRate, _secondLevelRate));
+    function setRate(uint _firstLevelRate, uint _secondLevelRate, uint refereeDiscount) external override {
+        delegateToImplementation(abi.encodeWithSignature("setRate(uint256,uint256,uint256)", _firstLevelRate, _secondLevelRate, refereeDiscount));
     }
 
     function setOpenLev(address _openLev) external override {

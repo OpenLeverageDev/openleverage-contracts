@@ -34,7 +34,7 @@ contract GovernorTest {
     // The total number of proposals
     uint public proposalCount;
 
-    // 提议对象
+    // Proposal
     struct Proposal {
         // Unique id for looking up a proposal
         uint id;
@@ -139,7 +139,6 @@ contract GovernorTest {
         guardian = guardian_;
     }
 
-    // 发起提议  calldatas  ？？？
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
         require(openLev.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
@@ -173,17 +172,14 @@ contract GovernorTest {
         executed : false
         });
 
-        //  记录提议人的 提议
         proposals[newProposal.id] = newProposal;
 
-        // 记录提议人的 提议Id
         latestProposalIds[newProposal.proposer] = newProposal.id;
 
         emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
         return newProposal.id;
     }
 
-    // 操作建议 排队？？
     function queue(uint proposalId) public {
         require(state(proposalId) == ProposalState.Succeeded, "GovernorAlpha::queue: proposal can only be queued if it is succeeded");
         Proposal storage proposal = proposals[proposalId];
@@ -201,7 +197,6 @@ contract GovernorTest {
         timelock.queueTransaction(target, value, signature, data, eta);
     }
 
-    // 执行提议
     function execute(uint proposalId) public payable {
         require(state(proposalId) == ProposalState.Queued, "GovernorAlpha::execute: proposal can only be executed if it is queued");
         Proposal storage proposal = proposals[proposalId];
@@ -212,7 +207,6 @@ contract GovernorTest {
         emit ProposalExecuted(proposalId);
     }
 
-    // 取消提议
     function cancel(uint proposalId) public {
         ProposalState state = state(proposalId);
         require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
@@ -274,13 +268,10 @@ contract GovernorTest {
     }
 
     function _castVote(address voter, uint proposalId, bool support) internal {
-        // 判断提议是否为激活状态
         require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
 
-        //获取提议
         Proposal storage proposal = proposals[proposalId];
 
-        //获取当前地址投票记录
         Receipt storage receipt = receipts[proposalId][voter];
         require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
         uint96 votes = openLev.getPriorVotes(voter, proposal.startBlock);
