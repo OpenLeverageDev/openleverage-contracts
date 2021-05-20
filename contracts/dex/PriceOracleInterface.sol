@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.7.3;
+
+interface PriceOracleInterface {
+    //price,decimals
+    function getPrice(address desToken, address quoteToken) external view returns (uint256, uint8);
+
+}

@@ -1,0 +1,13 @@
+/.idea
+/build
+/node_modules
+/package-lock.json
+.DS_Store
+/contracts/artifacts/
+contracts/*/artifacts
+/.solcx-lock-0.7.3
+/contracts/venv/*
+/coverage/
+coverage.json
+/.coverage_artifacts/
+/.coverage_contracts/

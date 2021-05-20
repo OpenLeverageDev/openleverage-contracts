@@ -1,0 +1,32 @@
+{
+  "name": "unilever",
+  "version": "1.0.0",
+  "description": "",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "merge-contracts": "sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/*.sol\" ./build && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/dex/*.sol\" ./build/dex && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/farming/*.sol\" ./build/farming && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/gov/*.sol\" ./build/gov && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/liquidity/*.sol\" ./build/liquidity && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/test/*.sol\" ./build/test"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@openzeppelin/contracts": "3.4.0-solc-0.7",
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "bignumber.js": "^1.5.0",
+    "ganache-time-traveler": "^1.0.15",
+    "solc": "^0.7.3",
+    "truffle-contract-size": "^2.0.1"
+  },
+  "bundleDependencies": false,
+  "devDependencies": {
+    "@truffle/hdwallet-provider": "^1.2.1",
+    "eth-gas-reporter": "^0.2.20",
+    "mocha-logger": "^1.0.7",
+    "sol-merger": "^3.1.0",
+    "solidity-coverage": "^0.7.16",
+    "truffle-plugin-verify": "^0.5.7"
+  }
+}

@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.7.3;
+
+
+contract MockTLAdmin {
+    address public admin;
+    uint public decimal;
+    constructor (address _admin) {
+        admin = _admin;
+    }
+
+    function changeDecimal(uint _decimal) public {
+        require(msg.sender == admin, 'sender is not admin');
+        decimal = _decimal;
+    }
+}
