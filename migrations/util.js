@@ -38,19 +38,23 @@ exports.getTreasuryShareToken = function (network) {
   if (network == 'huobiMainest') {
     return '0xa71edc38d189767582c38a3145b5873052c3e47a';
   }
-  //kovan LEO5
-  return "0x92eec1f45c862f6614928c215138803afbf41960";
+  //kovan WETH
+  return "0xC58854ce3a7d507b1CA97Fa7B28A411956c07782";
+}
+exports.getWChainToken = function (network) {
+  //WETH
+  return "0xC58854ce3a7d507b1CA97Fa7B28A411956c07782";
 }
 exports.getLpoolStartTime = function () {
-  //now+60s
+  //now+120s
   return parseInt((new Date().getTime() + 120 * 1000).toString().substr(0, 10));
 }
 exports.getFarmingStartTime = function () {
-  //now+60s
-  return parseInt((new Date().getTime() + 60 * 1000).toString().substr(0, 10));
+  //now+1h
+  return parseInt((new Date().getTime() + 60 * 60 * 1000).toString().substr(0, 10));
 }
 exports.getFarmingDuration = function () {
-  //8周
+  //8 weeks
   return 8 * 7 * 24 * 60 * 60;
 }
 const UniswapV2Router = artifacts.require("IUniswapV2Router");

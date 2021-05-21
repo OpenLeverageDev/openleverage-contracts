@@ -16,11 +16,17 @@ module.exports = async function (deployer, network, accounts) {
   }
   await deployer.deploy(Timelock, accounts[0], (3 * 60) + "", utils.deployOption(accounts));
   await deployer.deploy(Gov, Timelock.address, OLEToken.address, accounts[0], utils.deployOption(accounts));
-  await deployer.deploy(Reserve, accounts[0], OLEToken.address, utils.deployOption(accounts));
+  //Reserve begin 2021-05-22 00:00:00, end 2021-06-10 00:00:00, vestingAmount 100000
+  await deployer.deploy(Reserve, Timelock.address, OLEToken.address, toWei(100000), 1621612800, 1623254400, utils.deployOption(accounts));
   const uniswap = utils.uniswapAddress(network);
   //dev ratio 50%
-  let shareToken = network == 'kovan' ? WETHToken.address : utils.getTreasuryShareToken(network);
+  let shareToken = network == 'kovan' ? "0xC58854ce3a7d507b1CA97Fa7B28A411956c07782" : utils.getTreasuryShareToken(network);
   await deployer.deploy(Treasury, utils.deployOption(accounts));
   await deployer.deploy(TreasuryDelegator, uniswap, OLEToken.address, shareToken, 50, accounts[0], accounts[0], Treasury.address, utils.deployOption(accounts));
 
 };
+
+
+function toWei(bn) {
+  return web3.utils.toBN(bn).mul(web3.utils.toBN(1e18));
+}
