@@ -6,7 +6,7 @@ const m = require('mocha-logger');
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const LPool = artifacts.require("LPoolDelegator");
 const Treasury = artifacts.require("Treasury");
-const LToken = artifacts.require("OLEToken");
+const OLEToken = artifacts.require("OLEToken");
 const MockERC20 = artifacts.require("MockERC20");
 const Controller = artifacts.require("ControllerDelegator");
 
@@ -23,15 +23,18 @@ contract("OpenLev integration test ", async accounts => {
     }
 
     console.log("starting....");
+    let marketId = 5;
     let developer = accounts[0];
     let openLev = await OpenLevV1.at(OpenLevV1.address);
     let controller = await Controller.at(Controller.address);
     let treasury = await Treasury.at(Treasury.address);
-    let pool0 = await LPool.at(await openLev.pool0(0));
-    let pool1 = await LPool.at(await openLev.pool1(0));
-    let token0 = await MockERC20.at(await openLev.token0(0));
-    let token1 = await MockERC20.at(await openLev.token1(0));
-    let lvrToken = await LToken.at(LToken.address);
+    let markets = await openLev.markets(marketId);
+    let pool0 = await LPool.at(markets.pool0);
+    let pool1 = await LPool.at(markets.pool1);
+    let token0 = await MockERC20.at(await pool0.underlying());
+    let token1 = await MockERC20.at(await pool1.underlying());
+
+    let oleToken = await OLEToken.at(OLEToken.address);
     m.log("openLev=", openLev.address);
     m.log("controller=", controller.address);
     m.log("treasury=", treasury.address);
@@ -39,8 +42,9 @@ contract("OpenLev integration test ", async accounts => {
     m.log("pool1=", pool1.address);
     m.log("token0=", token0.address);
     m.log("token1=", token1.address);
-    m.log("lvrToken=", lvrToken.address);
-
+    m.log("oleToken=", oleToken.address);
+    token0.mint(accounts[0], await utils.toWei(1000));
+    token1.mint(accounts[0], await utils.toWei(1000));
     /**
      * lpool supply
      */
@@ -61,11 +65,12 @@ contract("OpenLev integration test ", async accounts => {
      * openLev open margin trade 1
      */
     utils.step("openLev open margin trade 1");
-    let marketId = 0;
     let deposit = await utils.toWei(10);
     let borrow = await utils.toWei(2);
     await token0.approve(openLev.address, maxUint());
-    await openLev.marginTrade(marketId, false, false, deposit, borrow, 0);
+    await token1.approve(openLev.address, maxUint());
+
+    await openLev.marginTrade(marketId, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000001");
     let activeTrade1 = await openLev.getActiveTrade(developer, marketId, false);
     m.log("open trades1=", JSON.stringify(activeTrade1));
     assert.equal(activeTrade1[4], "0x0000000000000000000000000000000000000000");
@@ -75,7 +80,7 @@ contract("OpenLev integration test ", async accounts => {
      * openLev open margin trade 2
      */
     utils.step("openLev open margin trade 2");
-    await openLev.marginTrade(marketId, false, false, deposit, borrow, 0);
+    await openLev.marginTrade(marketId, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000001");
     let activeTrade2 = await openLev.getActiveTrade(developer, marketId, false);
     m.log("open trades1=", JSON.stringify(activeTrade2));
     let rewardAfterByBorrow = await controller.earned(pool1.address, developer, true);
@@ -100,7 +105,7 @@ contract("OpenLev integration test ", async accounts => {
     assert.equal(toBN(treasuryAfterClose).cmp(toBN(treasuryBeforeClose)) > 0, true);
 
     /**
-     * supply & lender LVR reward
+     * supply & lender OLE reward
      */
     let rewardAfterBySupply = await controller.earned(pool1.address, developer, false);
 
@@ -109,7 +114,7 @@ contract("OpenLev integration test ", async accounts => {
     m.log("rewardStartBySupply=", rewardStartBySupply.toString());
     m.log("rewardAfterBySupply=", rewardAfterBySupply.toString());
 
-    utils.step("checking borrow & supply LVR rewards...");
+    utils.step("checking borrow & supply OLE rewards...");
     assert.equal(toBN(rewardAfterByBorrow).cmp(toBN(rewardStartByBorrow)) > 0, true);
     assert.equal(toBN(rewardAfterBySupply).cmp(toBN(rewardStartBySupply)) > 0, true);
 
