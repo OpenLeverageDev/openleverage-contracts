@@ -83,7 +83,7 @@ async function initializeToken(accounts) {
   //50% to liquidator, max 100 OLE reward once, 3X gas fee, 50% to trader&lends
   await tl.executeTransaction(ControllerV1.address, 0, 'setOLETokenDistribution(uint128,uint128,uint128,uint128)',
     encodeParameters(['uint128', 'uint128', 'uint128', 'uint128'], [totalSupply.div(toBN(100)).mul(toBN(50)).div(toBN(2)),
-      toBN(100),
+      toWei(100),
       toBN(300),
       totalSupply.div(toBN(100)).mul(toBN(50)).div(toBN(2))]), 0);
 
