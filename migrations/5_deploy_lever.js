@@ -1,5 +1,5 @@
 const PriceOracleV2 = artifacts.require("PriceOracleV2");
-const Treasury = artifacts.require("Treasury");
+const Treasury = artifacts.require("TreasuryDelegator");
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 
