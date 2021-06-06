@@ -200,7 +200,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
                 }
             }
         } else {// trade.depositToken == longToken
-            if (closeAmount != trade.held) {//partial close
+            if (closeAmount < trade.held) {//partial close
                 repayAmount = repayAmount.mul(closeRatio).div(10000);
                 uint sellAmount = flashBuy(vars.buyPool.underlying(), vars.sellPool.underlying(), repayAmount, closeAmount);
                 vars.buyPool.repayBorrowBehalf(msg.sender, repayAmount);
