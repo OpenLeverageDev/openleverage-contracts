@@ -22,7 +22,6 @@ const LPErc20Delegator = artifacts.require("LPoolDelegator");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
 const MockPriceOracle = artifacts.require("MockPriceOracle");
 const TestToken = artifacts.require("MockERC20");
-const InterestModel = artifacts.require("JumpRateModel");
 
 contract("OpenLev", async accounts => {
 
@@ -37,6 +36,8 @@ contract("OpenLev", async accounts => {
   let admin = accounts[0];
   let saver = accounts[1];
   let trader = accounts[2];
+  let trader2 = accounts[5];
+
   let dev = accounts[3];
   let controller = accounts[3];
   let liquidator1 = accounts[8];
@@ -273,7 +274,7 @@ contract("OpenLev", async accounts => {
     await printBlockNum();
   })
 
-  it("LONG Token0, Liquidate", async () => {
+  it("LONG Token0,DepositToken 1 Liquidate", async () => {
     let pairId = 0;
 
     let token0 = await MockERC20.at(await openLev.token0(pairId));
@@ -354,10 +355,137 @@ contract("OpenLev", async accounts => {
 
     assertPrint("Insurance of Pool0:", '812936097260809225', (await openLev.markets(pairId)).pool0Insurance);
     assertPrint("Insurance of Pool1:", '891000000000000000', (await openLev.markets(pairId)).pool1Insurance);
+    checkAmount("Borrows is zero", 0, await pool1.borrowBalanceCurrent(trader), 18);
     checkAmount("OpenLev Balance", 812936097260809225, await token0.balanceOf(openLev.address), 18);
     checkAmount("OpenLev Balance", 891000000000000000, await token1.balanceOf(openLev.address), 18);
     checkAmount("Treasury Balance", 1809000000000000000, await token1.balanceOf(treasury.address), 18);
     checkAmount("Treasury Balance", 1650506621711339942, await token0.balanceOf(treasury.address), 18);
+  })
+
+  it("LONG Token0, Deposit Token0, Liquidate", async () => {
+    let pairId = 0;
+
+    let token0 = await MockERC20.at(await openLev.token0(pairId));
+    let token1 = await MockERC20.at(await openLev.token1(pairId));
+    m.log("OpenLev.token0() = ", last8(token0.address));
+    m.log("OpenLev.token1() = ", last8(token1.address));
+
+    // provide some funds for trader and saver
+    await utils.mint(token0, trader, 10000);
+    m.log("Trader", last8(trader), "minted", await token0.symbol(), await token0.balanceOf(trader));
+
+    await utils.mint(token1, saver, 10000);
+    m.log("Saver", last8(saver), "minted", await token1.symbol(), await token1.balanceOf(saver));
+
+    // Trader to approve openLev to spend
+    let deposit = utils.toWei(400);
+    await token0.approve(openLev.address, deposit, {from: trader});
+
+    // Saver deposit to pool1
+    let saverSupply = utils.toWei(1000);
+    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
+    await pool1.mint(saverSupply, {from: saver});
+
+    let poo1Available = await openLev.pool1Available(pairId);
+    m.log("Available For Borrow at Pool 1: ", poo1Available);
+
+    let borrow = utils.toWei(500);
+    m.log("toBorrow from Pool 1: \t", borrow);
+
+    await priceOracle.setPrice(token0.address, token1.address, 100000000);
+    await priceOracle.setPrice(token1.address, token0.address, 100000000);
+    await openLev.marginTrade(0, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000000", {from: trader});
+
+
+    // Market price change, then check margin ratio
+    await priceOracle.setPrice(token0.address, token1.address, 120000000);
+    let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, {from: saver});
+    m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
+    assert.equal(marginRatio_1.current.toString(), 11434);
+
+    await advanceMultipleBlocks(4000);
+
+    await priceOracle.setPrice(token0.address, token1.address, 65000000);
+    let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, {from: saver});
+    m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
+    assert.equal(marginRatio_2.current.toString(), 1837);
+
+    // Close trade
+    m.log("Mark trade liquidatable ... ");
+    await openLev.liqMarker(trader, 0, 0, {from: liquidator1});
+
+    m.log("Liquidating trade ... ");
+    await openLev.liquidate(trader, 0, 0, {from: liquidator2});
+
+    assertPrint("Insurance of Pool0:", '1754408440205743677', (await openLev.markets(pairId)).pool0Insurance);
+    assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
+    checkAmount("OpenLev Balance", 1754408440205743677, await token0.balanceOf(openLev.address), 18);
+    checkAmount("OpenLev Balance", 0, await token1.balanceOf(openLev.address), 18);
+    checkAmount("Treasury Balance", 0, await token1.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 3561980772538934134, await token0.balanceOf(treasury.address), 18);
+    checkAmount("Borrows is zero", 0, await pool1.borrowBalanceCurrent(trader), 18);
+    checkAmount("Trader Despoit Token Balance will be back", 9940608385333425655674, await token0.balanceOf(trader), 18);
+    checkAmount("Trader Borrows Token Balance is Zero", 0, await token1.balanceOf(trader), 18);
+  })
+
+  it("LONG Token0, Deposit Token0, Liquidate, Blow up", async () => {
+    let pairId = 0;
+
+    let token0 = await MockERC20.at(await openLev.token0(pairId));
+    let token1 = await MockERC20.at(await openLev.token1(pairId));
+    m.log("OpenLev.token0() = ", last8(token0.address));
+    m.log("OpenLev.token1() = ", last8(token1.address));
+
+    // provide some funds for trader and saver
+    await utils.mint(token0, trader, 10000);
+    m.log("Trader", last8(trader), "minted", await token0.symbol(), await token0.balanceOf(trader));
+
+    await utils.mint(token1, saver, 10000);
+    m.log("Saver", last8(saver), "minted", await token1.symbol(), await token1.balanceOf(saver));
+
+    // Trader to approve openLev to spend
+    let deposit = utils.toWei(1000);
+    await token0.approve(openLev.address, deposit, {from: trader});
+
+    // Saver deposit to pool1
+    let saverSupply = utils.toWei(10000);
+    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    await token1.approve(await pool1.address, utils.toWei(10000), {from: saver});
+    await pool1.mint(saverSupply, {from: saver});
+
+    let poo1Available = await openLev.pool1Available(pairId);
+    m.log("Available For Borrow at Pool 1: ", poo1Available);
+
+    let borrow = utils.toWei(3000);
+    m.log("toBorrow from Pool 1: \t", borrow);
+
+    await priceOracle.setPrice(token0.address, token1.address, 100000000);
+    await priceOracle.setPrice(token1.address, token0.address, 100000000);
+    await openLev.marginTrade(0, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000000", {from: trader});
+
+    await priceOracle.setPrice(token0.address, token1.address, 65000000);
+
+    //trader2 long token1 cause trader1 blow up
+    await utils.mint(token0, saver, 10000);
+    let pool0 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool0);
+    await token0.approve(await pool0.address, utils.toWei(10000), {from: saver});
+    await pool0.mint(utils.toWei(10000), {from: saver});
+    await utils.mint(token0, trader2, 10000);
+    await token0.approve(openLev.address, toWei(10000), {from: trader2});
+    await openLev.marginTrade(0, true, false, toWei(4000),  toWei(4000), 0, "0x0000000000000000000000000000000000000000", {from: trader2});
+
+    // Close trade
+    m.log("Mark trade liquidatable ... ");
+    await openLev.liqMarker(trader, 0, 0, {from: liquidator1});
+
+    m.log("Liquidating trade ... ");
+    await openLev.liquidate(trader, 0, 0, {from: liquidator2});
+
+    assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
+    checkAmount("Borrows is not zero", 535437518953528305187, await pool1.borrowBalanceCurrent(trader), 18);
+    checkAmount("Trader Despoit Token Balance will not back", 9000000000000000000000, await token0.balanceOf(trader), 18);
+    checkAmount("Trader Borrows Token Balance is Zero", 0, await token1.balanceOf(trader), 18);
   })
 
   it("LONG Token0, Reset Liquidate ", async () => {

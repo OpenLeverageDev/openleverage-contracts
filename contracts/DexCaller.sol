@@ -97,7 +97,7 @@ contract DexCaller is IUniswapV2Callee {
 //        onSwapCall(sender, amount0, amount1, data);
 //    }
 
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount) external override view returns (uint) {
+    function calBuyAmount(address buyToken, address sellToken, uint sellAmount) public override view returns (uint) {
         address pair = uniswapFactory.getPair(buyToken, sellToken);
         require(pair != address(0), 'Invalid pair');
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();

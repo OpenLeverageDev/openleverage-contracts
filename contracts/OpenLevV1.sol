@@ -330,32 +330,49 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         (liquidateVars.settlePrice, liquidateVars.priceDecimals) = priceOracle.getPrice(address(closeVars.buyToken), address(closeVars.sellToken));
 
         liquidateVars.fees = feesAndInsurance(trade.held, address(closeVars.sellToken), marketId, address(0));
-        liquidateVars.remaining = flashSell(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), trade.held.sub(liquidateVars.fees), 0);
-
-        // repay the loan
-        if (liquidateVars.remaining > liquidateVars.borrowed) {
-            closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
-            closeVars.buyToken.safeTransfer(owner, liquidateVars.remaining.sub(liquidateVars.borrowed));
-        } else if (liquidateVars.remaining == liquidateVars.borrowed) {
-            closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
-        } else {// remaining < repayment
-            uint needed = liquidateVars.borrowed.sub(liquidateVars.remaining);
-            if (longToken) {
-                if (market.pool0Insurance >= needed) {
-                    market.pool0Insurance = market.pool0Insurance.sub(needed);
-                } else {
-                    market.pool0Insurance = 0;
-                    liquidateVars.borrowed = liquidateVars.borrowed.sub(needed.sub(market.pool0Insurance));
-                }
-            } else {
-                if (market.pool1Insurance >= needed) {
-                    market.pool1Insurance = market.pool1Insurance.sub(needed);
-                } else {
-                    market.pool1Insurance = 0;
-                    liquidateVars.borrowed = liquidateVars.borrowed.sub(needed.sub(market.pool1Insurance));
-                }
+        liquidateVars.borrowed = closeVars.buyPool.borrowBalanceCurrent(owner);
+        bool isSellAllHeld = true;
+        // Check need to sell all held
+        if (longToken == trade.depositToken) {
+            // Calc the max buy amount
+            uint maxBuyAmount = calBuyAmount(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), trade.held.sub(liquidateVars.fees));
+            // Enough to repay
+            if (maxBuyAmount > liquidateVars.borrowed) {
+                isSellAllHeld = false;
             }
+        }
+        // need't to sell all held
+        if (!isSellAllHeld) {
+            uint sellAmount = flashBuy(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), liquidateVars.borrowed, trade.held.sub(liquidateVars.fees));
             closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
+            closeVars.sellToken.safeTransfer(owner, trade.held.sub(liquidateVars.fees).sub(sellAmount));
+        } else {
+            liquidateVars.remaining = flashSell(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), trade.held.sub(liquidateVars.fees), 0);
+            // repay the loan
+            if (liquidateVars.remaining >= liquidateVars.borrowed) {
+                closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
+                if (liquidateVars.remaining.sub(liquidateVars.borrowed) > 0) {
+                    closeVars.buyToken.safeTransfer(owner, liquidateVars.remaining.sub(liquidateVars.borrowed));
+                }
+            } else {// remaining < repayment
+                uint needed = liquidateVars.borrowed.sub(liquidateVars.remaining);
+                if (longToken) {
+                    if (market.pool0Insurance >= needed) {
+                        market.pool0Insurance = market.pool0Insurance.sub(needed);
+                    } else {
+                        market.pool0Insurance = 0;
+                        liquidateVars.borrowed = liquidateVars.borrowed.sub(needed.sub(market.pool0Insurance));
+                    }
+                } else {
+                    if (market.pool1Insurance >= needed) {
+                        market.pool1Insurance = market.pool1Insurance.sub(needed);
+                    } else {
+                        market.pool1Insurance = 0;
+                        liquidateVars.borrowed = liquidateVars.borrowed.sub(needed.sub(market.pool1Insurance));
+                    }
+                }
+                closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
+            }
         }
 
         //controller
