@@ -256,7 +256,7 @@ contract("OpenLev", async accounts => {
   it("Admin setDevFundRatio test", async () => {
     let timeLock = await utils.createTimelock(admin);
     let treasuryImpl = await TreasuryImpl.new();
-    let treasury = await Treasury.new("0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000",
+    let treasury = await Treasury.new(usdt.address, usdt.address,accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     await timeLock.executeTransaction(treasury.address, 0, 'setDevFundRatio(uint256)',
       web3.eth.abi.encodeParameters(['uint256'], [1]), 0)
@@ -273,7 +273,7 @@ contract("OpenLev", async accounts => {
     let newDev = accounts[7];
     let timeLock = await utils.createTimelock(admin);
     let treasuryImpl = await TreasuryImpl.new();
-    let treasury = await Treasury.new("0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000",
+    let treasury = await Treasury.new(usdt.address, usdt.address,accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     await timeLock.executeTransaction(treasury.address, 0, 'setDev(address)',
       web3.eth.abi.encodeParameters(['address'], [newDev]), 0)
@@ -289,7 +289,7 @@ contract("OpenLev", async accounts => {
   it("Admin setImplementation test", async () => {
     let timeLock = await utils.createTimelock(admin);
     let treasuryImpl = await TreasuryImpl.new();
-    let treasury = await Treasury.new("0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000",
+    let treasury = await Treasury.new(usdt.address, usdt.address,accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     let instance = await TreasuryImpl.new();
 

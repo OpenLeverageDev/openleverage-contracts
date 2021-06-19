@@ -137,7 +137,7 @@ contract GovernorAlpha {
         guardian = guardian_;
     }
 
-    function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
+    function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) external returns (uint) {
         require(oleToken.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
@@ -177,7 +177,7 @@ contract GovernorAlpha {
         return proposalCount;
     }
 
-    function queue(uint proposalId) public {
+    function queue(uint proposalId) external returns (bool) {
         require(state(proposalId) == ProposalState.Succeeded, "GovernorAlpha::queue: proposal can only be queued if it is succeeded");
         Proposal storage proposal = proposals[proposalId];
         uint eta = add256(block.timestamp, timelock.delay());
@@ -187,6 +187,7 @@ contract GovernorAlpha {
 
         proposal.eta = eta;
         emit ProposalQueued(proposalId, eta);
+        return true;
     }
 
     function _queueOrRevert(address target, uint value, string memory signature, bytes memory data, uint eta) internal {
@@ -194,7 +195,7 @@ contract GovernorAlpha {
         timelock.queueTransaction(target, value, signature, data, eta);
     }
 
-    function execute(uint proposalId) public payable {
+    function execute(uint proposalId) external payable returns (bool){
         require(state(proposalId) == ProposalState.Queued, "GovernorAlpha::execute: proposal can only be executed if it is queued");
         Proposal storage proposal = proposals[proposalId];
         proposal.executed = true;
@@ -202,9 +203,10 @@ contract GovernorAlpha {
             timelock.executeTransaction{value : proposal.values[i]}(proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i], proposal.eta);
         }
         emit ProposalExecuted(proposalId);
+        return true;
     }
 
-    function cancel(uint proposalId) public {
+    function cancel(uint proposalId) external {
         ProposalState state = state(proposalId);
         require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
@@ -251,11 +253,11 @@ contract GovernorAlpha {
         }
     }
 
-    function castVote(uint proposalId, bool support) public {
+    function castVote(uint proposalId, bool support) external {
         return _castVote(msg.sender, proposalId, support);
     }
 
-    function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) public {
+    function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) external {
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
         bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -271,7 +273,7 @@ contract GovernorAlpha {
         Proposal storage proposal = proposals[proposalId];
 
         Receipt storage receipt = receipts[proposalId][voter];
-        require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
+        require(!receipt.hasVoted, "GovernorAlpha::_castVote: voter already voted");
         uint votes = oleToken.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {
@@ -287,12 +289,12 @@ contract GovernorAlpha {
         emit VoteCast(voter, proposalId, support, votes);
     }
 
-    function __acceptAdmin() public {
+    function __acceptAdmin() external {
         require(msg.sender == guardian, "GovernorAlpha::__acceptAdmin: sender must be gov guardian");
         timelock.acceptAdmin();
     }
 
-    function __abdicate() public {
+    function __abdicate() external {
         require(msg.sender == guardian, "GovernorAlpha::__abdicate: sender must be gov guardian");
         guardian = address(0);
     }

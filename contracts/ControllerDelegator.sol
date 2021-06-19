@@ -63,6 +63,11 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
     function liquidateAllowed(uint marketId, address liqMarker, address liquidator, uint liquidateAmount) external override {
         delegateToImplementation(abi.encodeWithSignature("liquidateAllowed(uint256,address,address,uint256)", marketId, liqMarker, liquidator, liquidateAmount));
     }
+
+    function marginTradeAllowed(uint marketId) external override {
+        delegateToImplementation(abi.encodeWithSignature("marginTradeAllowed(uint256)", marketId));
+    }
+
     /*** Admin Functions ***/
 
     function setLPoolImplementation(address _lpoolImplementation) external override {
@@ -81,12 +86,16 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("setLPoolUnAllowed(address,bool)", lpool, unAllowed));
     }
 
+    function setMarginTradeAllowed(bool isAllowed) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarginTradeAllowed(bool)", isAllowed));
+    }
+
     function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio) external override {
         delegateToImplementation(abi.encodeWithSignature("createLPoolPair(address,address,uint32)", tokenA, tokenB, marginRatio));
     }
 
-    function setOLETokenDistribution(uint128 moreLiquidatorBalance, uint128 liquidatorMaxPer, uint128 liquidatorOLERatio, uint128 moreSupplyBorrowBalance) external override {
-        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint128,uint128,uint128,uint128)", moreLiquidatorBalance, liquidatorMaxPer, liquidatorOLERatio, moreSupplyBorrowBalance));
+    function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external override {
+        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint256,uint256)", moreLiquidatorBalance, liquidatorMaxPer, liquidatorOLERatio, moreSupplyBorrowBalance));
     }
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override {

@@ -82,12 +82,12 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         if (oleTokenDistribution.liquidatorMaxPer == 0) {
             return;
         }
-        //get ole price
+        //get wChainToken quote ole price
         (uint256 price, uint8 decimal) = (ControllerOpenLevInterface(openLev).priceOracle()).getPrice(wChainToken, address(oleToken));
         // oleRewards=(600,000gas)*
-        uint128 calcLiquidatorRewards = (uint128)(uint(600000)
+        uint calcLiquidatorRewards = uint(600000)
         .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))
-        .mul(oleTokenDistribution.liquidatorOLERatio).div(100));
+        .mul(oleTokenDistribution.liquidatorOLERatio).div(100);
         // check compare max
         if (calcLiquidatorRewards > oleTokenDistribution.liquidatorMaxPer) {
             calcLiquidatorRewards = oleTokenDistribution.liquidatorMaxPer;
@@ -97,21 +97,25 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
         if (liqMarker == liquidator) {
             if (transferOut(liqMarker, calcLiquidatorRewards)) {
-                oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance - calcLiquidatorRewards;
+                oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance.sub(calcLiquidatorRewards);
             }
             return;
         }
-        uint128 tranferAmountAvg = calcLiquidatorRewards / 2;
-        uint128 tranferAmountSucceed;
+        uint tranferAmountAvg = calcLiquidatorRewards.div(2);
+        uint tranferAmountSucceed;
         if (transferOut(liqMarker, tranferAmountAvg)) {
             tranferAmountSucceed = tranferAmountAvg;
         }
         if (transferOut(liquidator, tranferAmountAvg)) {
-            tranferAmountSucceed = tranferAmountSucceed + tranferAmountAvg;
+            tranferAmountSucceed = tranferAmountSucceed.add(tranferAmountAvg);
         }
-        oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance - tranferAmountSucceed;
+        oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance.sub(tranferAmountSucceed);
+    }
 
-
+    function marginTradeAllowed(uint marketId) external override {
+        // Shh - currently unused
+        marketId;
+        require(tradeAllowed, 'Trade is UnAllowed!');
     }
     /*** Admin Functions ***/
 
@@ -134,15 +138,20 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         lpoolUnAlloweds[lpool] = unAllowed;
     }
 
+    function setMarginTradeAllowed(bool isAllowed) external override onlyAdmin {
+        tradeAllowed = isAllowed;
+    }
+
+
     function createLPoolPair(address token0, address token1, uint32 marginRatio) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
 
-        string memory token0Symbol = string(abi.encodePacked(ERC20(token0).symbol(), " -> ", ERC20(token1).symbol(), " LToken"));
+        string memory token0Symbol = string(abi.encodePacked(ERC20(token0).symbol(), " -> ", ERC20(token1).symbol()));
         LPoolDelegator pool0 = new LPoolDelegator();
         pool0.initialize(token0, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
             token0Symbol, token0Symbol, 18, admin, lpoolImplementation);
-        string memory token1Symbol = string(abi.encodePacked(ERC20(token1).symbol(), " -> ", ERC20(token0).symbol(), " LToken"));
+        string memory token1Symbol = string(abi.encodePacked(ERC20(token1).symbol(), " -> ", ERC20(token0).symbol()));
         LPoolDelegator pool1 = new LPoolDelegator();
         pool1.initialize(token1, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
             token1Symbol, token1Symbol, 18, admin, lpoolImplementation);
@@ -152,15 +161,12 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio);
     }
 
-    function setOLETokenDistribution(uint128 moreLiquidatorBalance, uint128 liquidatorMaxPer, uint128 liquidatorOLERatio, uint128 moreSupplyBorrowBalance) external override onlyAdmin {
-        uint128 newLiquidatorBalance = oleTokenDistribution.liquidatorBalance + moreLiquidatorBalance;
-        require(newLiquidatorBalance >= moreLiquidatorBalance, 'liq balance overflow');
+    function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external override onlyAdmin {
+        uint newLiquidatorBalance = oleTokenDistribution.liquidatorBalance.add(moreLiquidatorBalance);
 
-        uint128 newSupplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance + moreSupplyBorrowBalance;
-        require(newSupplyBorrowBalance >= moreSupplyBorrowBalance, 'supply balance overflow');
+        uint newSupplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.add(moreSupplyBorrowBalance);
 
-        uint128 totalAll = newLiquidatorBalance + newSupplyBorrowBalance;
-        require(totalAll >= newLiquidatorBalance, 'total more overflow');
+        uint totalAll = newLiquidatorBalance.add(newSupplyBorrowBalance);
         require(oleToken.balanceOf(address(this)) >= totalAll, 'not enough balance');
 
         oleTokenDistribution.liquidatorBalance = newLiquidatorBalance;
@@ -180,10 +186,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         if (borrowAmount > 0) {
             lpoolDistributions[LPoolInterface(pool)][true] = calcDistribution(borrowAmount, startTime, duration);
         }
-        uint128 subAmount = uint128(supplyAmount.add(borrowAmount));
-        uint128 newTotalAmount = oleTokenDistribution.supplyBorrowBalance - subAmount;
-        require(newTotalAmount <= oleTokenDistribution.supplyBorrowBalance, "totalAmount overflow");
-        oleTokenDistribution.supplyBorrowBalance = newTotalAmount;
+        uint subAmount = supplyAmount.add(borrowAmount);
+        oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
         emit Distribution2Pool(pool, supplyAmount, borrowAmount, startTime, duration);
     }
 
@@ -197,10 +201,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             updateReward(LPoolInterface(pool), address(0), true);
             updateDistribution(lpoolDistributions[LPoolInterface(pool)][true], borrowAmount);
         }
-        uint128 subAmount = uint128(supplyAmount.add(borrowAmount));
-        uint128 newTotalAmount = oleTokenDistribution.supplyBorrowBalance - subAmount;
-        require(newTotalAmount <= oleTokenDistribution.supplyBorrowBalance, "totalAmount overflow");
-        oleTokenDistribution.supplyBorrowBalance = newTotalAmount;
+        uint subAmount = supplyAmount.add(borrowAmount);
+        oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
     }
 
     function distributeLiqRewards2Market(uint marketId, bool isDistribution) external override onlyAdmin {
@@ -222,7 +224,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function updateDistribution(ControllerStorage.LPoolDistribution storage distribution, uint addAmount) internal {
         uint256 blockTime = block.timestamp;
-        require(distribution.endTime > block.timestamp, 'distribution is end');
+        require(distribution.endTime > blockTime, 'distribution is end');
         uint addDuration = distribution.endTime - blockTime;
         uint addRewardRate = addAmount.div(addDuration);
         distribution.lastUpdateTime = uint64(blockTime);
@@ -303,7 +305,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         uint rewards = 0;
         for (uint i = 0; i < lpools.length; i++) {
             if (updateReward(lpools[i], account, false)) {
-                rewards = rewards + earnedInternal(lpools[i], account, false);
+                rewards = rewards.add(earnedInternal(lpools[i], account, false));
                 lPoolRewardByAccounts[lpools[i]][false][account].rewards = 0;
             }
         }

@@ -81,8 +81,8 @@ async function initializeToken(accounts) {
   await oleToken.transfer(ControllerV1.address, token2Controller);
   m.log("waiting controller setOpenLevTokenDistribution......");
   //50% to liquidator, max 100 OLE reward once, 3X gas fee, 50% to trader&lends
-  await tl.executeTransaction(ControllerV1.address, 0, 'setOLETokenDistribution(uint128,uint128,uint128,uint128)',
-    encodeParameters(['uint128', 'uint128', 'uint128', 'uint128'], [totalSupply.div(toBN(100)).mul(toBN(50)).div(toBN(2)),
+  await tl.executeTransaction(ControllerV1.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
+    encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [totalSupply.div(toBN(100)).mul(toBN(50)).div(toBN(2)),
       toWei(100),
       toBN(300),
       totalSupply.div(toBN(100)).mul(toBN(50)).div(toBN(2))]), 0);

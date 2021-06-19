@@ -57,22 +57,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return marketId;
     }
 
-    function token0(uint16 marketId) external view override returns (address) {
-        return markets[marketId].pool0.underlying();
-    }
-
-    function token1(uint16 marketId) external view override returns (address) {
-        return markets[marketId].pool1.underlying();
-    }
-
-    function pool1Available(uint16 marketId) external override view returns (uint) {
-        return markets[marketId].pool1.availableForBorrow();
-    }
-
-    function pool0Available(uint16 marketId) external override view returns (uint) {
-        return markets[marketId].pool0.availableForBorrow();
-    }
-
     function marginTrade(
         uint16 marketId,
         bool longToken,
@@ -82,6 +66,8 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint minBuyAmount,
         address referrer
     ) external override nonReentrant {
+        //controller
+        (OpenLevControllerInterface(controller)).marginTradeAllowed(marketId);
 
         require(msg.sender != referrer, "Trader referrer same addr");
 
@@ -95,7 +81,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         require(vars.sellPool.availableForBorrow() >= borrow, "Insufficient balance to borrow");
 
         Types.TradeVars memory tv;
-
         if (depositToken != longToken) {
             tv.depositErc20 = vars.sellToken;
             tv.depositErc20.safeTransferFrom(msg.sender, address(this), deposit);
@@ -117,7 +102,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         require(trade.lastBlockNum != block.number, "Trade can't be handled twice in same block");
         trade.lastBlockNum = block.number;
-        //        require(trade.liqBlockNum == 0, "Trade must not in liquidating state");
         //reset liquidate status
         if (trade.liqMarker != address(0)) {
             trade.liqMarker = address(0);
@@ -148,86 +132,97 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         if (trade.held == 0) {
             trade.deposited = tv.depositAfterFees;
             trade.held = tv.newHeld;
-            trade.marketValueOpen = depositToken != longToken ? tv.depositAfterFees.add(borrow) : tv.newHeld.mul(settlePrice).div(10 ** uint(buyTokenDecimals));
-            trade.depositFixedValue = depositToken != longToken ? tv.depositAfterFees : tv.depositAfterFees.mul(settlePrice).div(10 ** uint(buyTokenDecimals));
         } else {
             trade.deposited = trade.deposited.add(tv.depositAfterFees);
             trade.held = trade.held.add(tv.newHeld);
-
-            trade.marketValueOpen = depositToken != longToken ? tv.depositAfterFees.add(borrow).add(trade.marketValueOpen)
-            : tv.newHeld.mul(settlePrice).div(10 ** buyTokenDecimals).add(trade.marketValueOpen);
-
-            trade.depositFixedValue = depositToken != longToken ? tv.depositAfterFees.add(trade.depositFixedValue)
-            : tv.depositAfterFees.mul(settlePrice).div(10 ** buyTokenDecimals).add(trade.depositFixedValue);
         }
 
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, settlePrice, buyTokenDecimals);
     }
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minAmount) external override nonReentrant {
-        // close trade on exchange
-        (uint current, uint limit) = marginRatioInternal(msg.sender, marketId, longToken, 0);
-        require(current > limit, "Margin ratio is lower than limit, liquidation only");
-
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
+        require(trade.liqBlockNum == 0, "Trade is liquidating");
         require(trade.lastBlockNum != block.number, "Trade can't be handled twice in same block");
-        trade.lastBlockNum = block.number;
         require(trade.held != 0, "Invalid MarketId or TradeId or LongToken");
         require(closeAmount <= trade.held, "Close amount exceed held amount");
 
-        uint closeRatio = closeAmount.mul(10000).div(trade.held);
-        Types.MarketVars memory vars = toMarketVar(marketId, longToken, false);
-        uint fees = feesAndInsurance(closeAmount, address(vars.sellToken), marketId, address(0));
+        trade.lastBlockNum = block.number;
 
-        // repay the loan
-        uint repayAmount = vars.buyPool.borrowBalanceCurrent(msg.sender);
+        Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
+        Types.CloseTradeVars memory closeTradeVars;
+        closeTradeVars.closeRatio = closeAmount.mul(10000).div(trade.held);
+        closeTradeVars.isPartialClose = closeAmount != trade.held ? true : false;
+        closeTradeVars.fees = feesAndInsurance(closeAmount, address(marketVars.sellToken), marketId, address(0));
+        closeTradeVars.closeAmountAfterFees = closeAmount.sub(closeTradeVars.fees);
+        closeTradeVars.repayAmount = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+        //partial close
+        if (closeTradeVars.isPartialClose) {
+            closeTradeVars.repayAmount = closeTradeVars.repayAmount.mul(closeTradeVars.closeRatio).div(10000);
+            trade.held = trade.held.sub(closeAmount);
+            closeTradeVars.depositDecrease = trade.deposited.mul(closeTradeVars.closeRatio).div(10000);
+            trade.deposited = trade.deposited.sub(closeTradeVars.depositDecrease);
+        } else {
+            closeTradeVars.depositDecrease = trade.deposited;
+        }
         if (trade.depositToken != longToken) {
-            uint remaining = flashSell(vars.buyPool.underlying(), vars.sellPool.underlying(), closeAmount.sub(fees), minAmount);
-            if (closeAmount != trade.held) {//partial close
-                repayAmount = repayAmount.mul(closeRatio).div(10000);
-                vars.buyPool.repayBorrowBehalf(msg.sender, repayAmount);
-                uint repayDeposit = remaining.sub(repayAmount);
-                trade.deposited = trade.deposited.sub(repayDeposit);
-                vars.buyToken.safeTransfer(msg.sender, repayDeposit);
-            } else {// full close
-                if (remaining >= repayAmount) {
-                    vars.buyPool.repayBorrowBehalf(msg.sender, repayAmount);
-                    vars.buyToken.safeTransfer(msg.sender, remaining.sub(repayAmount));
-                } else {
-                    // add insurance
-                    repayAmount = remaining;
-                    vars.buyPool.repayBorrowBehalf(msg.sender, repayAmount);
-                }
+            uint remaining = flashSell(marketVars.buyPool.underlying(), marketVars.sellPool.underlying(), closeTradeVars.closeAmountAfterFees, minAmount);
+            //blow up
+            if (closeTradeVars.repayAmount > remaining) {
+                marketVars.buyPool.repayBorrowBehalf(msg.sender, reduceInsurance(closeTradeVars.repayAmount, remaining, marketId, longToken));
+            }
+            //normal
+            else {
+                marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
+                closeTradeVars.depositReturn = remaining.sub(closeTradeVars.repayAmount);
+                marketVars.buyToken.safeTransfer(msg.sender, closeTradeVars.depositReturn);
             }
         } else {// trade.depositToken == longToken
-            if (closeAmount < trade.held) {//partial close
-                repayAmount = repayAmount.mul(closeRatio).div(10000);
-                uint sellAmount = flashBuy(vars.buyPool.underlying(), vars.sellPool.underlying(), repayAmount, closeAmount);
-                vars.buyPool.repayBorrowBehalf(msg.sender, repayAmount);
-                uint repayDeposit = closeAmount.sub(sellAmount).sub(fees);
-                trade.deposited = trade.deposited.sub(repayDeposit);
-                vars.sellToken.safeTransfer(msg.sender, repayDeposit);
-            } else {// full close
-                uint sellAmount = flashBuy(vars.buyPool.underlying(), vars.sellPool.underlying(), repayAmount, closeAmount);
-                vars.buyPool.repayBorrowBehalf(msg.sender, repayAmount);
-                if (closeAmount > sellAmount) {
-                    vars.sellToken.safeTransfer(msg.sender, closeAmount.sub(sellAmount).sub(fees));
-                }
+            // Calc the max remaining
+            uint maxRemaining = calBuyAmount(marketVars.buyPool.underlying(), marketVars.sellPool.underlying(), closeTradeVars.closeAmountAfterFees);
+            //blow up
+            if (closeTradeVars.repayAmount > maxRemaining) {
+                uint remaining = flashSell(marketVars.buyPool.underlying(), marketVars.sellPool.underlying(), closeTradeVars.closeAmountAfterFees, minAmount);
+                marketVars.buyPool.repayBorrowBehalf(msg.sender, reduceInsurance(closeTradeVars.repayAmount, remaining, marketId, longToken));
+            }
+            //normal
+            else {
+                uint sellAmount = flashBuy(marketVars.buyPool.underlying(), marketVars.sellPool.underlying(), closeTradeVars.repayAmount, closeTradeVars.closeAmountAfterFees);
+                marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
+                closeTradeVars.depositReturn = closeTradeVars.closeAmountAfterFees.sub(sellAmount);
+                marketVars.sellToken.safeTransfer(msg.sender, closeTradeVars.depositReturn);
             }
         }
 
-        if (trade.held.sub(closeAmount) == 0) {
+        if (!closeTradeVars.isPartialClose) {
             delete activeTrades[msg.sender][marketId][longToken];
-        } else {
-            trade.held = trade.held.sub(closeAmount);
-            uint remainRatio = 10000 - closeRatio;
-            trade.marketValueOpen = trade.marketValueOpen.mul(remainRatio).div(10000);
-            trade.depositFixedValue = trade.depositFixedValue.mul(remainRatio).div(10000);
         }
 
-        (uint settlePrice, uint8 priceDecimals) = priceOracle.getPrice(address(vars.buyToken), address(vars.sellToken));
+        (closeTradeVars.settlePrice, closeTradeVars.priceDecimals) = priceOracle.getPrice(address(marketVars.buyToken), address(marketVars.sellToken));
 
-        emit TradeClosed(msg.sender, marketId, longToken, closeAmount, settlePrice, priceDecimals);
+        emit TradeClosed(msg.sender, marketId, longToken, closeAmount, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees, closeTradeVars.settlePrice, closeTradeVars.priceDecimals);
+    }
+
+    function reduceInsurance(uint totalRepayment, uint remaining, uint16 marketId, bool longToken) internal returns (uint) {
+        uint maxCanRepayAmount = totalRepayment;
+        Types.Market storage market = markets[marketId];
+        uint needed = totalRepayment.sub(remaining);
+        if (longToken) {
+            if (market.pool0Insurance >= needed) {
+                market.pool0Insurance = market.pool0Insurance.sub(needed);
+            } else {
+                market.pool0Insurance = 0;
+                maxCanRepayAmount = market.pool0Insurance.add(remaining);
+            }
+        } else {
+            if (market.pool1Insurance >= needed) {
+                market.pool1Insurance = market.pool1Insurance.sub(needed);
+            } else {
+                market.pool1Insurance = 0;
+                maxCanRepayAmount = market.pool1Insurance.add(remaining);
+            }
+        }
+        return maxCanRepayAmount;
     }
 
     function toMarketVar(uint16 marketId, bool longToken, bool open) internal view returns (Types.MarketVars memory) {
@@ -251,44 +246,37 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return vars;
     }
 
-    function getActiveTrade(address owner, uint16 marketId, bool longToken) external override view returns (Types.Trade memory) {
-        return activeTrades[owner][marketId][longToken];
-    }
 
     function marginRatio(address owner, uint16 marketId, bool longToken) external override view returns (uint current, uint32 marketLimit) {
-        return marginRatioInternal(owner, marketId, longToken, 0);
+        return marginRatioInternal(owner, marketId, longToken);
     }
 
-    function marginRatioInternal(address owner, uint16 marketId, bool longToken, uint closeAmount)
+    function marginRatioInternal(address owner, uint16 marketId, bool longToken)
     internal view returns (uint current, uint32 marketLimit)
     {
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         require(trade.held != 0, "Invalid marketId or TradeId");
-        require(closeAmount <= trade.held, "Close amount exceed held amount");
-
+        uint256 multiplier = 10000;
         Types.MarketVars memory vars = toMarketVar(marketId, longToken, true);
         uint borrowed = vars.sellPool.borrowBalanceCurrent(owner);
+        if (borrowed == 0) {
+            return (multiplier, vars.marginRatio);
+        }
         (uint buyTokenPrice, uint8 buyTokenDecimals) = priceOracle.getPrice(address(vars.buyToken), address(vars.sellToken));
-        uint marketValueCurrent = trade.held.sub(closeAmount).mul(buyTokenPrice).div(10 ** uint(buyTokenDecimals));
-
-        if (trade.marketValueOpen > marketValueCurrent) {// losing
-            uint pnl = trade.marketValueOpen.sub(marketValueCurrent);
-            if (trade.depositFixedValue >= pnl) {
-                return (trade.depositFixedValue.sub(pnl).mul(10000).div(borrowed), vars.marginRatio);
-            } else {
-                return (0, vars.marginRatio);
-            }
-        } else {// gaining
-            uint pnl = marketValueCurrent.sub(trade.marketValueOpen);
-            return (trade.depositFixedValue.add(pnl).mul(10000).div(borrowed), vars.marginRatio);
+        uint marketValueCurrent = trade.held.mul(buyTokenPrice).div(10 ** uint(buyTokenDecimals));
+        //marginRatio=(marketValueCurrent-borrowed)/borrowed
+        if (marketValueCurrent >= borrowed) {
+            return (marketValueCurrent.sub(borrowed).mul(multiplier).div(borrowed), vars.marginRatio);
+        } else {
+            return (0, vars.marginRatio);
         }
     }
 
     function liqMarker(address owner, uint16 marketId, bool longToken) external override onlyMarginRatioLessThanLimit(owner, marketId, longToken) {
         Types.Trade storage trade = activeTrades[owner][marketId][longToken];
         require(trade.lastBlockNum != block.number, "Trade can't be handled twice in same block");
-        trade.lastBlockNum = block.number;
         require(trade.liqMarker == address(0), "Trade's already been marked liquidating");
+        trade.lastBlockNum = block.number;
         trade.liqMarker = msg.sender;
         trade.liqBlockNum = block.number;
 
@@ -301,10 +289,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function liqMarkerReset(address owner, uint16 marketId, bool longToken) external override {
         Types.Trade storage trade = activeTrades[owner][marketId][longToken];
         require(trade.lastBlockNum != block.number, "Trade can't be handled twice in same block");
-        trade.lastBlockNum = block.number;
         require(trade.liqMarker != address(0), "Trade's not marked liquidating");
 
-        (uint current, uint limit) = marginRatioInternal(owner, marketId, longToken, 0);
+        trade.lastBlockNum = block.number;
+        (uint current, uint limit) = marginRatioInternal(owner, marketId, longToken);
         require(current >= limit, "Current ratio is less than limit");
         address liqMarkerPrior = trade.liqMarker;
         trade.liqMarker = address(0);
@@ -317,67 +305,50 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     }
 
     function liquidate(address owner, uint16 marketId, bool longToken) external override onlyMarginRatioLessThanLimit(owner, marketId, longToken) nonReentrant {
-        Types.LiquidateVars memory liquidateVars;
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
+        require(trade.liqMarker != address(0), "Trade should've been marked");
+        require(trade.liqBlockNum != block.number, "Should not be marked and liq in same block");
         require(trade.lastBlockNum != block.number, "Trade can't be handled twice in same block");
         trade.lastBlockNum = block.number;
         Types.MarketVars memory closeVars = toMarketVar(marketId, longToken, false);
-        Types.Market storage market = markets[marketId];
-        require(trade.liqMarker != address(0), "Trade should've been marked");
-        require(trade.liqBlockNum != block.number, "Should not be marked and liq in same block");
-        require(trade.held != 0, "Invalid MarketId or TradeId or LongToken");
-
-        (liquidateVars.settlePrice, liquidateVars.priceDecimals) = priceOracle.getPrice(address(closeVars.buyToken), address(closeVars.sellToken));
-
+        Types.LiquidateVars memory liquidateVars;
         liquidateVars.fees = feesAndInsurance(trade.held, address(closeVars.sellToken), marketId, address(0));
         liquidateVars.borrowed = closeVars.buyPool.borrowBalanceCurrent(owner);
-        bool isSellAllHeld = true;
+        liquidateVars.isSellAllHeld = true;
+        liquidateVars.depositDecrease = trade.held;
         // Check need to sell all held
         if (longToken == trade.depositToken) {
             // Calc the max buy amount
             uint maxBuyAmount = calBuyAmount(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), trade.held.sub(liquidateVars.fees));
             // Enough to repay
             if (maxBuyAmount > liquidateVars.borrowed) {
-                isSellAllHeld = false;
+                liquidateVars.isSellAllHeld = false;
             }
         }
         // need't to sell all held
-        if (!isSellAllHeld) {
+        if (!liquidateVars.isSellAllHeld) {
             uint sellAmount = flashBuy(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), liquidateVars.borrowed, trade.held.sub(liquidateVars.fees));
             closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
-            closeVars.sellToken.safeTransfer(owner, trade.held.sub(liquidateVars.fees).sub(sellAmount));
+            liquidateVars.depositReturn = trade.held.sub(liquidateVars.fees).sub(sellAmount);
+            closeVars.sellToken.safeTransfer(owner, liquidateVars.depositReturn);
         } else {
             liquidateVars.remaining = flashSell(closeVars.buyPool.underlying(), closeVars.sellPool.underlying(), trade.held.sub(liquidateVars.fees), 0);
             // repay the loan
             if (liquidateVars.remaining >= liquidateVars.borrowed) {
                 closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
                 if (liquidateVars.remaining.sub(liquidateVars.borrowed) > 0) {
-                    closeVars.buyToken.safeTransfer(owner, liquidateVars.remaining.sub(liquidateVars.borrowed));
+                    liquidateVars.depositReturn = liquidateVars.remaining.sub(liquidateVars.borrowed);
+                    closeVars.buyToken.safeTransfer(owner, liquidateVars.depositReturn);
                 }
             } else {// remaining < repayment
-                uint needed = liquidateVars.borrowed.sub(liquidateVars.remaining);
-                if (longToken) {
-                    if (market.pool0Insurance >= needed) {
-                        market.pool0Insurance = market.pool0Insurance.sub(needed);
-                    } else {
-                        market.pool0Insurance = 0;
-                        liquidateVars.borrowed = liquidateVars.borrowed.sub(needed.sub(market.pool0Insurance));
-                    }
-                } else {
-                    if (market.pool1Insurance >= needed) {
-                        market.pool1Insurance = market.pool1Insurance.sub(needed);
-                    } else {
-                        market.pool1Insurance = 0;
-                        liquidateVars.borrowed = liquidateVars.borrowed.sub(needed.sub(market.pool1Insurance));
-                    }
-                }
-                closeVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
+                closeVars.buyPool.repayBorrowBehalf(owner, reduceInsurance(liquidateVars.borrowed, liquidateVars.remaining, marketId, longToken));
             }
         }
 
+        (liquidateVars.settlePrice, liquidateVars.priceDecimals) = priceOracle.getPrice(address(closeVars.buyToken), address(closeVars.sellToken));
         //controller
         (OpenLevControllerInterface(controller)).liquidateAllowed(marketId, trade.liqMarker, msg.sender, trade.held);
-        emit Liquidation(owner, marketId, longToken, trade.held, trade.liqMarker, msg.sender, liquidateVars.settlePrice, liquidateVars.priceDecimals);
+        emit Liquidation(owner, marketId, longToken, trade.held, trade.liqMarker, msg.sender, liquidateVars.depositDecrease, liquidateVars.depositReturn, liquidateVars.settlePrice, liquidateVars.priceDecimals);
         delete activeTrades[owner][marketId][longToken];
     }
 
@@ -423,23 +394,33 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     }
 
     function setInsuranceRatio(uint8 newRatio) external override onlyAdmin() {
+        uint8 oldRatio = insuranceRatio;
         insuranceRatio = newRatio;
+        emit NewInsuranceRatio(oldRatio, insuranceRatio);
     }
 
     function setController(address newController) external override onlyAdmin() {
+        address oldController = controller;
         controller = newController;
+        emit NewController(oldController, controller);
     }
 
     function setPriceOracle(PriceOracleInterface newPriceOracle) external override onlyAdmin() {
+        PriceOracleInterface oldPriceOracle = priceOracle;
         priceOracle = newPriceOracle;
+        emit NewPriceOracle(oldPriceOracle, priceOracle);
     }
 
     function setUniswapFactory(IUniswapV2Factory _uniswapFactory) external override onlyAdmin() {
+        IUniswapV2Factory oldUniswapFactory = uniswapFactory;
         uniswapFactory = _uniswapFactory;
+        emit NewUniswapFactory(oldUniswapFactory, uniswapFactory);
     }
 
     function setReferral(ReferralInterface _referral) external override onlyAdmin() {
+        ReferralInterface oldReferral = referral;
         referral = _referral;
+        emit NewReferral(oldReferral, referral);
     }
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
@@ -454,7 +435,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     }
 
     modifier onlyMarginRatioLessThanLimit(address owner, uint16 marketId, bool longToken) {
-        (uint current, uint limit) = marginRatioInternal(owner, marketId, longToken, 0);
+        (uint current, uint limit) = marginRatioInternal(owner, marketId, longToken);
         require(current < limit, "Current ratio is higher than limit");
         _;
     }
@@ -463,4 +444,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
 interface OpenLevControllerInterface {
     function liquidateAllowed(uint marketId, address liqMarker, address liquidator, uint liquidateAmount) external;
+
+    function marginTradeAllowed(uint marketId) external;
+
 }

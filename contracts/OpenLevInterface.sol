@@ -49,6 +49,17 @@ abstract contract OpenLevStorage {
 
     event NewMarketMarginLimit(uint16 marketId, uint32 oldRatio, uint32 newRatio);
 
+    event NewInsuranceRatio(uint8 oldInsuranceRatio, uint8 newInsuranceRatio);
+
+    event NewController(address oldController, address newController);
+
+    event NewPriceOracle(PriceOracleInterface oldPriceOracle, PriceOracleInterface newPriceOracle);
+
+    event NewUniswapFactory(IUniswapV2Factory oldUniswapFactory, IUniswapV2Factory newUniswapFactory);
+
+    event NewReferral(ReferralInterface oldReferral, ReferralInterface newReferral);
+
+
     // 0.3%
     uint public feesRate = 30; // 0.003
 
@@ -74,6 +85,9 @@ abstract contract OpenLevStorage {
         uint16 marketId,
         bool longToken,
         uint closeAmount,
+        uint depositDecrease,
+        uint depositReturn,
+        uint fees,
         uint atPrice,
         uint8 priceDecimals
     );
@@ -102,6 +116,8 @@ abstract contract OpenLevStorage {
         uint liquidationAmount,
         address liquidator1,
         address liquidator2,
+        uint depositDecrease,
+        uint depositReturn,
         uint atPrice,
         uint8 priceDecimals
     );
@@ -119,13 +135,6 @@ interface OpenLevInterface {
         uint32 marginRatio
     ) external returns (uint16);
 
-    function token0(uint16 marketId) external view returns (address);
-
-    function token1(uint16 marketId) external view returns (address);
-
-    function pool0Available(uint16 marketId) external view returns (uint);
-
-    function pool1Available(uint16 marketId) external view returns (uint);
 
     function marginTrade(
         uint16 marketId,
@@ -138,8 +147,6 @@ interface OpenLevInterface {
     ) external;
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount) external;
-
-    function getActiveTrade(address owner, uint16 marketId, bool longToken) external view returns (Types.Trade memory);
 
     function marginRatio(address owner, uint16 marketId, bool longToken) external view returns (uint current, uint32 marketLimit);
 
@@ -166,7 +173,7 @@ interface OpenLevInterface {
 
     function setUniswapFactory(IUniswapV2Factory _uniswapFactory) external;
 
-    function setReferral(ReferralInterface  _referral) external;
+    function setReferral(ReferralInterface _referral) external;
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 

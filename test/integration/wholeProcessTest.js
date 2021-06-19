@@ -71,7 +71,7 @@ contract("OpenLev integration test ", async accounts => {
     await token1.approve(openLev.address, maxUint());
 
     await openLev.marginTrade(marketId, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000001");
-    let activeTrade1 = await openLev.getActiveTrade(developer, marketId, false);
+    let activeTrade1 = await openLev.activeTrades(developer, marketId, false);
     m.log("open trades1=", JSON.stringify(activeTrade1));
     assert.equal(activeTrade1[4], "0x0000000000000000000000000000000000000000");
     assert.equal(activeTrade1[5], "0");
@@ -81,7 +81,7 @@ contract("OpenLev integration test ", async accounts => {
      */
     utils.step("openLev open margin trade 2");
     await openLev.marginTrade(marketId, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000001");
-    let activeTrade2 = await openLev.getActiveTrade(developer, marketId, false);
+    let activeTrade2 = await openLev.activeTrades(developer, marketId, false);
     m.log("open trades1=", JSON.stringify(activeTrade2));
     let rewardAfterByBorrow = await controller.earned(pool1.address, developer, true);
     /**
@@ -91,7 +91,7 @@ contract("OpenLev integration test ", async accounts => {
     let borrowsBeforeClose = await pool1.borrowBalanceStored(developer);
     let treasuryBeforeClose = await token0.balanceOf(treasury.address);
     await openLev.closeTrade(marketId, false, toBN(activeTrade2[2]).div(toBN(2)), "0");
-    let closeTrade = await openLev.getActiveTrade(developer, marketId, false);
+    let closeTrade = await openLev.activeTrades(developer, marketId, false);
     m.log("close trades=", JSON.stringify(closeTrade));
     let borrowsAfterClose = await pool1.borrowBalanceStored(developer);
     let treasuryAfterClose = await token0.balanceOf(treasury.address);

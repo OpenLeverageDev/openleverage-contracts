@@ -33,7 +33,7 @@ contract("Upgrade", async accounts => {
     //update
     let updateDelegate = await OpenLevUpgradeV2.new();
     await openLev.setImplementation(updateDelegate.address);
-    let trade = await openLev.getActiveTrade("0x0000000000000000000000000000000000000000", 0, 0);
+    let trade = await openLev.activeTrades("0x0000000000000000000000000000000000000000", 0, 0);
     let numPairs = await openLev.numPairs();
     assert.equal("0", trade[0]);
     assert.equal("0", numPairs);
@@ -68,7 +68,7 @@ contract("Upgrade", async accounts => {
     let token = await createToken("test");
     let pool = await LPoolDelegator.new();
     pool.initialize(token.address,
-      "0x0000000000000000000000000000000000000000",
+      accounts[0],
       toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
       1e18 + '',
       'TestPool',
@@ -111,8 +111,8 @@ contract("Upgrade", async accounts => {
 
   it("Treasury Upgrade test", async () => {
     let delegate = await TreasuryDelegate.new();
-    let treasury = await TreasuryDelegator.new("0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000", 50, "0x0000000000000000000000000000000000000000", accounts[0], delegate.address);
+    let treasury = await TreasuryDelegator.new(accounts[0], accounts[0],
+      accounts[0], 50, accounts[0], accounts[0], delegate.address);
     //update
     let updateDelegate = await TreasuryUpgradeV2.new();
     await treasury.setImplementation(updateDelegate.address);

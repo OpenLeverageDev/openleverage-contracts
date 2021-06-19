@@ -24,6 +24,9 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
         address _dev
     ) public {
         require(msg.sender == admin, "not admin");
+        require(_oleToken != address(0), "_oleToken address cannot be 0");
+        require(_sharingToken != address(0), "_sharingToken address cannot be 0");
+        require(_dev != address(0), "_dev address cannot be 0");
         oleToken = IERC20(_oleToken);
         sharingToken = IERC20(_sharingToken);
         devFundRatio = _devFundRatio;
@@ -47,7 +50,8 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
         uint newReward;
         //sharing token increment
         if (fromToken == address(sharingToken)) {
-            uint sharingTokenAvailableAmount = sharingToken.balanceOf(address(this)).add(transferredToAccount).sub(totalToShared).sub(devFund);
+            //sharingTokenAvailableAmount=balanceOf-(totalToShared-transferredToAccount)-devFund
+            uint sharingTokenAvailableAmount = sharingToken.balanceOf(address(this)).sub(totalToShared.sub(transferredToAccount)).sub(devFund);
             require(sharingTokenAvailableAmount >= amount, 'Exceed available balance');
             newReward = amount;
         } else {

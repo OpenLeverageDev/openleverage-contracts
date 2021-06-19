@@ -14,7 +14,6 @@ const {advanceMultipleBlocks, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 
-const MockERC20 = artifacts.require("MockERC20");
 const Treasury = artifacts.require("TreasuryDelegator");
 const TreasuryImpl = artifacts.require("Treasury");
 const m = require('mocha-logger');
@@ -42,7 +41,8 @@ contract("OpenLev", async accounts => {
   let controller = accounts[3];
   let liquidator1 = accounts[8];
   let liquidator2 = accounts[9];
-
+  let token0;
+  let token1;
   beforeEach(async () => {
 
     // runs once before the first test in this block
@@ -52,20 +52,20 @@ contract("OpenLev", async accounts => {
     openLevErc20 = await TestToken.new('OpenLevERC20', 'OLE');
     let usdt = await TestToken.new('Tether', 'USDT');
 
-    let tokenA = await TestToken.new('TokenA', 'TKA');
-    let tokenB = await TestToken.new('TokenB', 'TKB');
+    token0 = await TestToken.new('TokenA', 'TKA');
+    token1 = await TestToken.new('TokenB', 'TKB');
 
     uniswapFactory = await utils.createUniswapFactory(admin);
     m.log("Created UniswapFactory", last8(uniswapFactory.address));
 
-    let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address, toWei(10000), toWei(10000));
+    let pair = await MockUniswapV2Pair.new(token0.address, token1.address, toWei(10000), toWei(10000));
     m.log("Created MockUniswapV2Pair (", last8(await pair.token0()), ",", last8(await pair.token1()), ")");
 
     // m.log("getReserves:", JSON.stringify(await pair.getReserves(), 0 ,2));
     await uniswapFactory.addPair(pair.address);
 
     // Making sure the pair has been added correctly in mock
-    let gotPair = await MockUniswapV2Pair.at(await uniswapFactory.getPair(tokenA.address, tokenB.address));
+    let gotPair = await MockUniswapV2Pair.at(await uniswapFactory.getPair(token0.address, token1.address));
     assert.equal(await pair.token0(), await gotPair.token0());
     assert.equal(await pair.token1(), await gotPair.token1());
 
@@ -79,7 +79,7 @@ contract("OpenLev", async accounts => {
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
 
-    await controller.createLPoolPair(tokenA.address, tokenB.address, 3000); // 30% margin ratio by default
+    await controller.createLPoolPair(token0.address, token1.address, 3000); // 30% margin ratio by default
     assert.equal(3000, (await openLev.markets(0)).marginRatio);
 
     await openLev.setDefaultMarginRatio(1500, {from: admin});
@@ -92,11 +92,6 @@ contract("OpenLev", async accounts => {
   it("LONG Token0, Close", async () => {
     let pairId = 0;
     await printBlockNum();
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
-    m.log("OpenLev.token0() = ", last8(token0.address));
-    m.log("OpenLev.token1() = ", last8(token1.address));
-
     // provide some funds for trader and saver
     await utils.mint(token1, trader, 10000);
     checkAmount(await token1.symbol() + " Trader " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(trader), 18);
@@ -113,10 +108,6 @@ contract("OpenLev", async accounts => {
     let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
-
-    let poo1Available = await openLev.pool1Available(pairId);
-    m.log("Available For Borrow at Pool 1: ", poo1Available);
-    //assert.strictEqual(poo1Available, utils.amountIn18d(400));
 
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
@@ -139,7 +130,7 @@ contract("OpenLev", async accounts => {
 
     let numTrades = 0;
     for (let i = 0; i < numPairs; i++) {
-      let trade = await openLev.getActiveTrade(trader, i, 0);
+      let trade = await openLev.activeTrades(trader, i, 0);
       m.log("Margin Trade executed", i, ": ", JSON.stringify(trade, 0, 2));
       assert.equal(trade.deposited, 397300000000000000000); // TODO check after fees amount accuracy
       assert.equal(trade.held, 821147572990716389330, "");
@@ -164,9 +155,8 @@ contract("OpenLev", async accounts => {
     m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
     assert.equal(marginRatio_2.current.toString(), 674);
 
-    let trade = await openLev.getActiveTrade(trader, 0, 0);
+    let trade = await openLev.activeTrades(trader, 0, 0);
     m.log("Trade:", JSON.stringify(trade, 0, 2));
-    await assertThrows(openLev.closeTrade(0, 0, "821147572990716389330", 0, {from: trader}), "Margin ratio is lower than limit");
 
     await priceOracle.setPrice(token0.address, token1.address, 120000000);
     let tx_close = await openLev.closeTrade(0, 0, "821147572990716389330", 0, {from: trader});
@@ -175,9 +165,9 @@ contract("OpenLev", async accounts => {
     assertPrint("atPrice:", '100000000', tx_close.logs[0].args.atPrice);
     assertPrint("priceDecimals:", '8', tx_close.logs[0].args.priceDecimals);
 
-    // Check contract held balance
+    // Check contract held balance 9854631923910821448870
     checkAmount("OpenLev Balance", 891000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 9854631697978553565817, await token1.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9854631923910821448870, await token1.balanceOf(trader), 18);
     checkAmount("Treasury Balance", 1809000000000000000, await token1.balanceOf(treasury.address), 18);
     checkAmount("Treasury Balance", 1650506621711339942, await token0.balanceOf(treasury.address), 18);
     await printBlockNum();
@@ -186,10 +176,6 @@ contract("OpenLev", async accounts => {
   it("LONG Token0, Price Drop, Add deposit, Close", async () => {
     let pairId = 0;
     await printBlockNum();
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
-    m.log("OpenLev.token0() = ", last8(token0.address));
-    m.log("OpenLev.token1() = ", last8(token1.address));
 
     // provide some funds for trader and saver
     await utils.mint(token1, trader, 10000);
@@ -208,9 +194,6 @@ contract("OpenLev", async accounts => {
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
-    let poo1Available = await openLev.pool1Available(pairId);
-    m.log("Available For Borrow at Pool 1: ", poo1Available);
-    //assert.strictEqual(poo1Available, utils.amountIn18d(400));
 
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
@@ -229,7 +212,7 @@ contract("OpenLev", async accounts => {
 
     let numTrades = 0;
     for (let i = 0; i < numPairs; i++) {
-      let trade = await openLev.getActiveTrade(trader, i, 0);
+      let trade = await openLev.activeTrades(trader, i, 0);
       m.log("Margin Trade executed", i, ": ", JSON.stringify(trade, 0, 2));
       assert.equal(trade.deposited, 397300000000000000000); // TODO check after fees amount accuracy
       assert.equal(trade.held, 821147572990716389330, "");
@@ -254,7 +237,7 @@ contract("OpenLev", async accounts => {
     tx = await openLev.marginTrade(0, false, true, moreDeposit, 0, 0, "0x0000000000000000000000000000000000000000", {from: trader});
 
     let marginRatio_3 = await openLev.marginRatio(trader, 0, 0, {from: saver});
-    trade = await openLev.getActiveTrade(trader, 0, 0);
+    trade = await openLev.activeTrades(trader, 0, 0);
     m.log("Trade.held:", trade.held);
     m.log("Trade.deposited:", trade.deposited);
     m.log("Trade.depositFixedValue:", trade.depositFixedValue);
@@ -268,7 +251,7 @@ contract("OpenLev", async accounts => {
 
     // Check contract held balance
     checkAmount("OpenLev Balance", 1089000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 9750581914760217233904, await token1.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9750581914760213759609, await token1.balanceOf(trader), 18);
     checkAmount("Treasury Balance", 2211000000000000000, await token1.balanceOf(treasury.address), 18);
     checkAmount("Treasury Balance", 1650506621711339942, await token0.balanceOf(treasury.address), 18);
     await printBlockNum();
@@ -276,11 +259,6 @@ contract("OpenLev", async accounts => {
 
   it("LONG Token0,DepositToken 1 Liquidate", async () => {
     let pairId = 0;
-
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
-    m.log("OpenLev.token0() = ", last8(token0.address));
-    m.log("OpenLev.token1() = ", last8(token1.address));
 
     // provide some funds for trader and saver
     await utils.mint(token1, trader, 10000);
@@ -299,9 +277,6 @@ contract("OpenLev", async accounts => {
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
-    let poo1Available = await openLev.pool1Available(pairId);
-    m.log("Available For Borrow at Pool 1: ", poo1Available);
-    //assert.strictEqual(poo1Available, utils.amountIn18d(400));
 
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
@@ -318,7 +293,7 @@ contract("OpenLev", async accounts => {
 
     let numTrades = 0;
     for (let i = 0; i < numPairs; i++) {
-      let trade = await openLev.getActiveTrade(trader, i, 0);
+      let trade = await openLev.activeTrades(trader, i, 0);
       m.log("Margin Trade executed", i, ": ", JSON.stringify(trade, 0, 2));
       assert.equal(trade.deposited, 397300000000000000000); // TODO check after fees amount accuracy
       assert.equal(trade.held, 821147572990716389330, "");
@@ -344,7 +319,7 @@ contract("OpenLev", async accounts => {
     await priceOracle.setPrice(token0.address, token1.address, 65000000);
     let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, {from: saver});
     m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
-    assert.equal(marginRatio_2.current.toString(), 673);
+    assert.equal(marginRatio_2.current.toString(), 655);
 
     // Close trade
     m.log("Mark trade liquidatable ... ");
@@ -365,11 +340,6 @@ contract("OpenLev", async accounts => {
   it("LONG Token0, Deposit Token0, Liquidate", async () => {
     let pairId = 0;
 
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
-    m.log("OpenLev.token0() = ", last8(token0.address));
-    m.log("OpenLev.token1() = ", last8(token1.address));
-
     // provide some funds for trader and saver
     await utils.mint(token0, trader, 10000);
     m.log("Trader", last8(trader), "minted", await token0.symbol(), await token0.balanceOf(trader));
@@ -387,9 +357,6 @@ contract("OpenLev", async accounts => {
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
-    let poo1Available = await openLev.pool1Available(pairId);
-    m.log("Available For Borrow at Pool 1: ", poo1Available);
-
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
 
@@ -402,21 +369,25 @@ contract("OpenLev", async accounts => {
     await priceOracle.setPrice(token0.address, token1.address, 120000000);
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, {from: saver});
     m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
-    assert.equal(marginRatio_1.current.toString(), 11434);
+    assert.equal(marginRatio_1.current.toString(), 10931);
 
     await advanceMultipleBlocks(4000);
 
     await priceOracle.setPrice(token0.address, token1.address, 65000000);
     let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, {from: saver});
     m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
-    assert.equal(marginRatio_2.current.toString(), 1837);
+    assert.equal(marginRatio_2.current.toString(), 1317);
 
     // Close trade
     m.log("Mark trade liquidatable ... ");
     await openLev.liqMarker(trader, 0, 0, {from: liquidator1});
 
     m.log("Liquidating trade ... ");
-    await openLev.liquidate(trader, 0, 0, {from: liquidator2});
+    let tx_liquidate = await openLev.liquidate(trader, 0, 0, {from: liquidator2});
+
+    assertPrint("Deposit Decrease", '872129737581559270371', tx_liquidate.logs[0].args.depositDecrease);
+    assertPrint("Deposit Return", '340608385333425655674', tx_liquidate.logs[0].args.depositReturn);
+
 
     assertPrint("Insurance of Pool0:", '1754408440205743677', (await openLev.markets(pairId)).pool0Insurance);
     assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
@@ -432,8 +403,6 @@ contract("OpenLev", async accounts => {
   it("LONG Token0, Deposit Token0, Liquidate, Blow up", async () => {
     let pairId = 0;
 
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
     m.log("OpenLev.token0() = ", last8(token0.address));
     m.log("OpenLev.token1() = ", last8(token1.address));
 
@@ -454,9 +423,6 @@ contract("OpenLev", async accounts => {
     await token1.approve(await pool1.address, utils.toWei(10000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
-    let poo1Available = await openLev.pool1Available(pairId);
-    m.log("Available For Borrow at Pool 1: ", poo1Available);
-
     let borrow = utils.toWei(3000);
     m.log("toBorrow from Pool 1: \t", borrow);
 
@@ -465,34 +431,25 @@ contract("OpenLev", async accounts => {
     await openLev.marginTrade(0, false, false, deposit, borrow, 0, "0x0000000000000000000000000000000000000000", {from: trader});
 
     await priceOracle.setPrice(token0.address, token1.address, 65000000);
-
-    //trader2 long token1 cause trader1 blow up
-    await utils.mint(token0, saver, 10000);
-    let pool0 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool0);
-    await token0.approve(await pool0.address, utils.toWei(10000), {from: saver});
-    await pool0.mint(utils.toWei(10000), {from: saver});
-    await utils.mint(token0, trader2, 10000);
-    await token0.approve(openLev.address, toWei(10000), {from: trader2});
-    await openLev.marginTrade(0, true, false, toWei(4000),  toWei(4000), 0, "0x0000000000000000000000000000000000000000", {from: trader2});
+    //
 
     // Close trade
     m.log("Mark trade liquidatable ... ");
     await openLev.liqMarker(trader, 0, 0, {from: liquidator1});
 
     m.log("Liquidating trade ... ");
-    await openLev.liquidate(trader, 0, 0, {from: liquidator2});
+    let tx_liquidate = await openLev.liquidate(trader, 0, 0, {from: liquidator2});
+
+    assertPrint("Deposit Return", '0', tx_liquidate.logs[0].args.depositReturn);
 
     assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
-    checkAmount("Borrows is not zero", 535437518953528305187, await pool1.borrowBalanceCurrent(trader), 18);
+    checkAmount("Borrows is not zero", 535429556624761209187, await pool1.borrowBalanceCurrent(trader), 18);
     checkAmount("Trader Despoit Token Balance will not back", 9000000000000000000000, await token0.balanceOf(trader), 18);
     checkAmount("Trader Borrows Token Balance is Zero", 0, await token1.balanceOf(trader), 18);
   })
 
   it("LONG Token0, Reset Liquidate ", async () => {
     let pairId = 0;
-
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
 
     // provide some funds for trader and saver
     await utils.mint(token1, trader, 10000);
@@ -536,19 +493,15 @@ contract("OpenLev", async accounts => {
     assert.equal(marginRatioReset.current.toString(), 3138);
     await openLev.liqMarkerReset(trader, 0, 0, {from: liquidator1});
 
-    let trade = await openLev.getActiveTrade(trader, 0, 0);
-    assert.equal(trade[4], "0x0000000000000000000000000000000000000000");
-    assert.equal(trade[5], 0);
+    let trade = await openLev.activeTrades(trader, 0, 0);
+    assert.equal(trade[2], "0x0000000000000000000000000000000000000000");
+    assert.equal(trade[3], 0);
 
   })
 
   it("Long Token1, Close", async () => {
     let pairId = 0;
     await printBlockNum();
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
-    m.log("OpenLev.token0() = ", last8(token0.address));
-    m.log("OpenLev.token1() = ", last8(token1.address));
 
     // provide some funds for trader and saver
     await utils.mint(token0, trader, 10000);
@@ -567,9 +520,6 @@ contract("OpenLev", async accounts => {
     await token0.approve(await pool0.address, utils.toWei(1000), {from: saver});
     await pool0.mint(saverSupply, {from: saver});
 
-    let pool0Available = await openLev.pool0Available(pairId);
-    m.log("Available For Borrow at Pool 1: ", pool0Available);
-
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
 
@@ -587,7 +537,7 @@ contract("OpenLev", async accounts => {
 
     let numTrades = 0;
     for (let i = 0; i < numPairs; i++) {
-      let trade = await openLev.getActiveTrade(trader, i, true);
+      let trade = await openLev.activeTrades(trader, i, true);
       m.log("Margin Trade executed", i, ": ", JSON.stringify(trade, 0, 2));
       assert.equal(trade.deposited, 397300000000000000000); // TODO check after fees amount accuracy
       assert.equal(trade.held, 821147572990716389330, "");
@@ -620,8 +570,6 @@ contract("OpenLev", async accounts => {
 
   it("Open with Referrer Test ", async () => {
     let pairId = 0;
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
     //set Referral
     let referrer = accounts[8];
     let referral = await utils.createReferral(openLev.address, admin);
@@ -766,8 +714,6 @@ contract("OpenLev", async accounts => {
   it("Admin moveInsurance test", async () => {
     let pairId = 0;
     await printBlockNum();
-    let token0 = await MockERC20.at(await openLev.token0(pairId));
-    let token1 = await MockERC20.at(await openLev.token1(pairId));
     await utils.mint(token1, trader, 10000);
     checkAmount(await token1.symbol() + " Trader " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(trader), 18);
     await utils.mint(token1, saver, 10000);
@@ -785,7 +731,9 @@ contract("OpenLev", async accounts => {
 
     let timeLock = await utils.createTimelock(admin);
     await openLev.setPendingAdmin(timeLock.address);
-    await openLev.acceptAdmin();
+    await timeLock.executeTransaction(openLev.address, 0, 'acceptAdmin()',
+      web3.eth.abi.encodeParameters([], []), 0)
+    // await openLev.acceptAdmin();
 
     let pool1Insurance = (await openLev.markets(pairId)).pool1Insurance;
     m.log("pool1Insurance", pool1Insurance);

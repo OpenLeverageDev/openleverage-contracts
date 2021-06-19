@@ -20,7 +20,7 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
 
     function registerReferrer() override external {
         Account storage account = accounts[msg.sender];
-        require(account.isActive == false, "Already registered");
+        require(!account.isActive, "Already registered");
         account.isActive = true;
         emit NewReferrer(msg.sender);
     }
@@ -49,7 +49,7 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
                 Account storage referrerAcct = accounts[referrer];
 
                 // only make referral if referrer is active
-                if (referrerAcct.isActive == true) {
+                if (referrerAcct.isActive) {
                     refereeAcct.referrer = referrer;
                     referrerAcct.referredCount = referrerAcct.referredCount.add(1);
                     emit RegisteredReferral(referee, referrer);
@@ -67,22 +67,23 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
 
     function withdrawReward(address token) external override {
         uint withdrawAmt = accounts[msg.sender].reward[token];
+        require(withdrawAmt > 0, "balance is 0");
         accounts[msg.sender].reward[token] = 0;
         IERC20(token).transfer(msg.sender, withdrawAmt);
     }
 
     function payReward(Account storage referrerAcct, uint baseAmount, address token) internal returns (uint, uint) {
         uint firstLevelReward = calAmount(firstLevelRate, baseAmount);
-        referrerAcct.reward[token] = referrerAcct.reward[token] + firstLevelReward;
-        uint refereeDiscount = calAmount(refereeDiscount, baseAmount);
+        referrerAcct.reward[token] = referrerAcct.reward[token].add(firstLevelReward);
+        uint calRefereeDiscount = calAmount(refereeDiscount, baseAmount);
 
         if (referrerAcct.referrer != address(0)) {// two level referral
             uint secondLevelReward = calAmount(secondLevelRate, baseAmount);
             Account storage upperReferrerAcct = accounts[referrerAcct.referrer];
-            upperReferrerAcct.reward[token] = upperReferrerAcct.reward[token] + secondLevelReward;
-            return (firstLevelReward + secondLevelReward, refereeDiscount);
+            upperReferrerAcct.reward[token] = upperReferrerAcct.reward[token].add(secondLevelReward);
+            return (firstLevelReward.add(secondLevelReward), calRefereeDiscount);
         } else {
-            return (firstLevelReward, refereeDiscount);
+            return (firstLevelReward, calRefereeDiscount);
         }
     }
 

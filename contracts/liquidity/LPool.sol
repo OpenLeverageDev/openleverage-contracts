@@ -33,25 +33,30 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
     function initialize(
         address underlying_,
         address controller_,
-        uint256 baseRatePerYear,
-        uint256 multiplierPerYear,
-        uint256 jumpMultiplierPerYear,
+        uint256 baseRatePerBlock_,
+        uint256 multiplierPerBlock_,
+        uint256 jumpMultiplierPerBlock_,
         uint256 kink_,
         uint initialExchangeRateMantissa_,
         string memory name_,
         string memory symbol_,
         uint8 decimals_) public {
+        require(underlying_ != address(0), "underlying_ address cannot be 0");
+        require(controller_ != address(0), "controller_ address cannot be 0");
         require(msg.sender == admin, "Only allow to be called by admin");
         require(accrualBlockNumber == 0 && borrowIndex == 0, "inited once");
 
         // Set initial exchange rate
         initialExchangeRateMantissa = initialExchangeRateMantissa_;
         require(initialExchangeRateMantissa > 0, "Initial Exchange Rate Mantissa should be greater zero");
-
-        // Set the controller
-        setController(controller_);
+        //set controller
+        controller = controller_;
         //set interestRateModel
-        setInterestParams(baseRatePerYear, multiplierPerYear, jumpMultiplierPerYear, kink_);
+        baseRatePerBlock = baseRatePerBlock_;
+        multiplierPerBlock = multiplierPerBlock_;
+        jumpMultiplierPerBlock = jumpMultiplierPerBlock_;
+        kink = kink_;
+
         // Initialize block number and borrow index (block number mocks depend on controller being set)
         accrualBlockNumber = getBlockNumber();
         borrowIndex = 1e25;
@@ -77,7 +82,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @return Whether or not the transfer succeeded
      */
     function transferTokens(address spender, address src, address dst, uint tokens) internal returns (bool) {
-
+        require(dst != address(0), "dst address cannot be 0");
         /* Do not allow self-transfers */
         require(src != dst, "src = dst");
         /* Fail if transfer not allowed */
@@ -285,7 +290,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
 
     function availableForBorrow() external view override returns (uint){
         uint cash = getCashPrior();
-        (MathError err0, uint sum) = addUInt(cash, totalBorrows);
+        (MathError err0, uint sum) = addThenSubUInt(cash, totalBorrows, totalReserves);
         if (err0 != MathError.NO_ERROR) {
             return 0;
         }
@@ -298,6 +303,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         }
         return maxAvailable - totalBorrows;
     }
+
 
     /**
      * Get a snapshot of the account's balances, and the cached exchange rate
@@ -338,7 +344,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @return The borrow interest rate per block, scaled by 1e18
      */
     function borrowRatePerBlock() external override view returns (uint) {
-        return getBorrowRateInternal(getCashPrior(), totalBorrows);
+        return getBorrowRateInternal(getCashPrior(), totalBorrows, totalReserves);
     }
 
     /**
@@ -346,15 +352,15 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @return The supply interest rate per block, scaled by 1e18
      */
     function supplyRatePerBlock() external override view returns (uint) {
-        return getSupplyRateInternal(getCashPrior(), totalBorrows);
+        return getSupplyRateInternal(getCashPrior(), totalBorrows, totalReserves, reserveFactorMantissa);
     }
 
-    function utilizationRate(uint cash, uint borrows) internal pure returns (uint) {
+    function utilizationRate(uint cash, uint borrows, uint reserves) internal pure returns (uint) {
         // Utilization rate is 0 when there are no borrows
         if (borrows == 0) {
             return 0;
         }
-        return borrows.mul(1e18).div(cash.add(borrows));
+        return borrows.mul(1e18).div(cash.add(borrows).sub(reserves));
     }
 
     /**
@@ -363,8 +369,8 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @param borrows The amount of borrows in the market
      * @return The borrow rate percentage per block as a mantissa (scaled by 1e18)
      */
-    function getBorrowRateInternal(uint cash, uint borrows) internal view returns (uint) {
-        uint util = utilizationRate(cash, borrows);
+    function getBorrowRateInternal(uint cash, uint borrows, uint reserves) internal view returns (uint) {
+        uint util = utilizationRate(cash, borrows, reserves);
         if (util <= kink) {
             return util.mul(multiplierPerBlock).div(1e18).add(baseRatePerBlock);
         } else {
@@ -380,8 +386,11 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @param borrows The amount of borrows in the market
      * @return The supply rate percentage per block as a mantissa (scaled by 1e18)
      */
-    function getSupplyRateInternal(uint cash, uint borrows) internal view returns (uint) {
-        return utilizationRate(cash, borrows).mul(getBorrowRateInternal(cash, borrows)).div(1e18);
+    function getSupplyRateInternal(uint cash, uint borrows, uint reserves, uint reserveFactor) internal view returns (uint) {
+        uint oneMinusReserveFactor = uint(1e18).sub(reserveFactor);
+        uint borrowRate = getBorrowRateInternal(cash, borrows, reserves);
+        uint rateToPool = borrowRate.mul(oneMinusReserveFactor).div(1e18);
+        return utilizationRate(cash, borrows, reserves).mul(rateToPool).div(1e18);
     }
     /**
      * Returns the current total borrows plus accrued interest
@@ -400,9 +409,10 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         /* Read the previous values out of storage */
         uint cashPrior = getCashPrior();
         uint borrowsPrior = totalBorrows;
+        uint reservesPrior = totalReserves;
 
         /* Calculate the current borrow interest rate */
-        uint borrowRateMantissa = getBorrowRateInternal(cashPrior, borrowsPrior);
+        uint borrowRateMantissa = getBorrowRateInternal(cashPrior, borrowsPrior, reservesPrior);
         require(borrowRateMantissa <= borrowRateMaxMantissa, "borrower rate higher");
 
         /* Calculate the number of blocks elapsed since the last accrual */
@@ -430,8 +440,10 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @return The calculated balance
      */
     function borrowBalanceCurrent(address account) external view override returns (uint) {
-        (MathError err, uint result) = borrowBalanceStoredInternalWithBorrowerIndex(account, calCurrentBorrowIndex());
-        require(err == MathError.NO_ERROR, "calc fail");
+        (MathError err0, uint borrowIndex) = calCurrentBorrowIndex();
+        require(err0 == MathError.NO_ERROR, "calc borrow index fail");
+        (MathError err1, uint result) = borrowBalanceStoredInternalWithBorrowerIndex(account, borrowIndex);
+        require(err1 == MathError.NO_ERROR, "calc fail");
         return result;
     }
 
@@ -527,7 +539,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
             Exp memory exchangeRate;
             MathError mathErr;
 
-            (mathErr, cashPlusBorrowsMinusReserves) = addThenSubUInt(totalCash, totalBorrows, 0);
+            (mathErr, cashPlusBorrowsMinusReserves) = addThenSubUInt(totalCash, totalBorrows, totalReserves);
             if (mathErr != MathError.NO_ERROR) {
                 return (mathErr, 0);
             }
@@ -549,28 +561,25 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         return getCashPrior();
     }
 
-    function calCurrentBorrowIndex() internal view returns (uint) {
+    function calCurrentBorrowIndex() internal view returns (MathError, uint) {
         /* Remember the initial block number */
         uint currentBlockNumber = getBlockNumber();
         uint accrualBlockNumberPrior = accrualBlockNumber;
         uint borrowIndexNew;
         /* Short-circuit accumulating 0 interest */
         if (accrualBlockNumberPrior == currentBlockNumber) {
-            return borrowIndex;
+            return (MathError.NO_ERROR, borrowIndex);
         }
-        uint borrowRateMantissa = getBorrowRateInternal(getCashPrior(), totalBorrows);
+        uint borrowRateMantissa = getBorrowRateInternal(getCashPrior(), totalBorrows, totalReserves);
         (MathError mathErr, uint blockDelta) = subUInt(currentBlockNumber, accrualBlockNumberPrior);
 
         Exp memory simpleInterestFactor;
         (mathErr, simpleInterestFactor) = mulScalar(Exp({mantissa : borrowRateMantissa}), blockDelta);
         if (mathErr != MathError.NO_ERROR) {
-            return uint(mathErr);
+            return (mathErr, 0);
         }
         (mathErr, borrowIndexNew) = mulScalarTruncateAddUInt(simpleInterestFactor, borrowIndex, borrowIndex);
-        if (mathErr != MathError.NO_ERROR) {
-            return uint(mathErr);
-        }
-        return borrowIndexNew;
+        return (mathErr, borrowIndexNew);
     }
 
     /**
@@ -592,9 +601,10 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         uint cashPrior = getCashPrior();
         uint borrowsPrior = totalBorrows;
         uint borrowIndexPrior = borrowIndex;
+        uint reservesPrior = totalReserves;
 
         /* Calculate the current borrow interest rate */
-        uint borrowRateMantissa = getBorrowRateInternal(cashPrior, borrowsPrior);
+        uint borrowRateMantissa = getBorrowRateInternal(cashPrior, borrowsPrior, reservesPrior);
         require(borrowRateMantissa <= borrowRateMaxMantissa, "borrower rate higher");
 
         /* Calculate the number of blocks elapsed since the last accrual */
@@ -614,6 +624,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         uint interestAccumulated;
         uint totalBorrowsNew;
         uint borrowIndexNew;
+        uint totalReservesNew;
 
         (mathErr, simpleInterestFactor) = mulScalar(Exp({mantissa : borrowRateMantissa}), blockDelta);
         require(mathErr == MathError.NO_ERROR, 'calc interest factor error');
@@ -624,6 +635,9 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         (mathErr, totalBorrowsNew) = addUInt(interestAccumulated, borrowsPrior);
         require(mathErr == MathError.NO_ERROR, 'calc total borrows error');
 
+        (mathErr, totalReservesNew) = mulScalarTruncateAddUInt(Exp({mantissa : reserveFactorMantissa}), interestAccumulated, reservesPrior);
+        require(mathErr == MathError.NO_ERROR, 'calc total reserves error');
+
         (mathErr, borrowIndexNew) = mulScalarTruncateAddUInt(simpleInterestFactor, borrowIndexPrior, borrowIndexPrior);
         require(mathErr == MathError.NO_ERROR, 'calc borrows index error');
 
@@ -632,6 +646,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         accrualBlockNumber = currentBlockNumber;
         borrowIndex = borrowIndexNew;
         totalBorrows = totalBorrowsNew;
+        totalReserves = totalReservesNew;
 
         /* We emit an AccrueInterest event */
         emit AccrueInterest(cashPrior, interestAccumulated, borrowIndexNew, totalBorrowsNew);
@@ -919,7 +934,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
       * Sets a new CONTROLLER for the market
       * @dev Admin function to set a new controller
       */
-    function setController(address newController) public override onlyAdmin {
+    function setController(address newController) external override onlyAdmin {
         address oldController = controller;
 
         controller = newController;
@@ -927,11 +942,11 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         emit NewController(oldController, newController);
     }
 
-    function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) public override onlyAdmin {
+    function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) external override onlyAdmin {
         borrowCapFactorMantissa = newBorrowCapFactorMantissa;
     }
 
-    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) public override onlyAdmin {
+    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) external override onlyAdmin {
         //accrueInterest except first
         if (baseRatePerBlock != 0) {
             accrueInterest();
@@ -942,6 +957,34 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         kink = kink_;
         emit NewInterestParam(baseRatePerBlock_, multiplierPerBlock_, jumpMultiplierPerBlock_, kink_);
     }
+
+    function setReserveFactor(uint newReserveFactorMantissa) external override onlyAdmin {
+        accrueInterest();
+        uint oldReserveFactorMantissa = reserveFactorMantissa;
+        reserveFactorMantissa = newReserveFactorMantissa;
+        emit NewReserveFactor(oldReserveFactorMantissa, newReserveFactorMantissa);
+    }
+
+    function addReserves(uint addAmount) external override {
+        accrueInterest();
+        uint totalReservesNew;
+        uint actualAddAmount;
+        actualAddAmount = doTransferIn(msg.sender, addAmount);
+        totalReservesNew = totalReserves.add(actualAddAmount);
+        totalReserves = totalReservesNew;
+        emit ReservesAdded(msg.sender, actualAddAmount, totalReservesNew);
+    }
+
+    function reduceReserves(address payable to, uint reduceAmount) external override onlyAdmin {
+        accrueInterest();
+        uint totalReservesNew;
+        totalReservesNew = totalReserves.sub(reduceAmount);
+        totalReserves = totalReservesNew;
+        doTransferOut(to, reduceAmount);
+        emit ReservesReduced(to, reduceAmount, totalReservesNew);
+    }
+
+
 
     modifier sameBlock() {
         require(accrualBlockNumber == getBlockNumber(), 'not same block');
