@@ -24,8 +24,8 @@ contract("ControllerV1", async accounts => {
     assert.equal(token0, await pool0Ctr.underlying());
     assert.equal(token1, await pool1Ctr.underlying());
 
-    assert.equal("tokenA -> tokenB LToken", await pool0Ctr.symbol());
-    assert.equal("tokenB -> tokenA LToken", await pool1Ctr.symbol());
+    assert.equal("tokenA -> tokenB", await pool0Ctr.symbol());
+    assert.equal("tokenB -> tokenA", await pool1Ctr.symbol());
 
     m.log("pool0 token name:", await pool0Ctr.name());
     m.log("pool1 token name:", await pool1Ctr.name());
@@ -148,7 +148,7 @@ contract("ControllerV1", async accounts => {
 
     await token0Ctr.approve(openLev.address, utils.toWei(10));
 
-    await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0,"0x0000000000000000000000000000000000000000");
+    await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, "0x0000000000000000000000000000000000000000");
 
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 1);
     m.log("Margin Ratio_1:", marginRatio_1.current / 100, "%");
@@ -336,6 +336,26 @@ contract("ControllerV1", async accounts => {
 
   });
 
+
+  it("MarginTrade unAllowed test", async () => {
+    let {controller, tokenA, tokenB, openLev} = await instanceController();
+    await controller.setMarginTradeAllowed(false);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let pool0 = transaction.logs[0].args.pool0;
+    //supply
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    await token0Ctr.mint(accounts[0], utils.toWei(10));
+    await token0Ctr.approve(pool0, utils.toWei(10));
+    await pool0Ctr.mint(utils.toWei(5));
+    await token0Ctr.approve(openLev.address, utils.toWei(10));
+    try {
+      await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, "0x0000000000000000000000000000000000000000");
+      assert.fail("should thrown Trade is UnAllowed! error");
+    } catch (error) {
+      assert.include(error.message, 'Trade is UnAllowed!', 'throws exception Trade is UnAllowed!');
+    }
+  });
   /*** Admin Test ***/
 
   it("Admin setLPoolImplementation test", async () => {
@@ -393,11 +413,23 @@ contract("ControllerV1", async accounts => {
     }
   });
 
+  it("Admin setMarginTradeAllowed test", async () => {
+    let {controller, timeLock} = await instanceSimpleController();
+    await timeLock.executeTransaction(controller.address, 0, 'setMarginTradeAllowed(bool)', web3.eth.abi.encodeParameters(['bool'], [false]), 0);
+    assert.equal(false, (await controller.tradeAllowed()));
+    try {
+      await controller.setMarginTradeAllowed(false);
+      assert.fail("should thrown caller must be admin error");
+    } catch (error) {
+      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+    }
+  });
+
   it("Admin setOLETokenDistribution test", async () => {
     let {controller, oleToken, timeLock} = await instanceSimpleController();
     await oleToken.mint(controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint128,uint128,uint128,uint128)',
-      web3.eth.abi.encodeParameters(['uint128', 'uint128', 'uint128', 'uint128'], [1, 2, 3, 4]), 0)
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [1, 2, 3, 4]), 0)
     assert.equal(1, (await controller.oleTokenDistribution()).liquidatorBalance);
     assert.equal(2, (await controller.oleTokenDistribution()).liquidatorMaxPer);
     assert.equal(3, (await controller.oleTokenDistribution()).liquidatorOLERatio);
@@ -416,8 +448,8 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createPool(accounts[0], controller, admin)).pool.address;
 
     await mint(oleToken, controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint128,uint128,uint128,uint128)',
-      web3.eth.abi.encodeParameters(['uint128', 'uint128', 'uint128', 'uint128'], [10, 20, 30, 40]), 0);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [10, 20, 30, 40]), 0);
 
     await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
       web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, 3797020800, 3897020800]), 0)
@@ -434,8 +466,8 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createPool(accounts[0], controller, admin)).pool.address;
 
     await mint(oleToken, controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint128,uint128,uint128,uint128)',
-      web3.eth.abi.encodeParameters(['uint128', 'uint128', 'uint128', 'uint128'], [10, 20, 30, 40]), 0);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [10, 20, 30, 40]), 0);
     await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
       web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, parseInt(await utils.lastBlockTime()) + 5, 3897020800]), 0)
     await timeMachine.advanceTime(10);

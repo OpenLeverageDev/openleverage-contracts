@@ -60,26 +60,6 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         return abi.decode(data, (uint16));
     }
 
-    function token0(uint16 marketId) external override view returns (address){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("token0(uint16)", marketId));
-        return abi.decode(data, (address));
-    }
-
-    function token1(uint16 marketId) external override view returns (address){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("token1(uint16)", marketId));
-        return abi.decode(data, (address));
-    }
-
-    function pool0Available(uint16 marketId) external override view returns (uint){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("pool0Available(uint16)", marketId));
-        return abi.decode(data, (uint));
-    }
-
-    function pool1Available(uint16 marketId) external override view returns (uint){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("pool1Available(uint16)", marketId));
-        return abi.decode(data, (uint));
-    }
-
     function marginTrade(
         uint16 marketId,
         bool longToken,
@@ -98,10 +78,6 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
             marketId, longToken, closeAmount, minBuyAmount));
     }
 
-    function getActiveTrade(address owner, uint16 marketId, bool longToken) external override view returns (Types.Trade memory){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getActiveTrade(address,uint16,bool)", owner, marketId, longToken));
-        return abi.decode(data, (Types.Trade));
-    }
 
     function marginRatio(address owner, uint16 marketId, bool longToken) external override view returns (uint current, uint32 marketLimit){
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginRatio(address,uint16,bool)", owner, marketId, longToken));

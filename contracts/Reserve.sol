@@ -23,6 +23,8 @@ contract Reserve is Adminable {
         uint _vestingBegin,
         uint _vestingEnd
     ) {
+        require(_admin != address(0), "_admin address cannot be 0");
+        require(address(_oleToken) != address(0), "_oleToken address cannot be 0");
         require(_vestingBegin >= block.timestamp, 'Vesting begin too early');
         require(_vestingEnd > _vestingBegin, 'End is too early');
         require(_vestingAmount != 0, "Should not be start with zero reserve");
@@ -36,6 +38,8 @@ contract Reserve is Adminable {
     }
 
     function transfer(address to, uint amount) external onlyAdmin {
+        require(to != address(0), "to address cannot be 0");
+        require(amount > 0, "amount is 0!");
         require(amount <= availableToVest(), "Amount exceeds limit");
         lastUpdate = block.timestamp;
         oleToken.transfer(to, amount);

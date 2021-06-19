@@ -178,5 +178,7 @@ contract FarmingPool is LPTokenWrapper, IRewardDistributionRecipient {
             periodFinish = starttime.add(duration);
             emit RewardAdded(reward);
         }
+        uint balance = oleToken.balanceOf(address(this));
+        require(rewardRate <= balance.div(duration),'balance is not enough');
     }
 }

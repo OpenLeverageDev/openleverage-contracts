@@ -25,7 +25,8 @@ abstract contract Adminable {
         emit NewPendingAdmin(oldPendingAdmin, newPendingAdmin);
     }
 
-    function acceptAdmin() external virtual onlyAdmin {
+    function acceptAdmin() external virtual {
+        require(msg.sender == pendingAdmin, "only pendingAdmin can accept admin");
         // Save current values for inclusion in log
         address oldAdmin = admin;
         address oldPendingAdmin = pendingAdmin;

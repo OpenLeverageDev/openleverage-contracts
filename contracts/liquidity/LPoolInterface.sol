@@ -66,6 +66,14 @@ abstract contract LPoolStorage {
      */
     uint public totalBorrows;
 
+    /**
+    * @notice Fraction of interest currently set aside for reserves 20%
+    */
+    uint public reserveFactorMantissa = 0.2e18;
+
+
+    uint public totalReserves;
+
 
     address public underlying;
 
@@ -140,6 +148,21 @@ abstract contract LPoolStorage {
      */
     event NewInterestParam(uint baseRatePerBlock, uint multiplierPerBlock, uint jumpMultiplierPerBlock, uint kink);
 
+    /**
+    * @notice Event emitted when the reserve factor is changed
+    */
+    event NewReserveFactor(uint oldReserveFactorMantissa, uint newReserveFactorMantissa);
+
+    /**
+     * @notice Event emitted when the reserves are added
+     */
+    event ReservesAdded(address benefactor, uint addAmount, uint newTotalReserves);
+
+    /**
+     * @notice Event emitted when the reserves are reduced
+     */
+    event ReservesReduced(address to, uint reduceAmount, uint newTotalReserves);
+
 
 }
 
@@ -197,10 +220,16 @@ abstract contract LPoolInterface is LPoolStorage {
 
     /*** Admin Functions ***/
 
-    function setController(address newController) public virtual;
+    function setController(address newController) external virtual;
 
-    function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) public virtual;
+    function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) external virtual;
 
-    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) public virtual;
+    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) external virtual;
+
+    function setReserveFactor(uint newReserveFactorMantissa) external virtual;
+
+    function addReserves(uint addAmount) external virtual;
+
+    function reduceReserves(address payable to, uint reduceAmount) external virtual;
 
 }

@@ -30,10 +30,10 @@ contract ControllerStorage {
     }
 
     struct OLETokenDistribution {
-        uint128 liquidatorBalance;
-        uint128 liquidatorMaxPer;
-        uint128 liquidatorOLERatio;
-        uint128 supplyBorrowBalance;
+        uint liquidatorBalance;
+        uint liquidatorMaxPer;
+        uint liquidatorOLERatio;
+        uint supplyBorrowBalance;
     }
 
     uint64 public constant LPOOL_DISTRIBUTION_MIN_DURATION = 30 days;
@@ -51,6 +51,8 @@ contract ControllerStorage {
     uint256 public kink;
 
     address public openLev;
+
+    bool public tradeAllowed = true;
 
     OLETokenDistribution public oleTokenDistribution;
     //token0=>token1=>pair
@@ -89,6 +91,8 @@ interface ControllerInterface {
 
     function liquidateAllowed(uint marketId, address liqMarker, address liquidator, uint liquidateAmount) external;
 
+    function marginTradeAllowed(uint marketId) external;
+
     function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio) external;
 
     /*** Admin Functions ***/
@@ -101,8 +105,10 @@ interface ControllerInterface {
 
     function setLPoolUnAllowed(address lpool, bool unAllowed) external;
 
+    function setMarginTradeAllowed(bool isAllowed) external;
+
     // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
-    function setOLETokenDistribution(uint128 moreLiquidatorBalance, uint128 liquidatorMaxPer, uint128 liquidatorOLERatio, uint128 moreSupplyBorrowBalance) external;
+    function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external;
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external;
 

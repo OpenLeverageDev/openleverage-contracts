@@ -19,7 +19,9 @@ contract OLETokenLock {
     }
 
     constructor(IOLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes, address delegateTo) {
-        require(beneficiaries.length == amounts.length, "array length must be same");
+        require(beneficiaries.length == amounts.length
+        && beneficiaries.length == startTimes.length
+            && beneficiaries.length == endTimes.length, "array length must be same");
         token = token_;
         for (uint i = 0; i < beneficiaries.length; i++) {
             address beneficiary = beneficiaries[i];
@@ -31,13 +33,14 @@ contract OLETokenLock {
 
 
     function release(address beneficiary) external {
+        require(beneficiary != address(0), "beneficiary address cannot be 0");
         uint256 currentTransfer = transferableAmount(beneficiary);
         uint256 amount = token.balanceOf(address(this));
         require(amount > 0, "no amount available");
         // The transfer out limit exceeds the available limit of the account
         require(amount >= currentTransfer, "transfer out limit exceeds ");
-        token.transfer(beneficiary, currentTransfer);
         releaseVars[beneficiary].released = releaseVars[beneficiary].released.add(currentTransfer);
+        token.transfer(beneficiary, currentTransfer);
     }
 
 

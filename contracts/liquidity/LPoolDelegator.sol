@@ -289,25 +289,37 @@ contract LPoolDelegator is DelegatorInterface, LPoolInterface, Adminable {
       * Sets a new comptroller for the market
       * @dev Admin function to set a new comptroller
       */
-    function setController(address newController) public override {
+    function setController(address newController) external override {
         delegateToImplementation(abi.encodeWithSignature("setController(address)", newController));
     }
 
-    function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) public override {
+    function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) external override {
         delegateToImplementation(abi.encodeWithSignature("setBorrowCapFactorMantissa(uint256)", newBorrowCapFactorMantissa));
     }
 
 
-    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) public override {
+    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) external override {
         delegateToImplementation(abi.encodeWithSignature("setInterestParams(uint256,uint256,uint256,uint256)", baseRatePerBlock_, multiplierPerBlock_, jumpMultiplierPerBlock_, kink_));
     }
+
+    function setReserveFactor(uint newReserveFactorMantissa) external override {
+        delegateToImplementation(abi.encodeWithSignature("setReserveFactor(uint256)", newReserveFactorMantissa));
+    }
+
+    function addReserves(uint addAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("addReserves(uint256)", addAmount));
+    }
+
+    function reduceReserves(address payable to, uint reduceAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("reduceReserves(address,uint256)", to, reduceAmount));
+    }
     /**
- * Internal method to delegate execution to another contract
- * @dev It returns to the external caller whatever the implementation returns or forwards reverts
- * @param callee The contract to delegatecall
- * @param data The raw data to delegatecall
- * @return The returned bytes from the delegatecall
- */
+    * Internal method to delegate execution to another contract
+    * @dev It returns to the external caller whatever the implementation returns or forwards reverts
+    * @param callee The contract to delegatecall
+    * @param data The raw data to delegatecall
+    * @return The returned bytes from the delegatecall
+    */
     function delegateTo(address callee, bytes memory data) internal returns (bytes memory) {
         (bool success, bytes memory returnData) = callee.delegatecall(data);
         assembly {
