@@ -146,15 +146,14 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     function createLPoolPair(address token0, address token1, uint32 marginRatio) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
-
-        string memory token0Symbol = string(abi.encodePacked(ERC20(token0).symbol(), " -> ", ERC20(token1).symbol()));
+        string memory tokenName = "OpenLeverage LP";
+        string memory tokenSymbol = "OLE-LP";
         LPoolDelegator pool0 = new LPoolDelegator();
         pool0.initialize(token0, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
-            token0Symbol, token0Symbol, 18, admin, lpoolImplementation);
-        string memory token1Symbol = string(abi.encodePacked(ERC20(token1).symbol(), " -> ", ERC20(token0).symbol()));
+            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
         LPoolDelegator pool1 = new LPoolDelegator();
         pool1.initialize(token1, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
-            token1Symbol, token1Symbol, 18, admin, lpoolImplementation);
+            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
         uint16 marketId = (ControllerOpenLevInterface(openLev)).addMarket(LPoolInterface(pool0), LPoolInterface(pool1), marginRatio);
