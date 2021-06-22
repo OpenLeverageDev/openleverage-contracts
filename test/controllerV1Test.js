@@ -24,8 +24,8 @@ contract("ControllerV1", async accounts => {
     assert.equal(token0, await pool0Ctr.underlying());
     assert.equal(token1, await pool1Ctr.underlying());
 
-    assert.equal("tokenA -> tokenB", await pool0Ctr.symbol());
-    assert.equal("tokenB -> tokenA", await pool1Ctr.symbol());
+    assert.equal("OLE-LP", await pool0Ctr.symbol());
+    assert.equal("OLE-LP", await pool1Ctr.symbol());
 
     m.log("pool0 token name:", await pool0Ctr.name());
     m.log("pool1 token name:", await pool1Ctr.name());
