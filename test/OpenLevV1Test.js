@@ -385,7 +385,7 @@ contract("OpenLev", async accounts => {
     m.log("Liquidating trade ... ");
     let tx_liquidate = await openLev.liquidate(trader, 0, 0, {from: liquidator2});
 
-    assertPrint("Deposit Decrease", '872129737581559270371', tx_liquidate.logs[0].args.depositDecrease);
+    assertPrint("Deposit Decrease", '397300000000000000000', tx_liquidate.logs[0].args.depositDecrease);
     assertPrint("Deposit Return", '340608385333425655674', tx_liquidate.logs[0].args.depositReturn);
 
 
