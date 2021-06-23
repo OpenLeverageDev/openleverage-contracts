@@ -315,7 +315,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         liquidateVars.fees = feesAndInsurance(trade.held, address(closeVars.sellToken), marketId, address(0));
         liquidateVars.borrowed = closeVars.buyPool.borrowBalanceCurrent(owner);
         liquidateVars.isSellAllHeld = true;
-        liquidateVars.depositDecrease = trade.held;
+        liquidateVars.depositDecrease = trade.deposited;
         // Check need to sell all held
         if (longToken == trade.depositToken) {
             // Calc the max buy amount
