@@ -112,6 +112,7 @@ contract Referral is DelegateInterface, ReferralInterface, ReferralStorage, Admi
         firstLevelRate = _firstLevelRate;
         secondLevelRate = _secondLevelRate;
         refereeDiscount = _refereeDiscount;
+        require(_firstLevelRate.add(_secondLevelRate).add(_refereeDiscount) <= 100, "Invalid params");
     }
 
     function setOpenLev(address _openLev) override external onlyAdmin {

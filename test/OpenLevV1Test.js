@@ -598,13 +598,13 @@ contract("OpenLev", async accounts => {
 
     // Check events
     let fees = tx.logs[0].args.fees;
-    assertPrint("Fees with referral discount:", '2484000000000000000', fees);
+    assertPrint("Fees with referral discount:", '2555280000000000000', fees);
 
     //referralBalance=fees*18%
-    assertPrint("Referral balance:", '432000000000000000', await token0.balanceOf(referral.address));
+    assertPrint("Referral balance:", '289440000000000000', await token0.balanceOf(referral.address));
 
     //treasuryBalance=fees-insurance-referralBalance-refereeDiscount
-    assertPrint("Treasury:", '1161000000000000000', await token0.balanceOf(treasury.address));
+    assertPrint("Treasury:", '1374840000000000000', await token0.balanceOf(treasury.address));
 
   })
 
