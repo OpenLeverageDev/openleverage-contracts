@@ -359,7 +359,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint referralReward;
         uint refereeDiscount;
         if (address(referral) != address(0)) {
-            (referralReward, refereeDiscount) = referral.calReferralReward(msg.sender, referrer, fees, token);
+            (referralReward, refereeDiscount) = referral.calReferralReward(msg.sender, referrer, fees.sub(newInsurance), token);
             if (referralReward != 0) {
                 IERC20(token).transfer(address(referral), referralReward);
             }
