@@ -1,29 +1,19 @@
-const PriceOracleV2 = artifacts.require("PriceOracleV2");
 const Treasury = artifacts.require("TreasuryDelegator");
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
-
-const ReferralDelegate = artifacts.require("Referral");
-const Referral = artifacts.require("ReferralDelegator");
-
+const DexAggregatorV1 = artifacts.require("DexAggregatorV1");
 const Timelock = artifacts.require("Timelock");
-
 const ControllerV1 = artifacts.require("ControllerDelegator");
-
 const utils = require("./util");
 
 module.exports = async function (deployer, network, accounts) {
   if (utils.isSkip(network)) {
     return;
   }
-  const uniswap = utils.uniswapAddress(network);
-  await deployer.deploy(PriceOracleV2, uniswap, utils.deployOption(accounts));
+  await deployer.deploy(DexAggregatorV1, "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", "0x1f98431c8ad98523631ae4a59f267346ea31f984", utils.deployOption(accounts));
 
   await deployer.deploy(OpenLevDelegate, utils.deployOption(accounts));
-  await deployer.deploy(OpenLevV1, ControllerV1.address, uniswap, Treasury.address, PriceOracleV2.address, utils.zeroAddress, Timelock.address, OpenLevDelegate.address, utils.deployOption(accounts));
-
-  await deployer.deploy(ReferralDelegate, utils.deployOption(accounts));
-  await deployer.deploy(Referral, OpenLevV1.address, Timelock.address, ReferralDelegate.address, utils.deployOption(accounts));
+  await deployer.deploy(OpenLevV1, ControllerV1.address, DexAggregatorV1.address, Treasury.address, Timelock.address, OpenLevDelegate.address, utils.deployOption(accounts));
 
 
 };

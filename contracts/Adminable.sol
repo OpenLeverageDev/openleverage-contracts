@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 abstract contract Adminable {
     address payable public admin;

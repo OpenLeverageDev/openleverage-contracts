@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./Types.sol";
 import "./liquidity/LPoolInterface.sol";
 import "./ControllerInterface.sol";
-import "./dex/IUniswapV2Factory.sol";
-import "./dex/PriceOracleInterface.sol";
-import "./Referral.sol";
+import "./dex/DexAggregatorInterface.sol";
 
 
 abstract contract OpenLevStorage {
@@ -25,27 +23,19 @@ abstract contract OpenLevStorage {
     // owner => marketId => long0(true)/long1(false) => Trades
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
-    /**
-     * @dev Total number of Ltokens in circulation
-     */
-    uint public _totalSupply;
-
-    /**
-     * @dev Official record of Ltoken balances for each account
-     */
-    //    mapping(address => uint) internal balance;
+    mapping(address=>bool) public allowedDepositTokens;
 
     address public treasury;
 
-    ReferralInterface public referral;
-
-    PriceOracleInterface public priceOracle;
+    DexAggregatorInterface public dexAggregator;
 
     address public controller;
 
-    event NewFeesRate(uint oldFeesRate, uint newFeesRate);
+    event NewDefalutFeesRate(uint oldFeesRate, uint newFeesRate);
 
-    event NewDefaultMarginRatio(uint32 oldRatio, uint32 newRatio);
+    event NewMarketFeesRate(uint oldFeesRate, uint newFeesRate);
+
+    event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
 
     event NewMarketMarginLimit(uint16 marketId, uint32 oldRatio, uint32 newRatio);
 
@@ -53,19 +43,17 @@ abstract contract OpenLevStorage {
 
     event NewController(address oldController, address newController);
 
-    event NewPriceOracle(PriceOracleInterface oldPriceOracle, PriceOracleInterface newPriceOracle);
+    event NewDexAggregator(DexAggregatorInterface oldDexAggregator, DexAggregatorInterface newDexAggregator);
 
-    event NewUniswapFactory(IUniswapV2Factory oldUniswapFactory, IUniswapV2Factory newUniswapFactory);
-
-    event NewReferral(ReferralInterface oldReferral, ReferralInterface newReferral);
+    event ChangeAllowedDepositTokens(address[] token, bool allowed);
 
 
     // 0.3%
-    uint public feesRate = 30; // 0.003
+    uint public defaultFeesRate = 30; // 0.003
 
     uint8 public insuranceRatio = 33; // 33%
 
-    uint32 public defaultMarginRatio = 3000; // 30%
+    uint32 public defaultMarginLimit = 3000; // 30%
 
     event MarginTrade(
         address trader,
@@ -92,30 +80,13 @@ abstract contract OpenLevStorage {
         uint8 priceDecimals
     );
 
-    event LiquidationMarker(
-        address owner,
-        uint16 marketId,
-        bool longToken,
-        address marker,
-        uint atPrice,
-        uint8 priceDecimals
-    );
-    event LiquidationMarkerReset(
-        address owner,
-        uint16 marketId,
-        bool longToken,
-        address marker,
-        address resetBy,
-        uint atPrice,
-        uint8 priceDecimals
-    );
     event Liquidation(
         address owner,
         uint16 marketId,
         bool longToken,
         uint liquidationAmount,
-        address liquidator1,
-        address liquidator2,
+        uint outstandingAmount,
+        address liquidator,
         uint depositDecrease,
         uint depositReturn,
         uint atPrice,
@@ -132,50 +103,37 @@ interface OpenLevInterface {
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
-        uint32 marginRatio
+        uint32 marginLimit
     ) external returns (uint16);
 
 
-    function marginTrade(
-        uint16 marketId,
-        bool longToken,
-        bool depositToken,
-        uint deposit,
-        uint borrow,
-        uint minBuyAmount,
-        address referrer
-    ) external;
+    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external;
 
-    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount) external;
+    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount, bytes memory dexData) external;
 
-    function marginRatio(address owner, uint16 marketId, bool longToken) external view returns (uint current, uint32 marketLimit);
+    function liquidate(address owner, uint16 marketId, bool longToken, bytes memory dexData) external;
 
-    function liqMarker(address owner, uint16 marketId, bool longToken) external;
-
-    function liqMarkerReset(address owner, uint16 marketId, bool longToken) external;
-
-    function liquidate(address owner, uint16 marketId, bool longToken) external;
-
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint32 marketLimit);
 
     /*** Admin Functions ***/
 
-    function setDefaultMarginRatio(uint32 newRatio) external;
+    function setDefaultMarginLimit(uint32 newRatio) external;
 
     function setMarketMarginLimit(uint16 marketId, uint32 newRatio) external;
 
-    function setFeesRate(uint newRate) external;
+    function setDefaultFeesRate(uint newRate) external;
+
+    function setMarketFeesRate(uint16 marketId,uint newRate) external;
 
     function setInsuranceRatio(uint8 newRatio) external;
 
     function setController(address newController) external;
 
-    function setPriceOracle(PriceOracleInterface newPriceOracle) external;
-
-    function setUniswapFactory(IUniswapV2Factory _uniswapFactory) external;
-
-    function setReferral(ReferralInterface _referral) external;
+    function setDexAggregator(DexAggregatorInterface _dexAggregator) external;
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
+
+    function setAllowedDepositTokens(address[] memory tokens,bool allowed) external;
 
 
 }

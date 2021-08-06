@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 import "./liquidity/LPoolInterface.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
@@ -11,9 +11,11 @@ library Types {
     struct Market {// Market info
         LPoolInterface pool0;       // Lending Pool 0
         LPoolInterface pool1;       // Lending Pool 1
-        uint32 marginRatio;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
+        uint32 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
+        uint feesRate;              // feesRate 30=>0.3%
         uint pool0Insurance;        // Insurance balance for token 0
         uint pool1Insurance;        // Insurance balance for token 1
+
     }
 
     struct MarketVars {// A variables holder for market info
@@ -33,9 +35,14 @@ library Types {
         uint depositAfterFees;      // Deposit minus fees
         uint tradeSize;             // Trade amount to be swap on DEX
         uint newHeld;               // Latest held position
+        uint currentPrice;
+        uint8 priceDecimals;
+        uint borrowValue;
     }
 
     struct CloseTradeVars {// A variables holder for close trade info
+        uint16 marketId;
+        bool longToken;
         uint closeRatio;          // Close ratio
         bool isPartialClose;        // Is partial close
         uint closeAmountAfterFees;  // Close amount sub Fees value
@@ -50,13 +57,13 @@ library Types {
     struct Trade {// Trade storage
         uint deposited;             // Balance of deposit token
         uint held;                  // Balance of held position
-        address liqMarker;          // Address of who marks the trade liquidating
-        uint liqBlockNum;           // Block number when the trade was marked liquidating
         bool depositToken;          // Indicate if the deposit token is token 0 or token 1
         uint lastBlockNum;          // Block number when the trade was touched last time, to prevent more than one operation within same block
     }
 
     struct LiquidateVars {// A variable holder for liquidation process
+        uint16 marketId;
+        bool longToken;
         uint settlePrice;           // Settle price at liquidation
         uint8 priceDecimals;        // Settle price decimal at liquidation
         uint borrowed;              // Total borrowed balance of trade
@@ -65,7 +72,9 @@ library Types {
         bool isSellAllHeld;         // Is need sell all held
         uint depositDecrease;       // Deposit decrease
         uint depositReturn;         // Deposit actual returns
+        uint maxBuyAmount;
+        uint sellAmount;
+        uint outstandingAmount;
     }
-
 
 }

@@ -1,13 +1,12 @@
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const ControllerV1 = artifacts.require("ControllerDelegator");
-const Referral = artifacts.require("ReferralDelegator");
 const Gov = artifacts.require("GovernorAlpha");
 const Timelock = artifacts.require("Timelock");
 const OLEToken = artifacts.require("OLEToken");
 const Reserve = artifacts.require("Reserve");
 const TreasuryDelegator = artifacts.require("TreasuryDelegator");
-const PriceOracleV2 = artifacts.require("PriceOracleV2");
 const OLETokenLock = artifacts.require("OLETokenLock");
+const DexAggregatorV1 = artifacts.require("DexAggregatorV1");
 
 const OpenLevFarmingPool = artifacts.require("FarmingPool");
 
@@ -221,12 +220,11 @@ async function loggerInfo() {
   m.log("Timelock.address=", Timelock.address.toLowerCase());
   m.log("Treasury.address=", TreasuryDelegator.address.toLowerCase());
   m.log("ControllerV1.address=", ControllerV1.address.toLowerCase());
-  m.log("PriceOracleV2.address=", PriceOracleV2.address.toLowerCase());
   m.log("OpenLevV1.address=", OpenLevV1.address.toLowerCase());
   m.log("LVRFarmingPool.address=", OpenLevFarmingPool.address.toLowerCase());
   m.log("Reserve.address=", Reserve.address.toLowerCase());
-  m.log("Referral.address=", Referral.address.toLowerCase());
   m.log("OLETokenLock.address=", OLETokenLock.address.toLowerCase());
+  m.log("DexAggregatorV1.address=", DexAggregatorV1.address.toLowerCase());
 }
 
 function toBN(bn) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./ControllerInterface.sol";
@@ -8,7 +8,7 @@ import "./Adminable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "./DelegateInterface.sol";
-import "./dex/PriceOracleInterface.sol";
+import "./dex/DexAggregatorInterface.sol";
 
 /**
   * @title Controller
@@ -35,11 +35,13 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     function mintAllowed(address lpool, address minter, uint mintAmount) external override {
         // Shh - currently unused
         mintAmount;
+        require(msg.sender == lpool, "Incorrect sender");
         require(!lpoolUnAlloweds[lpool], "mint paused");
         updateReward(LPoolInterface(lpool), minter, false);
     }
 
     function transferAllowed(address lpool, address from, address to) external override {
+        require(msg.sender == lpool, "Incorrect sender");
         require(!lpoolUnAlloweds[lpool], "transfer paused");
         updateReward(LPoolInterface(lpool), from, false);
         updateReward(LPoolInterface(lpool), to, false);
@@ -48,12 +50,14 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override {
         // Shh - currently unused
         redeemTokens;
+        require(msg.sender == lpool, "Incorrect sender");
         if (updateReward(LPoolInterface(lpool), redeemer, false)) {
             getRewardInternal(LPoolInterface(lpool), redeemer, false);
         }
     }
 
     function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override {
+        require(msg.sender == lpool, "Incorrect sender");
         require(!lpoolUnAlloweds[lpool], "borrow paused");
         require(LPoolInterface(lpool).availableForBorrow() >= borrowAmount, "borrow out of range");
         require(openLev == payee || openLev == address(0), 'payee not openLev');
@@ -65,12 +69,13 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         // Shh - currently unused
         payer;
         repayAmount;
+        require(msg.sender == lpool, "Incorrect sender");
         if (updateReward(LPoolInterface(lpool), borrower, true)) {
             getRewardInternal(LPoolInterface(lpool), borrower, true);
         }
     }
 
-    function liquidateAllowed(uint marketId, address liqMarker, address liquidator, uint liquidateAmount) external override {
+    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override {
         // Shh - currently unused
         liquidateAmount;
         require(openLev == msg.sender || openLev == address(0), 'liquidate sender not openLev');
@@ -83,8 +88,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             return;
         }
         //get wChainToken quote ole price
-        (uint256 price, uint8 decimal) = (ControllerOpenLevInterface(openLev).priceOracle()).getPrice(wChainToken, address(oleToken));
-        // oleRewards=(600,000gas)*
+        (uint256 price, uint8 decimal) = (ControllerOpenLevInterface(openLev).dexAggregator()).getAvgPrice(wChainToken, address(oleToken), 1, dexData);
+        // oleRewards=wChainTokenValue*liquidatorOLERatio
         uint calcLiquidatorRewards = uint(600000)
         .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))
         .mul(oleTokenDistribution.liquidatorOLERatio).div(100);
@@ -92,24 +97,12 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         if (calcLiquidatorRewards > oleTokenDistribution.liquidatorMaxPer) {
             calcLiquidatorRewards = oleTokenDistribution.liquidatorMaxPer;
         }
-        if (oleTokenDistribution.liquidatorBalance < calcLiquidatorRewards) {
+        if (calcLiquidatorRewards > oleTokenDistribution.liquidatorBalance) {
             return;
         }
-        if (liqMarker == liquidator) {
-            if (transferOut(liqMarker, calcLiquidatorRewards)) {
-                oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance.sub(calcLiquidatorRewards);
-            }
-            return;
+        if (transferOut(liquidator, calcLiquidatorRewards)) {
+            oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance.sub(calcLiquidatorRewards);
         }
-        uint tranferAmountAvg = calcLiquidatorRewards.div(2);
-        uint tranferAmountSucceed;
-        if (transferOut(liqMarker, tranferAmountAvg)) {
-            tranferAmountSucceed = tranferAmountAvg;
-        }
-        if (transferOut(liquidator, tranferAmountAvg)) {
-            tranferAmountSucceed = tranferAmountSucceed.add(tranferAmountAvg);
-        }
-        oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance.sub(tranferAmountSucceed);
     }
 
     function marginTradeAllowed(uint marketId) external override {
@@ -324,7 +317,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 }
 
 interface ControllerOpenLevInterface {
-    function priceOracle() external view returns (PriceOracleInterface);
+    function dexAggregator() external view returns (DexAggregatorInterface);
 
     function addMarket(
         LPoolInterface pool0,

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "./dex/DexAggregatorInterface.sol";
 
 
 contract TreasuryStorage {
@@ -35,6 +36,8 @@ contract TreasuryStorage {
 
     uint public rewardPerTokenStored;
 
+    DexAggregatorInterface public dexAggregator;
+
     event RewardAdded(address fromToken, uint convertAmount, uint reward);
     event Staked(address indexed user, uint amount);
     event Withdrawn(address indexed user, uint amount);
@@ -44,7 +47,7 @@ contract TreasuryStorage {
 
 interface TreasuryInterface {
 
-    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount) external;
+    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount,bytes memory dexData) external;
 
     function devWithdraw(uint amount) external;
 
@@ -62,6 +65,7 @@ interface TreasuryInterface {
 
     function setDevFundRatio(uint newRatio) external;
 
+    function setDexAggregator(DexAggregatorInterface newDexAggregator) external;
 
     function setDev(address newDev) external;
 

@@ -135,12 +135,12 @@ contract Exponential is CarefulMath {
      * @dev Divide a scalar by an Exp, then truncate to return an unsigned integer.
      */
     function divScalarByExpTruncate(uint scalar, Exp memory divisor) pure internal returns (MathError, uint) {
-        (MathError err, Exp memory fraction) = divScalarByExp(scalar, divisor);
+        (MathError err, Exp memory fra) = divScalarByExp(scalar, divisor);
         if (err != MathError.NO_ERROR) {
             return (err, 0);
         }
 
-        return (MathError.NO_ERROR, truncate(fraction));
+        return (MathError.NO_ERROR, truncate(fra));
     }
 
     /**

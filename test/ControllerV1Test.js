@@ -3,7 +3,7 @@ const m = require('mocha-logger');
 const LPool = artifacts.require("LPoolDelegator");
 const {advanceBlockAndSetTime, toBN} = require("./utils/EtheUtil");
 const timeMachine = require('ganache-time-traveler');
-const {mint} = require("./utils/OpenLevUtil");
+const {mint, Uni3DexData} = require("./utils/OpenLevUtil");
 const Controller = artifacts.require('ControllerV1');
 
 contract("ControllerV1", async accounts => {
@@ -129,43 +129,39 @@ contract("ControllerV1", async accounts => {
   it("Distribution by liquidator test", async () => {
     let trader = accounts[0];
     let liquidator = accounts[1];
-    let {controller, tokenA, tokenB, oleToken, priceOracle, openLev} = await instanceController();
+    let {controller, tokenA, tokenB, oleToken, pair, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(100), 300, utils.toWei(400));
     await controller.distributeLiqRewards2Market(0, true);
     let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
     let pool0 = transaction.logs[0].args.pool0;
-    let token0 = transaction.logs[0].args.token0;
-    let token1 = transaction.logs[0].args.token1;
+    let pool1 = transaction.logs[0].args.pool1;
     let pool0Ctr = await LPool.at(pool0);
+    let pool1Ctr = await LPool.at(pool1);
     let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    let token1Ctr = await utils.tokenAt(await pool1Ctr.underlying());
+    await token1Ctr.mint(trader, utils.toWei(10));
+    await token1Ctr.approve(pool1, utils.toWei(10));
+    await pool1Ctr.mint(utils.toWei(5));
+
     await token0Ctr.mint(trader, utils.toWei(10));
-    await token0Ctr.approve(pool0, utils.toWei(10));
-    await pool0Ctr.mint(utils.toWei(5));
-
-    await priceOracle.setPrice(token1, token0, 100000000);
-    await priceOracle.setPrice(token0, token1, 100000000);
-
     await token0Ctr.approve(openLev.address, utils.toWei(10));
 
-    await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, "0x0000000000000000000000000000000000000000");
+    await openLev.marginTrade(0, false, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData);
 
-    let marginRatio_1 = await openLev.marginRatio(trader, 0, 1);
-    m.log("Margin Ratio_1:", marginRatio_1.current / 100, "%");
 
-    await priceOracle.setPrice(token1, token0, 70000000);
-    await priceOracle.setPrice(token0, token1, 9930000000);
-    let marginRatio_2 = await openLev.marginRatio(trader, 0, 1);
+    await pair.setPrice(tokenA.address, tokenB.address, 1);
+    await pair.setPreviousPrice(tokenA.address, tokenB.address, 1);
+    let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, Uni3DexData);
     m.log("Margin Ratio_2:", marginRatio_2.current / 100, "%");
-    //liquidate
-    let txLiqMarker = await openLev.liqMarker(trader, 0, true, {from: liquidator});
 
-    m.log("txLiqMarker gasUsed:", txLiqMarker.receipt.gasUsed);
 
-    // ole token price 1
-    await priceOracle.setPrice("0x0000000000000000000000000000000000000000", oleToken.address, 100000000);
-    //10gwei
-    let txLiq = await openLev.liquidate(trader, 0, true, {from: liquidator, gasPrice: 10000000000, gas: 600000});
+    // ole token price 1 10gwei
+    let txLiq = await openLev.liquidate(trader, 0, 0, Uni3DexData, {
+      from: liquidator,
+      gasPrice: 10000000000,
+      gas: 700000
+    });
 
     m.log("txLiq gasUsed:", txLiq.receipt.gasUsed);
 
@@ -350,7 +346,7 @@ contract("ControllerV1", async accounts => {
     await pool0Ctr.mint(utils.toWei(5));
     await token0Ctr.approve(openLev.address, utils.toWei(10));
     try {
-      await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, "0x0000000000000000000000000000000000000000");
+      await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData);
       assert.fail("should thrown Trade is UnAllowed! error");
     } catch (error) {
       assert.include(error.message, 'Trade is UnAllowed!', 'throws exception Trade is UnAllowed!');
@@ -523,12 +519,15 @@ contract("ControllerV1", async accounts => {
     let tokenA = await utils.createToken("tokenA");
     let tokenB = await utils.createToken("tokenB");
     let oleToken = await utils.createToken("OLE");
-    let controller = await utils.createController(timelock ? timelock : admin, oleToken.address);
-    let uniswap = await utils.createUniswapFactory();
-    let pair = await utils.createPair(tokenA.address, tokenB.address);
-    await uniswap.addPair(pair.address);
-    let priceOracle = await utils.createPriceOracle();
-    let openLev = await utils.createOpenLev(controller.address, admin, uniswap.address, admin, priceOracle.address);
+    let controller = await utils.createController(timelock ? timelock : admin, oleToken.address, tokenA.address);
+
+    let uniswapFactory = await utils.createUniswapV3Factory();
+    gotPair = await utils.createUniswapV3Pool(uniswapFactory, tokenA, tokenB, accounts[0]);
+    await utils.createUniswapV3Pool(uniswapFactory, tokenA, oleToken, accounts[0]);
+    await utils.createUniswapV3Pool(uniswapFactory, tokenB, oleToken, accounts[0]);
+    let dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
+    let openLev = await utils.createOpenLev(controller.address, admin, dexAgg.address, admin, [tokenA.address, tokenB.address]);
+
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
@@ -537,7 +536,7 @@ contract("ControllerV1", async accounts => {
       tokenA: tokenA,
       tokenB: tokenB,
       oleToken: oleToken,
-      priceOracle: priceOracle,
+      pair: gotPair,
       openLev: openLev
     };
   }

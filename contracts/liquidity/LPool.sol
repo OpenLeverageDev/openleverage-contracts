@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 import "./LPoolInterface.sol";
-import "./InterestRateModel.sol";
 import "../lib/Exponential.sol";
 import "../Adminable.sol";
 import "../lib/CarefulMath.sol";
