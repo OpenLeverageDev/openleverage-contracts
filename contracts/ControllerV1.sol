@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
@@ -88,7 +88,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             return;
         }
         //get wChainToken quote ole price
-        (uint256 price, uint8 decimal) = (ControllerOpenLevInterface(openLev).dexAggregator()).getAvgPrice(wChainToken, address(oleToken), 1, dexData);
+        (uint256 price, uint8 decimal) = (ControllerOpenLevInterface(openLev).dexAggregator()).getPrice(wChainToken, address(oleToken), dexData);
         // oleRewards=wChainTokenValue*liquidatorOLERatio
         uint calcLiquidatorRewards = uint(600000)
         .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))

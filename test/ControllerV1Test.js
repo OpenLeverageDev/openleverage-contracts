@@ -524,7 +524,6 @@ contract("ControllerV1", async accounts => {
     let uniswapFactory = await utils.createUniswapV3Factory();
     gotPair = await utils.createUniswapV3Pool(uniswapFactory, tokenA, tokenB, accounts[0]);
     await utils.createUniswapV3Pool(uniswapFactory, tokenA, oleToken, accounts[0]);
-    await utils.createUniswapV3Pool(uniswapFactory, tokenB, oleToken, accounts[0]);
     let dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
     let openLev = await utils.createOpenLev(controller.address, admin, dexAgg.address, admin, [tokenA.address, tokenB.address]);
 

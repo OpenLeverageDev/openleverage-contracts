@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.7.6;
 pragma abicoder v2;
 
@@ -115,8 +115,9 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256){
         // Shh - currently unused
         fee;
-        require(secondsAgo > 0, "SecondsAgo must not 0");
-        (,,, int24 avgTick) = getMaxLiquidityPoolInfo(desToken, quoteToken, secondsAgo);
+        require(secondsAgo > 0, "SecondsAgo must >0");
+        (IUniswapV3Pool maxPool,,, int24 avgTick) = getMaxLiquidityPoolInfo(desToken, quoteToken, secondsAgo);
+        require(address(maxPool) != address(0), "Pool Not found");
         uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(avgTick);
         return getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
     }

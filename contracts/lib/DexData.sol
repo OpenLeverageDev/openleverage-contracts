@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity >=0.6.0 <0.8.0;
 
 
@@ -12,7 +12,7 @@ library DexData {
 
     uint8 constant DEX_UNIV2 = 0;
     uint8 constant DEX_UNIV3 = 1;
-    bytes constant UNIV3_FEE0 =hex"01000000";
+    bytes constant UNIV3_FEE0 = hex"01000000";
 
     function toDex(bytes memory data) internal pure returns (uint8) {
         require(data.length >= dexNameLength, 'dex_outOfBounds');
