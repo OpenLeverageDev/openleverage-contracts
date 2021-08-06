@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./liquidity/LPoolInterface.sol";
@@ -89,7 +89,7 @@ interface ControllerInterface {
 
     function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount) external;
 
-    function liquidateAllowed(uint marketId, address liqMarker, address liquidator, uint liquidateAmount) external;
+    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external;
 
     function marginTradeAllowed(uint marketId) external;
 

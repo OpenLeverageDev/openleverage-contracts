@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 import "./Adminable.sol";
 import "./DelegatorInterface.sol";
@@ -60,8 +60,8 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("repayBorrowAllowed(address,address,address,uint256)", lpool, payer, borrower, repayAmount));
     }
 
-    function liquidateAllowed(uint marketId, address liqMarker, address liquidator, uint liquidateAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("liquidateAllowed(uint256,address,address,uint256)", marketId, liqMarker, liquidator, liquidateAmount));
+    function liquidateAllowed(uint marketId,  address liquidator, uint liquidateAmount, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("liquidateAllowed(uint256,address,uint256,bytes)", marketId, liquidator, liquidateAmount, dexData));
     }
 
     function marginTradeAllowed(uint marketId) external override {
@@ -120,42 +120,4 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("getSupplyRewards(address[],address)", lpools, account));
     }
 
-    function delegateTo(address callee, bytes memory data) internal returns (bytes memory) {
-        (bool success, bytes memory returnData) = callee.delegatecall(data);
-        assembly {
-            if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
-        }
-        return returnData;
-    }
-
-    function delegateToImplementation(bytes memory data) public returns (bytes memory) {
-        return delegateTo(implementation, data);
-    }
-
-    function delegateToViewImplementation(bytes memory data) public view returns (bytes memory) {
-        (bool success, bytes memory returnData) = address(this).staticcall(abi.encodeWithSignature("delegateToImplementation(bytes)", data));
-        assembly {
-            if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
-        }
-        return abi.decode(returnData, (bytes));
-    }
-
-    /**
-     * Delegates execution to an implementation contract
-     * @dev It returns to the external caller whatever the implementation returns or forwards reverts
-     */
-    receive() external payable {
-        require(msg.value == 0, "cannot send value to fallback");
-        // delegate all other functions to current implementation
-        (bool success,) = implementation.delegatecall(msg.data);
-
-        assembly {
-            let free_mem_ptr := mload(0x40)
-            returndatacopy(free_mem_ptr, 0, returndatasize())
-
-            switch success
-            case 0 {revert(free_mem_ptr, returndatasize())}
-            default {return (free_mem_ptr, returndatasize())}
-        }
-    }
 }

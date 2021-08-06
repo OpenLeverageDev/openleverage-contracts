@@ -5,7 +5,9 @@ const LPErc20Delegate = artifacts.require('LPool');
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
-const MockUniswapFactory = artifacts.require("MockUniswapFactory");
+const MockUniswapV2Factory = artifacts.require("MockUniswapV2Factory");
+const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
+
 const UniswapV2Router = artifacts.require("IUniswapV2Router");
 const uniRouterV2Address_kovan = exports.uniRouterV2Address_kovan = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
 const uniFactoryV2Address_kovan = exports.uniFactoryV2Address_kovan = "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f";
@@ -13,6 +15,10 @@ const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const MockPriceOracle = artifacts.require("MockPriceOracle");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
+const MockUniswapV3Pair = artifacts.require("MockUniswapV3Pair");
+
+const MockDexAggregator = artifacts.require("MockDexAggregator");
+
 const Treasury = artifacts.require("Treasury");
 const Timelock = artifacts.require('Timelock');
 
@@ -20,27 +26,49 @@ const Referral = artifacts.require("Referral");
 const ReferralDelegator = artifacts.require("ReferralDelegator");
 
 const m = require('mocha-logger');
+const zeroAddr = "0x0000000000000000000000000000000000000000";
+exports.Uni2DexData = "0x00";
+exports.Uni3DexData = "0x01000bb8" + "0000000000000000000000000000000000000000000000000000000000000000";
 
 exports.createLPoolImpl = async () => {
   return await LPErc20Delegate.new();
 }
 
-exports.createController = async (admin, oleToken) => {
+exports.createController = async (admin, oleToken, wChainToken) => {
   let instance = await Controller.new();
-  let controller = await ControllerDelegator.new(oleToken ? oleToken : "0x0000000000000000000000000000000000000000",
-    "0x0000000000000000000000000000000000000000",
-    "0x0000000000000000000000000000000000000000",
-    "0x0000000000000000000000000000000000000000",
+  let controller = await ControllerDelegator.new(oleToken ? oleToken : zeroAddr,
+    wChainToken ? wChainToken : zeroAddr,
+    zeroAddr,
+    zeroAddr,
     admin,
     instance.address);
   return controller;
 }
 
 
-exports.createUniswapFactory = async () => {
-  return await MockUniswapFactory.new();
+exports.createUniswapV2Factory = async () => {
+  return await MockUniswapV2Factory.new();
 }
+exports.createUniswapV3Factory = async () => {
+  return await MockUniswapV3Factory.new();
+}
+exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
+  await factory.createPool(tokenA.address, tokenB.address, 3000);
+  let gotPair = await MockUniswapV3Pair.at(await factory.getPool(tokenA.address, tokenB.address, 3000));
+  let token0 = await TestToken.at(await gotPair.token0());
+  let token1 = await TestToken.at(await gotPair.token1());
 
+  await gotPair.initialize(toBN(1).mul(toBN(2)).pow(toBN(96)));
+  await gotPair.increaseObservationCardinalityNext(2);
+
+  await gotPair.mint(admin, toBN(-69060), 69060, toWei(100000), '0x');
+  await token0.mint(gotPair.address, toWei(100000));
+  await token1.mint(gotPair.address, toWei(100000));
+  return gotPair;
+}
+exports.createDexAgg = async (_uniV2Factory, _uniV3Factory) => {
+  return await MockDexAggregator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr);
+}
 exports.createToken = async (tokenSymbol) => {
   return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
 }
@@ -53,21 +81,20 @@ exports.createPair = async (tokenA, tokenB) => {
 exports.tokenAt = async (address) => {
   return await TestToken.at(address);
 }
-exports.createOpenLev = async (controller, admin, uniswap, terrasury, priceOracle, referral) => {
+exports.createOpenLev = async (controller, admin, dexAgg, terrasury, depositTokens) => {
   let delegate = await OpenLevDelegate.new();
   return await OpenLevDelegator.new(
     controller,
-    uniswap ? uniswap : "0x0000000000000000000000000000000000000000",
-    terrasury ? terrasury : "0x0000000000000000000000000000000000000000",
-    priceOracle ? priceOracle : "0x0000000000000000000000000000000000000000",
-    referral ? referral : "0x0000000000000000000000000000000000000000",
+    dexAgg ? dexAgg : zeroAddr,
+    terrasury ? terrasury : zeroAddr,
+    depositTokens ? depositTokens : [],
     admin,
     delegate.address);
 }
 
 exports.createReferral = async (openLev, admin) => {
   let delegate = await Referral.new();
-  let referral = await ReferralDelegator.new(openLev ? openLev : "0x0000000000000000000000000000000000000000", admin, delegate.address);
+  let referral = await ReferralDelegator.new(openLev ? openLev : zeroAddr, admin, delegate.address);
   return referral;
 }
 
@@ -109,7 +136,7 @@ exports.createUniPair_kovan = async (token0, token1, account, amount) => {
   return router;
 }
 
-exports.toWei = (amount) => {
+let toWei = exports.toWei = (amount) => {
   return toBN(1e18).mul(toBN(amount));
 }
 exports.toETH = (amount) => {
@@ -211,7 +238,7 @@ exports.initEnv = async (admin, dev) => {
   let oleToken = await this.createToken("Lvr");
   let usdt = await this.createToken("USDT");
   let controller = await this.createController(admin, oleToken.address);
-  let uniswapFactory = await this.createUniswapFactory();
+  let uniswapFactory = await this.createUniswapV2Factory();
   let pair = await this.createPair(tokenA.address, tokenB.address);
   await uniswapFactory.addPair(pair.address);
   let priceOracle = await this.createPriceOracle();

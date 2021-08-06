@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./Adminable.sol";
-import "./DexCaller.sol";
 import "./TreasuryInterface.sol";
 import "./DelegateInterface.sol";
 
-contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Adminable, DexCaller {
+contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Adminable {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
@@ -17,7 +16,7 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
     }
 
     function initialize(
-        IUniswapV2Factory _uniswapFactory,
+        DexAggregatorInterface _dexAggregator,
         address _oleToken,
         address _sharingToken,
         uint _devFundRatio,
@@ -31,7 +30,7 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
         sharingToken = IERC20(_sharingToken);
         devFundRatio = _devFundRatio;
         dev = _dev;
-        uniswapFactory = _uniswapFactory;
+        dexAggregator = _dexAggregator;
     }
 
 
@@ -43,7 +42,7 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
         sharingToken.transfer(dev, amount);
     }
 
-    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount) external override {
+    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount, bytes memory dexData) external override {
         if (fromToken == address(oleToken)) {
             require(oleToken.balanceOf(address(this)).sub(totalStaked) >= amount, 'Exceed available balance');
         }
@@ -55,7 +54,8 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
             require(sharingTokenAvailableAmount >= amount, 'Exceed available balance');
             newReward = amount;
         } else {
-            newReward = flashSell(address(sharingToken), fromToken, amount, minBuyAmount);
+            (IERC20(fromToken)).approve(address(dexAggregator), amount);
+            newReward = dexAggregator.sell(address(sharingToken), fromToken, amount, minBuyAmount, dexData);
         }
         uint newDevFund = newReward.mul(devFundRatio).div(100);
         uint feesShare = newReward.sub(newDevFund);
@@ -142,6 +142,11 @@ contract Treasury is DelegateInterface, TreasuryInterface, TreasuryStorage, Admi
         require(newRatio <= 100);
         devFundRatio = newRatio;
     }
+
+    function setDexAggregator(DexAggregatorInterface newDexAggregator) external override onlyAdmin {
+        dexAggregator = newDexAggregator;
+    }
+
 
     function setDev(address newDev) external override onlyAdmin {
         dev = newDev;

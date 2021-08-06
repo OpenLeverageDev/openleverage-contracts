@@ -7,6 +7,7 @@ const {
   printBlockNum,
   wait,
   assertPrint,
+  Uni2DexData,
   step,
   resetStep
 } = require("./utils/OpenLevUtil");
@@ -18,7 +19,7 @@ const TestToken = artifacts.require("MockERC20");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
 const timeMachine = require('ganache-time-traveler');
 
-contract("OpenLev", async accounts => {
+contract("Treasury", async accounts => {
 
   // components
   let treasury;
@@ -39,7 +40,7 @@ contract("OpenLev", async accounts => {
     let controller = await utils.createController(admin);
     m.log("Created Controller", last8(controller.address));
 
-    uniswapFactory = await utils.createUniswapFactory(admin);
+    uniswapFactory = await utils.createUniswapV2Factory(admin);
     m.log("Created UniswapFactory", last8(uniswapFactory.address));
 
     openLevErc20 = await TestToken.new('OpenLevERC20', 'OLE');
@@ -54,13 +55,13 @@ contract("OpenLev", async accounts => {
     await uniswapFactory.addPair(pair.address);
     await uniswapFactory.addPair(lvrUsdtPair.address);
     m.log("Added pair", last8(pair.address));
-
+    let dexAgg = await utils.createDexAgg(uniswapFactory.address);
     // Making sure the pair has been added correctly in mock
     let gotPair = await MockUniswapV2Pair.at(await uniswapFactory.getPair(usdt.address, dai.address));
     assert.equal(await pair.token0(), await gotPair.token0());
     assert.equal(await pair.token1(), await gotPair.token1());
     let treasuryImpl = await TreasuryImpl.new();
-    treasury = await Treasury.new(uniswapFactory.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
+    treasury = await Treasury.new(dexAgg.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
     m.log("Created Treasury", last8(treasury.address));
 
     await utils.mint(dai, treasury.address, 10000);
@@ -69,7 +70,7 @@ contract("OpenLev", async accounts => {
   });
 
   it("Convert current erc20 holdings to reward, withdrawn dev fund", async () => {
-    await treasury.convertToSharingToken(dai.address, toWei(1), 0);
+    await treasury.convertToSharingToken(dai.address, toWei(1), 0, Uni2DexData);
     m.log("devFund:", (await treasury.devFund()).toString());
     m.log("totalStaked:", (await treasury.totalStaked()).toString());
     m.log("lastUpdateTime:", (await treasury.lastUpdateTime()).toString());
@@ -92,10 +93,10 @@ contract("OpenLev", async accounts => {
     await openLevErc20.approve(treasury.address, toWei(10000));
     await treasury.stake(toWei(10000));
 
-    await treasury.convertToSharingToken(openLevErc20.address, toWei(10000), 0);
+    await treasury.convertToSharingToken(openLevErc20.address, toWei(10000), 0, Uni2DexData);
 
     try {
-      await treasury.convertToSharingToken(openLevErc20.address, toWei(1), 0);
+      await treasury.convertToSharingToken(openLevErc20.address, toWei(1), 0, Uni2DexData);
       assert.fail("should thrown Exceed available balance error");
     } catch (error) {
       assert.include(error.message, 'Exceed available balance', 'throws exception with Exceed available balance');
@@ -109,7 +110,7 @@ contract("OpenLev", async accounts => {
     await openLevErc20.approve(treasury.address, toWei(10000));
     await treasury.stake(toWei(10000));
 
-    await treasury.convertToSharingToken(dai.address, toWei(1000), 0);
+    await treasury.convertToSharingToken(dai.address, toWei(1000), 0, Uni2DexData);
 
     m.log("Treasury USDT balance:", await usdt.balanceOf(treasury.address));
 
@@ -134,7 +135,7 @@ contract("OpenLev", async accounts => {
     //add sharingToken Reward 2000
     await usdt.mint(treasury.address, toWei(2000));
     //sharing 1000
-    await treasury.convertToSharingToken(usdt.address, toWei(1000), 0);
+    await treasury.convertToSharingToken(usdt.address, toWei(1000), 0, Uni2DexData);
 
     assert.equal('953305446940074565791', (await treasury.totalToShared()).toString());
 
@@ -144,7 +145,7 @@ contract("OpenLev", async accounts => {
 
     //Exceed available balance
     try {
-      await treasury.convertToSharingToken(usdt.address, toWei(1001), 0);
+      await treasury.convertToSharingToken(usdt.address, toWei(1001), 0, Uni2DexData);
       assert.fail("should thrown Exceed available balance error");
     } catch (error) {
       assert.include(error.message, 'Exceed available balance', 'throws exception with Exceed available balance');
@@ -165,7 +166,7 @@ contract("OpenLev", async accounts => {
     assertPrint("Total staked:", toWei(800), await treasury.totalStaked());
 
     step("New reward 1");
-    await treasury.convertToSharingToken(dai.address, toWei(1), 0);
+    await treasury.convertToSharingToken(dai.address, toWei(1), 0, Uni2DexData);
     assertPrint("Dev Fund:", '498450304504640887', await treasury.devFund());
     assertPrint("Total to share:", '498450304504640887', await treasury.totalToShared());
     assertPrint("John earned:", '311531440315400500', await treasury.earned(john));
@@ -179,63 +180,63 @@ contract("OpenLev", async accounts => {
     assertPrint("Total staked:", toWei(1100), await treasury.totalStaked());
 
     step("New reward 1");
-    await treasury.convertToSharingToken(dai.address, toWei(1), 0);
-    assertPrint("Dev Fund:", '996900609009281774', await treasury.devFund());
-    assertPrint("John earned:", '538099760544782500', await treasury.earned(john));
-    assertPrint("Tom earned:", '458800848464498700', await treasury.earned(tom));
+    await treasury.convertToSharingToken(dai.address, toWei(1), 0, Uni2DexData);
+    assertPrint("Dev Fund:", '996801088357746309', await treasury.devFund());
+    assertPrint("John earned:", '538054523884993500', await treasury.earned(john));
+    assertPrint("Tom earned:", '458746564472751900', await treasury.earned(tom));
 
     // Block time insensitive
     step("Advancing block time ...");
     timeMachine.advanceTimeAndBlock(1000);
-    assertPrint("Dev Fund:", '996900609009281774', await treasury.devFund());
-    assertPrint("John earned:", '538099760544782500', await treasury.earned(john));
-    assertPrint("Tom earned:", '458800848464498700', await treasury.earned(tom));
+    assertPrint("Dev Fund:", '996801088357746309', await treasury.devFund());
+    assertPrint("John earned:", '538054523884993500', await treasury.earned(john));
+    assertPrint("Tom earned:", '458746564472751900', await treasury.earned(tom));
 
     step("John stack more, but earning should not change because no new reward");
     await openLevErc20.approve(treasury.address, toWei(1000), {from: john});
     await treasury.stake(toWei(1000), {from: john});
     assertPrint("Total staked:", toWei(2100), await treasury.totalStaked());
-    assertPrint("Dev Fund:", '996900609009281774', await treasury.devFund());
-    assertPrint("John earned:", '538099760544782500', await treasury.earned(john));
-    assertPrint("Tom earned:", '458800848464498700', await treasury.earned(tom));
+    assertPrint("Dev Fund:", '996801088357746309', await treasury.devFund());
+    assertPrint("John earned:", '538054523884993500', await treasury.earned(john));
+    assertPrint("Tom earned:", '458746564472751900', await treasury.earned(tom));
 
     step("New reward 200");
-    await treasury.convertToSharingToken(dai.address, toWei(200), 0);
-    assertPrint("Dev Fund:", '98747748698112562359', await treasury.devFund());
-    assertPrint("John earned:", '70360134109904267500', await treasury.earned(john));
-    assertPrint("Tom earned:", '28387614588208292700', await treasury.earned(tom));
+    await treasury.convertToSharingToken(dai.address, toWei(200), 0, Uni2DexData);
+    assertPrint("Dev Fund:", '98709001165110100435', await treasury.devFund());
+    assertPrint("John earned:", '70332483150136674000', await treasury.earned(john));
+    assertPrint("Tom earned:", '28376518014973424100', await treasury.earned(tom));
 
     step("John withdraw some stake, but earning should not change because no new reward");
     await treasury.withdraw(toWei(500), {from: john});
     assertPrint("Total staked:", toWei(1600), await treasury.totalStaked());
-    assertPrint("Dev Fund:", '98747748698112562359', await treasury.devFund());
-    assertPrint("John earned:", '70360134109904267500', await treasury.earned(john));
-    assertPrint("Tom earned:", '28387614588208292700', await treasury.earned(tom));
+    assertPrint("Dev Fund:", '98709001165110100435', await treasury.devFund());
+    assertPrint("John earned:", '70332483150136674000', await treasury.earned(john));
+    assertPrint("Tom earned:", '28376518014973424100', await treasury.earned(tom));
 
     step("New reward 100");
-    await treasury.convertToSharingToken(dai.address, toWei(100), 0);
-    assertPrint("Dev Fund:", '148105650417965627301', await treasury.devFund());
-    assertPrint("John earned:", '101208822684812432500', await treasury.earned(john));
-    assertPrint("Tom earned:", '46896827733153191700', await treasury.earned(tom));
+    await treasury.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
+    assertPrint("Dev Fund:", '146143765581064605321', await treasury.devFund());
+    assertPrint("John earned:", '99979210910108239000', await treasury.earned(john));
+    assertPrint("Tom earned:", '46164554670956363100', await treasury.earned(tom));
 
     step("John exit");
     await treasury.exit({from: john});
     assertPrint("John's OLE Balance:", '10000000000000000000000', await openLevErc20.balanceOf(john));
     assertPrint("Total staked:", toWei(600), await treasury.totalStaked());
-    assertPrint("Dev Fund:", '148105650417965627301', await treasury.devFund());
+    assertPrint("Dev Fund:", '146143765581064605321', await treasury.devFund());
     assertPrint("John earned:", '0', await treasury.earned(john));
-    assertPrint("John's USDT Balance:", '101208822684812432500', await usdt.balanceOf(john));
-    assertPrint("Tom earned:", '46896827733153191700', await treasury.earned(tom));
+    assertPrint("John's USDT Balance:", '99979210910108239000', await usdt.balanceOf(john));
+    assertPrint("Tom earned:", '46164554670956363100', await treasury.earned(tom));
 
     step("New reward 100");
-    await treasury.convertToSharingToken(dai.address, toWei(100), 0);
-    assertPrint("Dev Fund:", '197463552137818692243', await treasury.devFund());
+    await treasury.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
+    assertPrint("Dev Fund:", '192667840162293429344', await treasury.devFund());
     assertPrint("John earned:", '0', await treasury.earned(john));
-    assertPrint("Tom earned:", '96254729453006256300', await treasury.earned(tom));
+    assertPrint("Tom earned:", '92688629252185187100', await treasury.earned(tom));
 
     step("Tom exit, and more reward");
     await treasury.exit({from: tom});
-    await treasury.convertToSharingToken(dai.address, toWei(100), 0);
+    await treasury.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
     assertPrint("John earned:", '0', await treasury.earned(john));
     assertPrint("Tom earned:", '0', await treasury.earned(tom));
 
@@ -245,9 +246,9 @@ contract("OpenLev", async accounts => {
     assertPrint("John earned:", '0', await treasury.earned(john));
 
     step("New reward 100");
-    await treasury.convertToSharingToken(dai.address, toWei(100), 0);
-    assertPrint("Dev Fund:", '296179355577524822127', await treasury.devFund());
-    assertPrint("John earned:", '49357901719853064000', await treasury.earned(john));
+    await treasury.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
+    assertPrint("Dev Fund:", '283086897906231406373', await treasury.devFund());
+    assertPrint("John earned:", '44779683515401707000', await treasury.earned(john));
 
   })
 
@@ -256,7 +257,7 @@ contract("OpenLev", async accounts => {
   it("Admin setDevFundRatio test", async () => {
     let timeLock = await utils.createTimelock(admin);
     let treasuryImpl = await TreasuryImpl.new();
-    let treasury = await Treasury.new(usdt.address, usdt.address,accounts[0],
+    let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     await timeLock.executeTransaction(treasury.address, 0, 'setDevFundRatio(uint256)',
       web3.eth.abi.encodeParameters(['uint256'], [1]), 0)
@@ -273,7 +274,7 @@ contract("OpenLev", async accounts => {
     let newDev = accounts[7];
     let timeLock = await utils.createTimelock(admin);
     let treasuryImpl = await TreasuryImpl.new();
-    let treasury = await Treasury.new(usdt.address, usdt.address,accounts[0],
+    let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     await timeLock.executeTransaction(treasury.address, 0, 'setDev(address)',
       web3.eth.abi.encodeParameters(['address'], [newDev]), 0)
@@ -289,7 +290,7 @@ contract("OpenLev", async accounts => {
   it("Admin setImplementation test", async () => {
     let timeLock = await utils.createTimelock(admin);
     let treasuryImpl = await TreasuryImpl.new();
-    let treasury = await Treasury.new(usdt.address, usdt.address,accounts[0],
+    let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     let instance = await TreasuryImpl.new();
 

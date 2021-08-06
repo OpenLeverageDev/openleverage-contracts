@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 contract GovernorAlpha {
@@ -207,8 +207,8 @@ contract GovernorAlpha {
     }
 
     function cancel(uint proposalId) external {
-        ProposalState state = state(proposalId);
-        require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
+        ProposalState proposalState = state(proposalId);
+        require(proposalState != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
         require(msg.sender == guardian || oleToken.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
