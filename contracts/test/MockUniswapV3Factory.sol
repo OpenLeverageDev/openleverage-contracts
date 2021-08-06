@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: MIT
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.7.6;
+
 
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 

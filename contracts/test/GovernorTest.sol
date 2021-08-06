@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.7.6;
-
 pragma experimental ABIEncoderV2;
 
-contract GovernorAlpha {
+contract GovernorTest {
+
     // The name of this contract
-    string public constant name = "Open Leverage Governor Alpha";
+    string public constant name = "OpenLev Governor Alpha";
 
     // The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes() public view returns (uint) {return oleToken.totalSupply() / 25;} //  4% of OLE
+    function quorumVotes() public pure returns (uint) {return 400000e18;} // 400,000 = 4% of OpenLev
 
     // The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public view returns (uint) {return oleToken.totalSupply() / 100;} // 1% of OLE
+    function proposalThreshold() public pure returns (uint) {return 100000e18;} // 100,000 = 1% of OpenLev
 
     // The maximum number of actions that can be included in a proposal
     function proposalMaxOperations() public pure returns (uint) {return 10;} // 10 actions
@@ -20,13 +20,13 @@ contract GovernorAlpha {
     function votingDelay() public pure returns (uint) {return 1;} // 1 block
 
     // The duration of voting on a proposal, in blocks
-    function votingPeriod() public pure returns (uint) {return 17280;} // ~3 days in blocks (assuming 15s blocks)
+    function votingPeriod() public pure returns (uint) { return 5; } //  17280  ~3 days in blocks (assuming 15s blocks)
 
     // The address of the OpenLev Protocol Timelock
-    TimelockInterface public timelock;
+    TimelockInterfaceTest public timelock;
 
     // The address of the OpenLev governance token
-    OLETokenInterface public oleToken;
+    OpenLevTokenInterfaceTest public openLev;
 
     // The address of the Governor Guardian
     address public guardian;
@@ -34,6 +34,7 @@ contract GovernorAlpha {
     // The total number of proposals
     uint public proposalCount;
 
+    // Proposal
     struct Proposal {
         // Unique id for looking up a proposal
         uint id;
@@ -75,7 +76,7 @@ contract GovernorAlpha {
         bool executed;
 
         // Receipts of ballots for the entire set of voters
-        //mapping(address => Receipt) receipts;
+        // mapping(address => Receipt) receipts;
     }
 
     // Ballot receipt record for a voter
@@ -87,7 +88,7 @@ contract GovernorAlpha {
         bool support;
 
         // The number of votes the voter had, which were cast
-        uint votes;
+        uint96 votes;
     }
 
     // Possible states that a proposal may be in
@@ -132,14 +133,14 @@ contract GovernorAlpha {
     // An event emitted when a proposal has been executed in the Timelock
     event ProposalExecuted(uint id);
 
-    constructor(address timelock_, address oleToken_, address guardian_) {
-        timelock = TimelockInterface(timelock_);
-        oleToken = OLETokenInterface(oleToken_);
+    constructor(address timelock_, address openLev_, address guardian_) {
+        timelock = TimelockInterfaceTest(timelock_);
+        openLev = OpenLevTokenInterfaceTest(openLev_);
         guardian = guardian_;
     }
 
-    function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) external returns (uint) {
-        require(oleToken.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
+    function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) public returns (uint) {
+        require(openLev.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -155,8 +156,7 @@ contract GovernorAlpha {
         uint endBlock = add256(startBlock, votingPeriod());
 
         proposalCount++;
-
-        proposals[proposalCount] = Proposal({
+        Proposal memory newProposal = Proposal({
         id : proposalCount,
         proposer : msg.sender,
         eta : 0,
@@ -172,13 +172,15 @@ contract GovernorAlpha {
         executed : false
         });
 
-        latestProposalIds[msg.sender] = proposalCount;
+        proposals[newProposal.id] = newProposal;
 
-        emit ProposalCreated(proposalCount, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
-        return proposalCount;
+        latestProposalIds[newProposal.proposer] = newProposal.id;
+
+        emit ProposalCreated(newProposal.id, msg.sender, targets, values, signatures, calldatas, startBlock, endBlock, description);
+        return newProposal.id;
     }
 
-    function queue(uint proposalId) external returns (bool) {
+    function queue(uint proposalId) public {
         require(state(proposalId) == ProposalState.Succeeded, "GovernorAlpha::queue: proposal can only be queued if it is succeeded");
         Proposal storage proposal = proposals[proposalId];
         uint eta = add256(block.timestamp, timelock.delay());
@@ -188,7 +190,6 @@ contract GovernorAlpha {
 
         proposal.eta = eta;
         emit ProposalQueued(proposalId, eta);
-        return true;
     }
 
     function _queueOrRevert(address target, uint value, string memory signature, bytes memory data, uint eta) internal {
@@ -196,7 +197,7 @@ contract GovernorAlpha {
         timelock.queueTransaction(target, value, signature, data, eta);
     }
 
-    function execute(uint proposalId) external payable returns (bool){
+    function execute(uint proposalId) public payable {
         require(state(proposalId) == ProposalState.Queued, "GovernorAlpha::execute: proposal can only be executed if it is queued");
         Proposal storage proposal = proposals[proposalId];
         proposal.executed = true;
@@ -204,15 +205,14 @@ contract GovernorAlpha {
             timelock.executeTransaction{value : proposal.values[i]}(proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i], proposal.eta);
         }
         emit ProposalExecuted(proposalId);
-        return true;
     }
 
-    function cancel(uint proposalId) external {
-        ProposalState proposalState = state(proposalId);
-        require(proposalState != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
+    function cancel(uint proposalId) public {
+        ProposalState state = state(proposalId);
+        require(state != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
-        require(msg.sender == guardian || oleToken.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
+        require(msg.sender == guardian || openLev.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -254,11 +254,11 @@ contract GovernorAlpha {
         }
     }
 
-    function castVote(uint proposalId, bool support) external {
+    function castVote(uint proposalId, bool support) public {
         return _castVote(msg.sender, proposalId, support);
     }
 
-    function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) external {
+    function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) public {
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
         bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -268,14 +268,13 @@ contract GovernorAlpha {
     }
 
     function _castVote(address voter, uint proposalId, bool support) internal {
-
         require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
 
         Proposal storage proposal = proposals[proposalId];
 
         Receipt storage receipt = receipts[proposalId][voter];
-        require(!receipt.hasVoted, "GovernorAlpha::_castVote: voter already voted");
-        uint votes = oleToken.getPriorVotes(voter, proposal.startBlock);
+        require(receipt.hasVoted == false, "GovernorAlpha::_castVote: voter already voted");
+        uint96 votes = openLev.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {
             proposal.forVotes = add256(proposal.forVotes, votes);
@@ -290,12 +289,12 @@ contract GovernorAlpha {
         emit VoteCast(voter, proposalId, support, votes);
     }
 
-    function __acceptAdmin() external {
+    function __acceptAdmin() public {
         require(msg.sender == guardian, "GovernorAlpha::__acceptAdmin: sender must be gov guardian");
         timelock.acceptAdmin();
     }
 
-    function __abdicate() external {
+    function __abdicate() public {
         require(msg.sender == guardian, "GovernorAlpha::__abdicate: sender must be gov guardian");
         guardian = address(0);
     }
@@ -319,7 +318,7 @@ contract GovernorAlpha {
     }
 }
 
-interface TimelockInterface {
+interface TimelockInterfaceTest {
     function delay() external view returns (uint);
 
     function GRACE_PERIOD() external view returns (uint);
@@ -335,8 +334,6 @@ interface TimelockInterface {
     function executeTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external payable returns (bytes memory);
 }
 
-interface OLETokenInterface {
-    function getPriorVotes(address account, uint blockNumber) external view returns (uint);
-
-    function totalSupply() external view returns (uint);
+interface OpenLevTokenInterfaceTest {
+    function getPriorVotes(address account, uint blockNumber) external view returns (uint96);
 }
