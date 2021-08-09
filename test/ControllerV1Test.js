@@ -160,7 +160,7 @@ contract("ControllerV1", async accounts => {
     let txLiq = await openLev.liquidate(trader, 0, 0, Uni3DexData, {
       from: liquidator,
       gasPrice: 10000000000,
-      gas: 700000
+      gas: 800000
     });
 
     m.log("txLiq gasUsed:", txLiq.receipt.gasUsed);

@@ -39,6 +39,7 @@ library Types {
         uint currentPrice;
         uint8 priceDecimals;
         uint borrowValue;
+        uint8 dex;
     }
 
     struct CloseTradeVars {// A variables holder for close trade info
@@ -59,7 +60,8 @@ library Types {
         uint deposited;             // Balance of deposit token
         uint held;                  // Balance of held position
         bool depositToken;          // Indicate if the deposit token is token 0 or token 1
-        uint lastBlockNum;          // Block number when the trade was touched last time, to prevent more than one operation within same block
+        uint128 lastBlockNum;       // Block number when the trade was touched last time, to prevent more than one operation within same block
+        uint8 dex;                  // dex
     }
 
     struct LiquidateVars {// A variable holder for liquidation process
@@ -76,6 +78,7 @@ library Types {
         uint maxBuyAmount;
         uint sellAmount;
         uint outstandingAmount;
+        uint8 dex;
     }
 
 }

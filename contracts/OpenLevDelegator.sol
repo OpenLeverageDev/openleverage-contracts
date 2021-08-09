@@ -80,7 +80,10 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
     }
 
 
-
+    function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override view returns (bool){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("shouldUpdatePrice(uint16,bool,bytes)", marketId, isOpen, dexData));
+        return abi.decode(data, (bool));
+    }
 
     /*** Admin Functions ***/
 

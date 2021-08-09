@@ -38,7 +38,7 @@ contract LiquidateHelper {
             }
             uint borrowed = vars.sellPool.borrowBalanceCurrent(owners[i]);
             //Previous block price
-            (uint previousTokenPrice, uint8 previousTokenDecimals) = dexAggregator.getAvgPrice(address(vars.buyToken), address(vars.sellToken), 1, dexData);
+            (uint previousTokenPrice, uint8 previousTokenDecimals,) = dexAggregator.getAvgPrice(address(vars.buyToken), address(vars.sellToken), 1, dexData);
             //current block price
             (uint currentTokenPrice, ) = dexAggregator.getPrice(address(vars.buyToken), address(vars.sellToken),  dexData);
             //isopen=true get smaller price, else get bigger price
