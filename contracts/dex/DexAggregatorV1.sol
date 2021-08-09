@@ -68,13 +68,37 @@ contract DexAggregatorV1 is DexAggregatorInterface, UniV2Dex, UniV3Dex {
         }
     }
 
-    function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint256 price, uint8 decimals){
+    function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint256 price, uint8 decimals, uint256 timestamp){
         decimals = priceDecimals;
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            (price, timestamp) = uniV2GetAvgPrice(desToken, quoteToken);
+        }
         if (data.toDex() == DexData.DEX_UNIV3) {
-            price = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
+            (price, timestamp) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');
         }
     }
+
+    function getCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint currentPrice, uint256 avgPrice, uint8 decimals, uint256 timestamp){
+        decimals = priceDecimals;
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            (currentPrice, avgPrice, timestamp) = uniV2GetCurrentPriceAndAvgPrice(desToken, quoteToken, decimals);
+        }
+        if (data.toDex() == DexData.DEX_UNIV3) {
+            (currentPrice, avgPrice, timestamp) = uniV3GetCurrentPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
+        }
+        else {
+            require(false, 'Unsupported dex');
+        }
+    }
+
+
+    function updatePriceOracle(address desToken, address quoteToken, bytes memory data) external override {
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            uniV2UpdatePriceOracle(desToken, quoteToken, priceDecimals);
+        }
+    }
+
 }

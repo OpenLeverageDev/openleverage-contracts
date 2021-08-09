@@ -24,7 +24,7 @@ abstract contract OpenLevStorage {
     // owner => marketId => long0(true)/long1(false) => Trades
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
-    mapping(address=>bool) public allowedDepositTokens;
+    mapping(address => bool) public allowedDepositTokens;
 
     address public treasury;
 
@@ -66,7 +66,8 @@ abstract contract OpenLevStorage {
         uint held,
         uint fees,
         uint atPrice,
-        uint8 priceDecimals
+        uint8 priceDecimals,
+        uint8 dex
     );
 
     event TradeClosed(
@@ -78,7 +79,8 @@ abstract contract OpenLevStorage {
         uint depositReturn,
         uint fees,
         uint atPrice,
-        uint8 priceDecimals
+        uint8 priceDecimals,
+        uint8 dex
     );
 
     event Liquidation(
@@ -91,7 +93,8 @@ abstract contract OpenLevStorage {
         uint depositDecrease,
         uint depositReturn,
         uint atPrice,
-        uint8 priceDecimals
+        uint8 priceDecimals,
+        uint8 dex
     );
 }
 
@@ -116,6 +119,7 @@ interface OpenLevInterface {
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint32 marketLimit);
 
+    function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external view returns (bool);
     /*** Admin Functions ***/
 
     function setDefaultMarginLimit(uint32 newRatio) external;
@@ -124,7 +128,7 @@ interface OpenLevInterface {
 
     function setDefaultFeesRate(uint newRate) external;
 
-    function setMarketFeesRate(uint16 marketId,uint newRate) external;
+    function setMarketFeesRate(uint16 marketId, uint newRate) external;
 
     function setInsuranceRatio(uint8 newRatio) external;
 
@@ -134,7 +138,7 @@ interface OpenLevInterface {
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
-    function setAllowedDepositTokens(address[] memory tokens,bool allowed) external;
+    function setAllowedDepositTokens(address[] memory tokens, bool allowed) external;
 
 
 }

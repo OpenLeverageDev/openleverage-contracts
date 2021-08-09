@@ -112,14 +112,20 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         return getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
     }
     //get maximum liquidity in previous block as a reference price
-    function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256){
+    function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 price, uint256 timestamp){
         // Shh - currently unused
         fee;
         require(secondsAgo > 0, "SecondsAgo must >0");
         (IUniswapV3Pool maxPool,,, int24 avgTick) = getMaxLiquidityPoolInfo(desToken, quoteToken, secondsAgo);
         require(address(maxPool) != address(0), "Pool Not found");
         uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(avgTick);
-        return getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
+        price = getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
+        timestamp = block.timestamp.sub(secondsAgo);
+    }
+
+    function uniV3GetCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
+        currentPrice=uniV3GetPrice(desToken,quoteToken,decimals,fee);
+        (avgPrice,timestamp)=uniV3GetAvgPrice(desToken,quoteToken,secondsAgo,decimals,fee);
     }
 
     function getPriceBySqrtPriceX96(address desToken, address quoteToken, uint160 sqrtPriceX96, uint8 decimals) internal pure returns (uint256){
