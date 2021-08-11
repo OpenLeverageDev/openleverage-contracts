@@ -6,13 +6,21 @@ pragma solidity 0.7.6;
 abstract contract Adminable {
     address payable public admin;
     address payable public pendingAdmin;
+    address payable public developer;
 
     event NewPendingAdmin(address oldPendingAdmin, address newPendingAdmin);
 
     event NewAdmin(address oldAdmin, address newAdmin);
+    constructor () {
+        developer = msg.sender;
+    }
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "caller must be admin");
+        _;
+    }
+    modifier onlyAdminOrDeveloper() {
+        require(msg.sender == admin || msg.sender == developer, "caller must be admin or developer");
         _;
     }
 

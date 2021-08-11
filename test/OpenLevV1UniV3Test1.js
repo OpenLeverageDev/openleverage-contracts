@@ -295,7 +295,7 @@ contract("OpenLev UniV3", async accounts => {
     assertPrint("Deposit Return", '0', tx_liquidate.logs[0].args.depositReturn);
 
     assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
-    checkAmount("Borrows is not zero", 687189666910711719047, await pool1.borrowBalanceCurrent(trader), 18);
+    checkAmount("Borrows is zero", 0, await pool1.borrowBalanceCurrent(trader), 18);
     checkAmount("Trader Despoit Token Balance will not back", 9000000000000000000000, await token0.balanceOf(trader), 18);
     checkAmount("Trader Borrows Token Balance is Zero", 0, await token1.balanceOf(trader), 18);
   })
@@ -326,6 +326,7 @@ contract("OpenLev UniV3", async accounts => {
     m.log("toBorrow from Pool 1: \t", borrow);
 
     let tx = await openLev.marginTrade(0, true, false, deposit, borrow, 0, Uni3DexData, {from: trader});
+    m.log("marginTrade tx: \t", JSON.stringify(tx));
 
     // Check events
     let fees = tx.logs[0].args.fees;
@@ -338,17 +339,17 @@ contract("OpenLev UniV3", async accounts => {
     checkAmount("OpenLev Balance", 886675826237735294796, await token1.balanceOf(openLev.address), 18);
 
     // Market price change, then check margin ratio
-    await gotPair.setPrice(token1.address, token0.address, 2);
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 1, Uni3DexData, {from: saver});
     m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
-    assert.equal(marginRatio_1.current.toString(), 7733);
+    assert.equal(marginRatio_1.current.toString(), 8052);
 
     // Close trade
     let tx_close = await openLev.closeTrade(0, 1, "821147572990716389330", 0, Uni3DexData, {from: trader});
+    m.log("closeTrade tx: \t", JSON.stringify(tx_close));
 
     // Check contract held balance
     checkAmount("OpenLev Balance", 891000000000000000, await token0.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 21783743721245254850549, await token0.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9961110478590371508518, await token0.balanceOf(trader), 18);
     checkAmount("Treasury Balance", 1809000000000000000, await token0.balanceOf(treasury.address), 18);
     checkAmount("Treasury Balance", 1650506621711339942, await token1.balanceOf(treasury.address), 18);
     await printBlockNum();
@@ -449,7 +450,7 @@ contract("OpenLev UniV3", async accounts => {
   it("Admin setAllowedDepositTokens test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
     await timeLock.executeTransaction(openLev.address, 0, 'setAllowedDepositTokens(address[],bool)',
-      web3.eth.abi.encodeParameters(['address[]', 'bool'], [[accounts[1]], true]),0)
+      web3.eth.abi.encodeParameters(['address[]', 'bool'], [[accounts[1]], true]), 0)
     assert.equal(true, await openLev.allowedDepositTokens(accounts[1]));
     try {
       await openLev.setAllowedDepositTokens([accounts[1]], true);
@@ -458,7 +459,18 @@ contract("OpenLev UniV3", async accounts => {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
     }
   })
-
+  it("Admin setPriceDiffientRatio test", async () => {
+    let {timeLock, openLev} = await instanceSimpleOpenLev();
+    await timeLock.executeTransaction(openLev.address, 0, 'setPriceDiffientRatio(uint16)',
+      web3.eth.abi.encodeParameters(['uint16'], [99]), 0)
+    assert.equal(99, await openLev.priceDiffientRatio());
+    try {
+      await openLev.setPriceDiffientRatio(40);
+      assert.fail("should thrown caller must be admin error");
+    } catch (error) {
+      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+    }
+  })
   it("Admin moveInsurance test", async () => {
     let pairId = 0;
     await printBlockNum();

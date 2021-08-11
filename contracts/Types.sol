@@ -19,6 +19,14 @@ library Types {
 
     }
 
+    struct Trade {// Trade storage
+        uint deposited;             // Balance of deposit token
+        uint held;                  // Balance of held position
+        bool depositToken;          // Indicate if the deposit token is token 0 or token 1
+        uint128 lastBlockNum;       // Block number when the trade was touched last time, to prevent more than one operation within same block
+        uint8 dex;                  // dex
+    }
+
     struct MarketVars {// A variables holder for market info
         LPoolInterface buyPool;     // Lending pool address of the token to buy. It's a calculated field on open or close trade.
         LPoolInterface sellPool;    // Lending pool address of the token to sell. It's a calculated field on open or close trade.
@@ -39,7 +47,6 @@ library Types {
         uint currentPrice;
         uint8 priceDecimals;
         uint borrowValue;
-        uint8 dex;
     }
 
     struct CloseTradeVars {// A variables holder for close trade info
@@ -56,13 +63,6 @@ library Types {
         uint8 priceDecimals;        // Settle price decimal at close
     }
 
-    struct Trade {// Trade storage
-        uint deposited;             // Balance of deposit token
-        uint held;                  // Balance of held position
-        bool depositToken;          // Indicate if the deposit token is token 0 or token 1
-        uint128 lastBlockNum;       // Block number when the trade was touched last time, to prevent more than one operation within same block
-        uint8 dex;                  // dex
-    }
 
     struct LiquidateVars {// A variable holder for liquidation process
         uint16 marketId;

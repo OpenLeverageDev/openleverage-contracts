@@ -195,6 +195,8 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function repayBorrowBehalf(address borrower, uint repayAmount) external virtual;
 
+    function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external virtual;
+
     function availableForBorrow() external view virtual returns (uint);
 
     function getAccountSnapshot(address account) external virtual view returns (uint, uint, uint);

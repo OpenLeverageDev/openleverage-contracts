@@ -59,7 +59,7 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
   let token1 = await TestToken.at(await gotPair.token1());
 
   await gotPair.initialize(toBN(1).mul(toBN(2)).pow(toBN(96)));
-  await gotPair.increaseObservationCardinalityNext(2);
+  await gotPair.increaseObservationCardinalityNext(3);
 
   await gotPair.mint(admin, toBN(-69060), 69060, toWei(100000), '0x');
   await token0.mint(gotPair.address, toWei(100000));
@@ -75,8 +75,10 @@ exports.createToken = async (tokenSymbol) => {
 exports.createPriceOracle = async () => {
   return await MockPriceOracle.new();
 }
-exports.createPair = async (tokenA, tokenB) => {
-  return await MockUniswapV2Pair.new(tokenA, tokenB, 10 * 1e18 + "", 10 * 1e18 + "");
+exports.createUniswapV2Pool = async (factory, tokenA, tokenB) => {
+  let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address,toWei(100000), toWei(100000));
+  await factory.addPair(pair.address);
+  return pair;
 }
 exports.tokenAt = async (address) => {
   return await TestToken.at(address);

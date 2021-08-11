@@ -37,8 +37,6 @@ contract ControllerStorage {
         uint supplyBorrowBalance;
     }
 
-    uint64 public constant LPOOL_DISTRIBUTION_MIN_DURATION = 30 days;
-
     ERC20 public oleToken;
 
     address public wChainToken;
@@ -88,7 +86,7 @@ interface ControllerInterface {
 
     function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external;
 
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount) external;
+    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount, bool isEnd) external;
 
     function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external;
 

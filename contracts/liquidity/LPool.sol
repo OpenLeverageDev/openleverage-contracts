@@ -8,7 +8,9 @@ import "../Adminable.sol";
 import "../lib/CarefulMath.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 import "../DelegateInterface.sol";
+import "../ControllerInterface.sol";
 
 /**
  * @title OpenLeverage's LToken Contract
@@ -86,7 +88,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         /* Do not allow self-transfers */
         require(src != dst, "src = dst");
         /* Fail if transfer not allowed */
-        (LPoolControllerInterface(controller)).transferAllowed(address(this), src, dst);
+        (ControllerInterface(controller)).transferAllowed(address(this), src, dst);
 
         /* Get the allowance, infinite for the account owner */
         uint startingAllowance = 0;
@@ -240,8 +242,14 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
     function repayBorrowBehalf(address borrower, uint repayAmount) external override nonReentrant {
         accrueInterest();
         // repayBorrowFresh emits repay-borrow-specific logs on errors, so we don't need to
-        repayBorrowFresh(msg.sender, borrower, repayAmount);
+        repayBorrowFresh(msg.sender, borrower, repayAmount, false);
     }
+
+    function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external override nonReentrant {
+        accrueInterest();
+        repayBorrowFresh(msg.sender, borrower, repayAmount, true);
+    }
+
 
 
     /*** Safe Token ***/
@@ -671,7 +679,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      */
     function mintFresh(address minter, uint mintAmount) internal sameBlock returns (uint) {
         /* Fail if mint not allowed */
-        (LPoolControllerInterface(controller)).mintAllowed(address(this), minter, mintAmount);
+        (ControllerInterface(controller)).mintAllowed(address(this), minter, mintAmount);
 
         MintLocalVars memory vars;
 
@@ -770,7 +778,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         }
 
         /* Fail if redeem not allowed */
-        (LPoolControllerInterface(controller)).redeemAllowed(address(this), redeemer, vars.redeemTokens);
+        (ControllerInterface(controller)).redeemAllowed(address(this), redeemer, vars.redeemTokens);
 
         /*
          * We calculate the new total supply and redeemer balance, checking for underflow:
@@ -815,7 +823,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
       */
     function borrowFresh(address payable borrower, address payable payee, uint borrowAmount) internal sameBlock {
         /* Fail if borrow not allowed */
-        (LPoolControllerInterface(controller)).borrowAllowed(address(this), borrower, payee, borrowAmount);
+        (ControllerInterface(controller)).borrowAllowed(address(this), borrower, payee, borrowAmount);
 
         /* Fail gracefully if protocol has insufficient underlying cash */
         require(getCashPrior() >= borrowAmount, 'cash<borrow');
@@ -871,9 +879,9 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @param borrower the account with the debt being payed off
      * @param repayAmount the amount of undelrying tokens being returned
      */
-    function repayBorrowFresh(address payer, address borrower, uint repayAmount) internal sameBlock returns (uint) {
+    function repayBorrowFresh(address payer, address borrower, uint repayAmount, bool isEnd) internal sameBlock returns (uint) {
         /* Fail if repayBorrow not allowed */
-        (LPoolControllerInterface(controller)).repayBorrowAllowed(address(this), payer, borrower, repayAmount);
+        (ControllerInterface(controller)).repayBorrowAllowed(address(this), payer, borrower, repayAmount, isEnd);
 
         RepayBorrowLocalVars memory vars;
 
@@ -900,6 +908,9 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
          */
         vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount);
 
+        if (isEnd) {
+            vars.actualRepayAmount = vars.accountBorrows;
+        }
         /*
          * We calculate the new borrower and total borrow balances, failing on underflow:
          *  accountBorrowsNew = accountBorrows - actualRepayAmount
@@ -984,8 +995,6 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         emit ReservesReduced(to, reduceAmount, totalReservesNew);
     }
 
-
-
     modifier sameBlock() {
         require(accrualBlockNumber == getBlockNumber(), 'not same block');
         _;
@@ -993,15 +1002,3 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
 
 }
 
-interface LPoolControllerInterface {
-
-    function mintAllowed(address lpool, address minter, uint mintAmount) external;
-
-    function transferAllowed(address lpool, address from, address to) external;
-
-    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external;
-
-    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external;
-
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount) external;
-}

@@ -99,8 +99,9 @@ contract LPoolDelegator is DelegatorInterface, LPoolInterface, Adminable {
     function repayBorrowBehalf(address borrower, uint repayAmount) external override {
         delegateToImplementation(abi.encodeWithSignature("repayBorrowBehalf(address,uint256)", borrower, repayAmount));
     }
-
-
+    function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external override{
+        delegateToImplementation(abi.encodeWithSignature("repayBorrowEndByOpenLev(address,uint256)", borrower, repayAmount));
+    }
     /**
      * Transfer `amount` tokens from `msg.sender` to `dst`
      * @param dst The address of the destination account

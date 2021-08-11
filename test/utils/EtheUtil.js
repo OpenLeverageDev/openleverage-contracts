@@ -152,7 +152,9 @@ async function advanceMultipleBlocks(total) {
 async function advanceBlockAndSetTime(newTime) {
   await timeMachine.advanceBlockAndSetTime(newTime);
 }
-
+async function advanceTime(newTime) {
+  await timeMachine.advanceTime(newTime);
+}
 module.exports = {
   fromWei,
   address,
@@ -167,7 +169,7 @@ module.exports = {
   mergeInterface,
   unlockedAccounts,
   unlockedAccount,
-
+  advanceTime,
   advanceMultipleBlocks,
   advanceBlockAndSetTime,
   advanceBlocks,

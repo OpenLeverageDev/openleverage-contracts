@@ -48,6 +48,7 @@ abstract contract OpenLevStorage {
 
     event ChangeAllowedDepositTokens(address[] token, bool allowed);
 
+    event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
 
     // 0.3%
     uint public defaultFeesRate = 30; // 0.003
@@ -55,6 +56,9 @@ abstract contract OpenLevStorage {
     uint8 public insuranceRatio = 33; // 33%
 
     uint32 public defaultMarginLimit = 3000; // 30%
+
+    uint16 public priceDiffientRatio = 10; //10=>10%
+
 
     event MarginTrade(
         address trader,
@@ -117,7 +121,7 @@ interface OpenLevInterface {
 
     function liquidate(address owner, uint16 marketId, bool longToken, bytes memory dexData) external;
 
-    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint32 marketLimit);
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint avg, uint32 limit);
 
     function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external view returns (bool);
     /*** Admin Functions ***/
@@ -139,6 +143,8 @@ interface OpenLevInterface {
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
     function setAllowedDepositTokens(address[] memory tokens, bool allowed) external;
+
+    function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external;
 
 
 }

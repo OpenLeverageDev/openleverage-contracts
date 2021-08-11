@@ -32,53 +32,45 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         openLev = _openlev;
     }
     /*** Policy Hooks ***/
-    function mintAllowed(address lpool, address minter, uint mintAmount) external override {
+    function mintAllowed(address lpool, address minter, uint mintAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) {
         // Shh - currently unused
         mintAmount;
-        require(msg.sender == lpool, "Incorrect sender");
-        require(!lpoolUnAlloweds[lpool], "mint paused");
         updateReward(LPoolInterface(lpool), minter, false);
     }
 
-    function transferAllowed(address lpool, address from, address to) external override {
-        require(msg.sender == lpool, "Incorrect sender");
-        require(!lpoolUnAlloweds[lpool], "transfer paused");
+    function transferAllowed(address lpool, address from, address to) external override onlyLPoolSender(lpool) {
         updateReward(LPoolInterface(lpool), from, false);
         updateReward(LPoolInterface(lpool), to, false);
     }
 
-    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override {
+    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override onlyLPoolSender(lpool) {
         // Shh - currently unused
         redeemTokens;
-        require(msg.sender == lpool, "Incorrect sender");
         if (updateReward(LPoolInterface(lpool), redeemer, false)) {
             getRewardInternal(LPoolInterface(lpool), redeemer, false);
         }
     }
 
-    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override {
-        require(msg.sender == lpool, "Incorrect sender");
-        require(!lpoolUnAlloweds[lpool], "borrow paused");
+    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyOpenLevOperator(payee) {
         require(LPoolInterface(lpool).availableForBorrow() >= borrowAmount, "borrow out of range");
-        require(openLev == payee || openLev == address(0), 'payee not openLev');
-
         updateReward(LPoolInterface(lpool), borrower, true);
     }
 
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount) external override {
+    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount, bool isEnd) external override onlyLPoolSender(lpool) {
         // Shh - currently unused
         payer;
         repayAmount;
-        require(msg.sender == lpool, "Incorrect sender");
+        if (isEnd) {
+            require(openLev == payer || openLev == address(0), "Operator not openLev");
+        }
         if (updateReward(LPoolInterface(lpool), borrower, true)) {
             getRewardInternal(LPoolInterface(lpool), borrower, true);
         }
     }
 
-    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override {
+    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         liquidateAmount;
-        require(openLev == msg.sender || openLev == address(0), 'liquidate sender not openLev');
         // market no distribution
         if (marketLiqDistribution[marketId] == false) {
             return;
@@ -110,37 +102,13 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         marketId;
         require(tradeAllowed, 'Trade is UnAllowed!');
     }
-    /*** Admin Functions ***/
-
-    function setLPoolImplementation(address _lpoolImplementation) external override onlyAdmin {
-        lpoolImplementation = _lpoolImplementation;
-    }
-
-    function setOpenLev(address _openlev) external override onlyAdmin {
-        openLev = _openlev;
-    }
-
-    function setInterestParam(uint256 _baseRatePerBlock, uint256 _multiplierPerBlock, uint256 _jumpMultiplierPerBlock, uint256 _kink) external override onlyAdmin {
-        baseRatePerBlock = _baseRatePerBlock;
-        multiplierPerBlock = _multiplierPerBlock;
-        jumpMultiplierPerBlock = _jumpMultiplierPerBlock;
-        kink = _kink;
-    }
-
-    function setLPoolUnAllowed(address lpool, bool unAllowed) external override onlyAdmin {
-        lpoolUnAlloweds[lpool] = unAllowed;
-    }
-
-    function setMarginTradeAllowed(bool isAllowed) external override onlyAdmin {
-        tradeAllowed = isAllowed;
-    }
 
 
     function createLPoolPair(address token0, address token1, uint32 marginRatio) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
-        string memory tokenName = "OpenLeverage LP";
-        string memory tokenSymbol = "OLE-LP";
+        string memory tokenName = "OpenLeverage LToken";
+        string memory tokenSymbol = "LToken";
         LPoolDelegator pool0 = new LPoolDelegator();
         pool0.initialize(token0, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
             tokenName, tokenSymbol, 18, admin, lpoolImplementation);
@@ -155,12 +123,9 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external override onlyAdmin {
         uint newLiquidatorBalance = oleTokenDistribution.liquidatorBalance.add(moreLiquidatorBalance);
-
         uint newSupplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.add(moreSupplyBorrowBalance);
-
         uint totalAll = newLiquidatorBalance.add(newSupplyBorrowBalance);
         require(oleToken.balanceOf(address(this)) >= totalAll, 'not enough balance');
-
         oleTokenDistribution.liquidatorBalance = newLiquidatorBalance;
         oleTokenDistribution.liquidatorMaxPer = liquidatorMaxPer;
         oleTokenDistribution.liquidatorOLERatio = liquidatorOLERatio;
@@ -171,12 +136,13 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override onlyAdmin {
         require(supplyAmount > 0 || borrowAmount > 0, 'amount is less than 0');
         require(startTime > block.timestamp, 'startTime < blockTime');
-        require(duration >= LPOOL_DISTRIBUTION_MIN_DURATION, 'duration less than min');
         if (supplyAmount > 0) {
-            lpoolDistributions[LPoolInterface(pool)][false] = calcDistribution(supplyAmount, startTime, duration);
+            require(block.timestamp > lpoolDistributions[LPoolInterface(pool)][false].endTime, 'Error on distributing');
+            lpoolDistributions[LPoolInterface(pool)][false] = initDistribution(supplyAmount, startTime, duration);
         }
         if (borrowAmount > 0) {
-            lpoolDistributions[LPoolInterface(pool)][true] = calcDistribution(borrowAmount, startTime, duration);
+            require(block.timestamp > lpoolDistributions[LPoolInterface(pool)][true].endTime, 'Error on distributing');
+            lpoolDistributions[LPoolInterface(pool)][true] = initDistribution(borrowAmount, startTime, duration);
         }
         uint subAmount = supplyAmount.add(borrowAmount);
         oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
@@ -204,10 +170,10 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     /*** Distribution Functions ***/
 
 
-    function calcDistribution(uint totalAmount, uint64 startTime, uint64 duration) internal pure returns (ControllerStorage.LPoolDistribution memory distribution){
+    function initDistribution(uint totalAmount, uint64 startTime, uint64 duration) internal pure returns (ControllerStorage.LPoolDistribution memory distribution){
         distribution.startTime = startTime;
         distribution.endTime = startTime + duration;
-        require(distribution.endTime >= startTime, 'endTime is overflow');
+        require(distribution.endTime >= startTime, 'EndTime is overflow');
         distribution.duration = duration;
         distribution.lastUpdateTime = startTime;
         distribution.totalAmount = totalAmount;
@@ -216,12 +182,18 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function updateDistribution(ControllerStorage.LPoolDistribution storage distribution, uint addAmount) internal {
         uint256 blockTime = block.timestamp;
-        require(distribution.endTime > blockTime, 'distribution is end');
-        uint addDuration = distribution.endTime - blockTime;
-        uint addRewardRate = addAmount.div(addDuration);
+        if (blockTime >= distribution.endTime) {
+            distribution.rewardRate = addAmount.div(distribution.duration);
+        } else {
+            uint256 remaining = distribution.endTime - blockTime;
+            uint256 leftover = remaining.mul(distribution.rewardRate);
+            distribution.rewardRate = addAmount.add(leftover).div(distribution.duration);
+        }
         distribution.lastUpdateTime = uint64(blockTime);
         distribution.totalAmount = distribution.totalAmount.add(addAmount);
-        distribution.rewardRate = distribution.rewardRate.add(addRewardRate);
+        distribution.endTime = distribution.duration + uint64(blockTime);
+        require(distribution.endTime > blockTime, 'EndTime is overflow');
+
     }
 
     function checkStart(LPoolInterface lpool, bool isBorrow) internal view returns (bool){
@@ -313,6 +285,43 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
         oleToken.transfer(to, amount);
         return true;
+    }
+    /*** Admin Functions ***/
+
+    function setLPoolImplementation(address _lpoolImplementation) external override onlyAdmin {
+        lpoolImplementation = _lpoolImplementation;
+    }
+
+    function setOpenLev(address _openlev) external override onlyAdmin {
+        openLev = _openlev;
+    }
+
+    function setInterestParam(uint256 _baseRatePerBlock, uint256 _multiplierPerBlock, uint256 _jumpMultiplierPerBlock, uint256 _kink) external override onlyAdmin {
+        baseRatePerBlock = _baseRatePerBlock;
+        multiplierPerBlock = _multiplierPerBlock;
+        jumpMultiplierPerBlock = _jumpMultiplierPerBlock;
+        kink = _kink;
+    }
+
+    function setLPoolUnAllowed(address lpool, bool unAllowed) external override onlyAdminOrDeveloper {
+        lpoolUnAlloweds[lpool] = unAllowed;
+    }
+
+    function setMarginTradeAllowed(bool isAllowed) external override onlyAdminOrDeveloper {
+        tradeAllowed = isAllowed;
+    }
+    modifier onlyLPoolSender(address lPool) {
+        require(msg.sender == lPool, "Sender not lPool");
+        _;
+    }
+    modifier onlyLPoolAllowed(address lPool) {
+        require(!lpoolUnAlloweds[lPool], "LPool paused");
+        _;
+    }
+
+    modifier onlyOpenLevOperator(address operator) {
+        require(openLev == operator || openLev == address(0), "Operator not openLev");
+        _;
     }
 }
 
