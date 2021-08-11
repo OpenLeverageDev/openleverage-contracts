@@ -196,6 +196,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
 
     function isPoolObservationsMoreThanOne(IUniswapV3Pool pool) internal view returns (bool){
         (,,,,uint16 count,,) = pool.slot0();
-        return count > 1;
+        return count > 2;
     }
 }

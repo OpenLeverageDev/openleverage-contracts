@@ -56,11 +56,11 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("borrowAllowed(address,address,address,uint256)", lpool, borrower, payee, borrowAmount));
     }
 
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("repayBorrowAllowed(address,address,address,uint256)", lpool, payer, borrower, repayAmount));
+    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount, bool isEnd) external override {
+        delegateToImplementation(abi.encodeWithSignature("repayBorrowAllowed(address,address,address,uint256,bool)", lpool, payer, borrower, repayAmount, isEnd));
     }
 
-    function liquidateAllowed(uint marketId,  address liquidator, uint liquidateAmount, bytes memory dexData) external override {
+    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override {
         delegateToImplementation(abi.encodeWithSignature("liquidateAllowed(uint256,address,uint256,bytes)", marketId, liquidator, liquidateAmount, dexData));
     }
 

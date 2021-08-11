@@ -450,11 +450,11 @@ tickCumulatives = new int56[](secondsAgos.length);
 lCumulatives = new uint160[](secondsAgos.length);
 tickCumulatives[1] = 0;
 lCumulatives[1] = 0;
-lCumulatives[0] = 1;
+lCumulatives[0] = 1 * secondsAgos[1];
 if (prePrice == 0){
 tickCumulatives[0] = 0;
 }else {
-tickCumulatives[0] = TickMath.getTickAtSqrtRatio(prePrice);
+tickCumulatives[0] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[1]));
 }
 }
 function setPrice(address tokenA, address tokenB, uint price) external {

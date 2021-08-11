@@ -74,9 +74,9 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
             owner, marketId, longToken, dexData));
     }
 
-    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override view returns (uint current, uint32 marketLimit){
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override view returns (uint current, uint avg, uint32 limit){
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginRatio(address,uint16,bool,bytes)", owner, marketId, longToken, dexData));
-        return abi.decode(data, (uint, uint32));
+        return abi.decode(data, (uint, uint, uint32));
     }
 
 
@@ -121,6 +121,10 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
 
     function setAllowedDepositTokens(address[] memory tokens, bool allowed) external override {
         delegateToImplementation(abi.encodeWithSignature("setAllowedDepositTokens(address[],bool)", tokens, allowed));
+    }
+
+    function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external override {
+        delegateToImplementation(abi.encodeWithSignature("setPriceDiffientRatio(uint16)", newPriceDiffientRatio));
     }
 
 

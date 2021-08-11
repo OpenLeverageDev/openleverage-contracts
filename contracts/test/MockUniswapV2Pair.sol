@@ -8,8 +8,24 @@ import "../dex/UniV2Dex.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
+library UQ112x112 {
+    uint224 constant Q112 = 2 ** 112;
+
+    // encode a uint112 as a UQ112x112
+    function encode(uint112 y) internal pure returns (uint224 z) {
+        z = uint224(y) * Q112;
+        // never overflows
+    }
+
+    // divide a UQ112x112 by a uint112, returning a UQ112x112
+    function uqdiv(uint224 x, uint112 y) internal pure returns (uint224 z) {
+        z = x / uint224(y);
+    }
+}
+
 contract MockUniswapV2Pair {
     using SafeMath for uint256;
+    using UQ112x112 for uint224;
 
     uint public _price0CumulativeLast;
     uint public _price1CumulativeLast;
@@ -44,6 +60,8 @@ contract MockUniswapV2Pair {
         MockERC20(_token0).mint(address(this), _reserve0);
         MockERC20(_token1).mint(address(this), _reserve1);
         _blockTimestampLast = uint32(block.timestamp.mod(2 ** 32));
+        _price0CumulativeLast = uint(_reserve0 * _blockTimestampLast);
+        _price1CumulativeLast = uint(_reserve1 * _blockTimestampLast);
     }
 
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external {
@@ -56,12 +74,14 @@ contract MockUniswapV2Pair {
         if (data.length > 0) {
             IUniswapV2Callee(to).uniswapV2Call(msg.sender, amount0Out, amount1Out, data);
         }
+        _update(MockERC20(_token0).balanceOf(address(this)), MockERC20(_token1).balanceOf(address(this)), _reserve0, _reserve1);
         _reserve0 = uint112(MockERC20(_token0).balanceOf(address(this)));
         _reserve1 = uint112(MockERC20(_token1).balanceOf(address(this)));
     }
 
 
     function setPrice(address tokenA, address tokenB, uint price) external {
+        _update(MockERC20(_token0).balanceOf(address(this)), MockERC20(_token1).balanceOf(address(this)), _reserve0, _reserve1);
         tokenB;
         if (_token0 == tokenA) {
             _reserve0 = 1000000 * 1e18 * 1;
@@ -71,6 +91,21 @@ contract MockUniswapV2Pair {
             _reserve1 = 1000000 * 1e18 * 1;
             _reserve0 = 1000000 * 1e18 * uint112(price) / 100;
         }
+    }
+    // update reserves and, on the first call per block, price accumulators
+    function _update(uint balance0, uint balance1, uint112 _reserve00, uint112 _reserve11) private {
+        require(balance0 <= uint112(- 1) && balance1 <= uint112(- 1), 'UniswapV2: OVERFLOW');
+        uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
+        uint32 timeElapsed = blockTimestamp - _blockTimestampLast;
+        // overflow is desired
+        if (timeElapsed > 0 && _reserve00 != 0 && _reserve11 != 0) {
+            // * never overflows, and + overflow is desired
+            _price0CumulativeLast += uint(UQ112x112.encode(_reserve11).uqdiv(_reserve00)) * timeElapsed;
+            _price1CumulativeLast += uint(UQ112x112.encode(_reserve00).uqdiv(_reserve11)) * timeElapsed;
+        }
+        _reserve0 = uint112(balance0);
+        _reserve1 = uint112(balance1);
+        _blockTimestampLast = blockTimestamp;
     }
 
     function getReserves() external view
@@ -101,5 +136,8 @@ contract MockUniswapV2Pair {
     function setPrice1CumulativeLast(uint _price) external {
         _price1CumulativeLast = _price;
     }
-
+    // force reserves to match balances
+    function sync() external {
+        _update(_reserve0, _reserve1, _reserve0, _reserve1);
+    }
 }

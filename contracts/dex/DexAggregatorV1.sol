@@ -73,7 +73,7 @@ contract DexAggregatorV1 is DexAggregatorInterface, UniV2Dex, UniV3Dex {
         if (data.toDex() == DexData.DEX_UNIV2) {
             (price, timestamp) = uniV2GetAvgPrice(desToken, quoteToken);
         }
-        if (data.toDex() == DexData.DEX_UNIV3) {
+        else if (data.toDex() == DexData.DEX_UNIV3) {
             (price, timestamp) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
@@ -86,7 +86,7 @@ contract DexAggregatorV1 is DexAggregatorInterface, UniV2Dex, UniV3Dex {
         if (data.toDex() == DexData.DEX_UNIV2) {
             (currentPrice, avgPrice, timestamp) = uniV2GetCurrentPriceAndAvgPrice(desToken, quoteToken, decimals);
         }
-        if (data.toDex() == DexData.DEX_UNIV3) {
+        else if (data.toDex() == DexData.DEX_UNIV3) {
             (currentPrice, avgPrice, timestamp) = uniV3GetCurrentPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
@@ -94,6 +94,18 @@ contract DexAggregatorV1 is DexAggregatorInterface, UniV2Dex, UniV3Dex {
         }
     }
 
+    function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
+        // Shh - currently unused
+        secondsAgo;
+        data;
+        decimals = priceDecimals;
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            (price, cAvgPrice, hAvgPrice, timestamp) = uniV2GetPriceCAvgPriceHAvgPrice(desToken, quoteToken, decimals);
+        }
+        else {
+            require(false, 'Unsupported dex');
+        }
+    }
 
     function updatePriceOracle(address desToken, address quoteToken, bytes memory data) external override {
         if (data.toDex() == DexData.DEX_UNIV2) {

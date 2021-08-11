@@ -24,8 +24,8 @@ contract("ControllerV1", async accounts => {
     assert.equal(token0, await pool0Ctr.underlying());
     assert.equal(token1, await pool1Ctr.underlying());
 
-    assert.equal("OLE-LP", await pool0Ctr.symbol());
-    assert.equal("OLE-LP", await pool1Ctr.symbol());
+    assert.equal("LToken", await pool0Ctr.symbol());
+    assert.equal("LToken", await pool1Ctr.symbol());
 
     m.log("pool0 token name:", await pool0Ctr.name());
     m.log("pool1 token name:", await pool1Ctr.name());
@@ -202,7 +202,7 @@ contract("ControllerV1", async accounts => {
     let addReward = await controller.earned(pool0, accounts[0], false);
     await timeMachine.revertToSnapshot(snapshotId);
     m.log("minted added reward", addReward);
-    assert.equal('101149', addReward.div(toBN(1E14)).toString());
+    assert.equal('98888', addReward.div(toBN(1E14)).toString());
 
   });
   it("Distribution more by not enough balance test", async () => {
@@ -400,12 +400,12 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createToken("tokenA")).address;
     let {controller, timeLock} = await instanceSimpleController();
     await timeLock.executeTransaction(controller.address, 0, 'setLPoolUnAllowed(address,bool)', web3.eth.abi.encodeParameters(['address', 'bool'], [address, true]), 0);
-    assert.equal(true, (await controller.lpoolUnAlloweds(address)));
+    assert.equal(true, (await controller.lpoolUnAlloweds(address)), {from: accounts[2]});
     try {
       await controller.setLPoolUnAllowed(address, true);
-      assert.fail("should thrown caller must be admin error");
+      assert.fail("should thrown caller must be admin or developer error");
     } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+      assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
     }
   });
 
@@ -414,10 +414,10 @@ contract("ControllerV1", async accounts => {
     await timeLock.executeTransaction(controller.address, 0, 'setMarginTradeAllowed(bool)', web3.eth.abi.encodeParameters(['bool'], [false]), 0);
     assert.equal(false, (await controller.tradeAllowed()));
     try {
-      await controller.setMarginTradeAllowed(false);
-      assert.fail("should thrown caller must be admin error");
+      await controller.setMarginTradeAllowed(false, {from: accounts[2]});
+      assert.fail("should thrown caller must be admin or developer error");
     } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+      assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
     }
   });
 
