@@ -77,6 +77,8 @@ abstract contract LPoolStorage {
 
     address public underlying;
 
+    bool public isWethPool;
+
     /**
      * Container for borrow balance information
      * principal Total balance (with accrued interest), after applying the most recent balance-changing action
@@ -186,6 +188,8 @@ abstract contract LPoolInterface is LPoolStorage {
     /*** Lender & Borrower Functions ***/
 
     function mint(uint mintAmount) external virtual;
+
+    function mintEth() external payable virtual;
 
     function redeem(uint redeemTokens) external virtual;
 

@@ -57,11 +57,11 @@ contract("OpenLev UniV3", async accounts => {
 
     let delegate = await OpenLevDelegate.new();
 
-    openLev = await OpenLevV1.new(controller.address, dexAgg.address, treasury.address,[token0.address,token1.address], accounts[0], delegate.address);
+    openLev = await OpenLevV1.new(controller.address, dexAgg.address, treasury.address,[token0.address,token1.address],"0x0000000000000000000000000000000000000000", accounts[0], delegate.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
-    await controller.createLPoolPair(token0.address, token1.address, 3000); // 30% margin ratio
+    await controller.createLPoolPair(token0.address, token1.address, 3000,1); // 30% margin ratio
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));

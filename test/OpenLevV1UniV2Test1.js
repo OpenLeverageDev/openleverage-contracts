@@ -36,10 +36,14 @@ contract("OpenLev UniV2", async accounts => {
   let liquidator2 = accounts[9];
   let token0;
   let token1;
+  let controller;
+  let delegatee;
+  let weth;
+
   beforeEach(async () => {
 
     // runs once before the first test in this block
-    let controller = await utils.createController(admin);
+    controller = await utils.createController(admin);
     m.log("Created Controller", last8(controller.address));
 
     openLevErc20 = await TestToken.new('OpenLevERC20', 'OLE');
@@ -47,8 +51,9 @@ contract("OpenLev UniV2", async accounts => {
 
     token0 = await TestToken.new('TokenA', 'TKA');
     token1 = await TestToken.new('TokenB', 'TKB');
+    weth = await utils.createWETH();
 
-    let uniswapFactory = await utils.createUniswapV2Factory();
+    uniswapFactory = await utils.createUniswapV2Factory();
     gotPair = await utils.createUniswapV2Pool(uniswapFactory, token0, token1);
 
     dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000");
@@ -56,13 +61,13 @@ contract("OpenLev UniV2", async accounts => {
     let treasuryImpl = await TreasuryImpl.new();
     treasury = await Treasury.new(uniswapFactory.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
 
-    let delegatee = await OpenLevV1.new();
-    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], accounts[0], delegatee.address);
+    delegatee = await OpenLevV1.new();
+    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], weth.address, accounts[0], delegatee.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
 
-    await controller.createLPoolPair(token0.address, token1.address, 3000); // 30% margin ratio by default
+    await controller.createLPoolPair(token0.address, token1.address, 3000, 0); // 30% margin ratio by default
     assert.equal(3000, (await openLev.markets(0)).marginLimit);
 
     await openLev.setDefaultMarginLimit(1500, {from: admin});
@@ -72,6 +77,44 @@ contract("OpenLev UniV2", async accounts => {
     m.log("Reset OpenLev instance: ", last8(openLev.address));
   });
 
+  it("Deposit Eth，return eth ", async () => {
+    gotPair = await utils.createUniswapV2Pool(uniswapFactory, weth, token1);
+    await openLev.setAllowedDepositTokens([weth.address], true);
+    await controller.createLPoolPair(weth.address, token1.address, 3000, 0); // 30% margin ratio by default
+    let pairId = 1;
+    await utils.mint(token1, saver, 10000);
+    checkAmount(await token1.symbol() + " Saver " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(saver), 18);
+    let deposit = utils.toWei(1);
+    // Saver deposit to pool1
+    let saverSupply = utils.toWei(1000);
+    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
+    await pool1.mint(saverSupply, {from: saver});
+    let borrow = utils.toWei(1);
+    m.log("toBorrow from Pool 1: \t", borrow);
+    await dexAgg.updatePriceOracle(weth.address, token1.address, Uni2DexData);
+    await advanceTime(30);
+    await dexAgg.updatePriceOracle(weth.address, token1.address, Uni2DexData);
+    await openLev.marginTrade(pairId, false, false, 0, borrow, 0, Uni2DexData, {from: trader, value: deposit});
+
+    let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
+    m.log("Margin Ratio current:", marginRatio.current / 100, "%");
+    m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");
+    assert.equal(marginRatio.current.toString(), 9910);
+    assert.equal(marginRatio.avg.toString(), 9909);
+    let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
+    m.log("Trade.held:", tradeBefore.held);
+    assert.equal(tradeBefore.held, "1990990060009101709");
+    let ethBefore = await web3.eth.getBalance(trader);
+    await openLev.closeTrade(pairId, false, tradeBefore.held, 0, Uni2DexData, {from: trader});
+    let tradeAfter = await openLev.activeTrades(trader, 0, 0);
+    m.log("Trade.held:", tradeAfter.held);
+    assert.equal(tradeAfter.held, 0);
+    let ethAfter = await web3.eth.getBalance(trader);
+    m.log("ethBefore=", ethBefore);
+    m.log("ethAfter=", ethAfter);
+    assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
+  })
 
   it("LONG Token0, Not Init Price ,Not Succeed ", async () => {
     let pairId = 0;

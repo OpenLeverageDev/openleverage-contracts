@@ -10,7 +10,7 @@ contract("ControllerV1", async accounts => {
   let admin = accounts[0];
   it("create lpool pair succeed test", async () => {
     let {controller, tokenA, tokenB} = await instanceController();
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let token0 = transaction.logs[0].args.token0;
     let token1 = transaction.logs[0].args.token1;
     let pool0 = transaction.logs[0].args.pool0;
@@ -37,7 +37,7 @@ contract("ControllerV1", async accounts => {
   it("create lpool pair failed with same token test", async () => {
     let {controller, tokenA, tokenB} = await instanceController();
     try {
-      await controller.createLPoolPair(tokenA.address, tokenA.address, 3000);
+      await controller.createLPoolPair(tokenA.address, tokenA.address, 3000, 1);
       assert.fail("should thrown identical address error");
     } catch (error) {
       assert.include(error.message, 'identical address', 'throws exception with identical address.');
@@ -46,9 +46,9 @@ contract("ControllerV1", async accounts => {
 
   it("create lpool pair failed with pool exists test", async () => {
     let {controller, tokenA, tokenB} = await instanceController();
-    await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     try {
-      await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+      await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
       assert.fail("should thrown pool pair exists error");
     } catch (error) {
       assert.include(error.message, 'pool pair exists', 'throws exception pool pair exists.');
@@ -60,7 +60,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
     //start after 10s【duration 30days】
@@ -102,7 +102,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
     await controller.distributeRewards2Pool(pool0, utils.toWei(100), utils.toWei(200), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
@@ -133,7 +133,7 @@ contract("ControllerV1", async accounts => {
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(100), 300, utils.toWei(400));
     await controller.distributeLiqRewards2Market(0, true);
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
     let pool0Ctr = await LPool.at(pool0);
@@ -160,7 +160,7 @@ contract("ControllerV1", async accounts => {
     let txLiq = await openLev.liquidate(trader, 0, 0, Uni3DexData, {
       from: liquidator,
       gasPrice: 10000000000,
-      gas: 800000
+      gas: 900000
     });
 
     m.log("txLiq gasUsed:", txLiq.receipt.gasUsed);
@@ -176,7 +176,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
     await controller.distributeRewards2Pool(pool0, utils.toWei(100), utils.toWei(200), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
@@ -220,7 +220,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(0), utils.toWei(0), 300, utils.toWei(600));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
     //start after 10s【duration 30days】
@@ -279,7 +279,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     await controller.setOLETokenDistribution(utils.toWei(0), utils.toWei(0), 300, utils.toWei(600));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
     await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(0), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
@@ -333,10 +333,9 @@ contract("ControllerV1", async accounts => {
   });
 
 
-  it("MarginTrade unAllowed test", async () => {
+  it("MarginTrade Suspend test", async () => {
     let {controller, tokenA, tokenB, openLev} = await instanceController();
-    await controller.setMarginTradeAllowed(false);
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
     let pool0 = transaction.logs[0].args.pool0;
     //supply
     let pool0Ctr = await LPool.at(pool0);
@@ -345,11 +344,12 @@ contract("ControllerV1", async accounts => {
     await token0Ctr.approve(pool0, utils.toWei(10));
     await pool0Ctr.mint(utils.toWei(5));
     await token0Ctr.approve(openLev.address, utils.toWei(10));
+    await controller.setSuspend(true);
     try {
       await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData);
-      assert.fail("should thrown Trade is UnAllowed! error");
+      assert.fail("should thrown Suspended! error");
     } catch (error) {
-      assert.include(error.message, 'Trade is UnAllowed!', 'throws exception Trade is UnAllowed!');
+      assert.include(error.message, 'Suspended', 'throws exception Suspended');
     }
   });
   /*** Admin Test ***/
@@ -409,12 +409,12 @@ contract("ControllerV1", async accounts => {
     }
   });
 
-  it("Admin setMarginTradeAllowed test", async () => {
+  it("Admin setSuspend test", async () => {
     let {controller, timeLock} = await instanceSimpleController();
-    await timeLock.executeTransaction(controller.address, 0, 'setMarginTradeAllowed(bool)', web3.eth.abi.encodeParameters(['bool'], [false]), 0);
-    assert.equal(false, (await controller.tradeAllowed()));
+    await timeLock.executeTransaction(controller.address, 0, 'setSuspend(bool)', web3.eth.abi.encodeParameters(['bool'], [true]), 0);
+    assert.equal(true, (await controller.suspend()));
     try {
-      await controller.setMarginTradeAllowed(false, {from: accounts[2]});
+      await controller.setSuspend(false, {from: accounts[2]});
       assert.fail("should thrown caller must be admin or developer error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
@@ -519,15 +519,18 @@ contract("ControllerV1", async accounts => {
     let tokenA = await utils.createToken("tokenA");
     let tokenB = await utils.createToken("tokenB");
     let oleToken = await utils.createToken("OLE");
-    let controller = await utils.createController(timelock ? timelock : admin, oleToken.address, tokenA.address);
+    let weth = await utils.createWETH();
+
+    let controller = await utils.createController(timelock ? timelock : admin, oleToken.address, weth.address);
 
     let uniswapFactory = await utils.createUniswapV3Factory();
     gotPair = await utils.createUniswapV3Pool(uniswapFactory, tokenA, tokenB, accounts[0]);
-    await utils.createUniswapV3Pool(uniswapFactory, tokenA, oleToken, accounts[0]);
+    await utils.createUniswapV3Pool(uniswapFactory, weth, oleToken, accounts[0]);
     let dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
     let openLev = await utils.createOpenLev(controller.address, admin, dexAgg.address, admin, [tokenA.address, tokenB.address]);
 
     await controller.setOpenLev(openLev.address);
+    await controller.setDexAggregator(dexAgg.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
     return {

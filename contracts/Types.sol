@@ -16,7 +16,7 @@ library Types {
         uint feesRate;              // feesRate 30=>0.3%
         uint pool0Insurance;        // Insurance balance for token 0
         uint pool1Insurance;        // Insurance balance for token 1
-
+        uint8 dex;
     }
 
     struct Trade {// Trade storage
@@ -24,7 +24,6 @@ library Types {
         uint held;                  // Balance of held position
         bool depositToken;          // Indicate if the deposit token is token 0 or token 1
         uint128 lastBlockNum;       // Block number when the trade was touched last time, to prevent more than one operation within same block
-        uint8 dex;                  // dex
     }
 
     struct MarketVars {// A variables holder for market info
@@ -35,6 +34,7 @@ library Types {
         uint buyPoolInsurance;      // Insurance balance of token to buy
         uint sellPoolInsurance;     // Insurance balance of token to sell
         uint32 marginRatio;         // Margin Ratio Limit for specific trading pair.
+        uint8 dex;
     }
 
     struct TradeVars {// A variables holder for trade info

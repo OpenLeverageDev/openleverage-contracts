@@ -8,7 +8,6 @@ import "./Adminable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "./DelegateInterface.sol";
-import "./dex/DexAggregatorInterface.sol";
 
 /**
   * @title Controller
@@ -21,18 +20,39 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function initialize(
         ERC20 _oleToken,
-        address _wChainToken,
+        address _wETH,
         address _lpoolImplementation,
-        address _openlev
+        address _openlev,
+        DexAggregatorInterface _dexAggregator
     ) public {
         require(msg.sender == admin, "not admin");
         oleToken = _oleToken;
-        wChainToken = _wChainToken;
+        wETH = _wETH;
         lpoolImplementation = _lpoolImplementation;
         openLev = _openlev;
+        dexAggregator = _dexAggregator;
     }
+
+    function createLPoolPair(address token0, address token1, uint32 marginRatio, uint8 dex) external override {
+        require(token0 != token1, 'identical address');
+        require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
+        string memory tokenName = "OpenLeverage LToken";
+        string memory tokenSymbol = "LToken";
+        LPoolDelegator pool0 = new LPoolDelegator();
+        pool0.initialize(token0, token0 == wETH ? true : false, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
+            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
+        LPoolDelegator pool1 = new LPoolDelegator();
+        pool1.initialize(token1, token1 == wETH ? true : false, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
+            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
+        lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
+        lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
+        uint16 marketId = (ControllerOpenLevInterface(openLev)).addMarket(LPoolInterface(pool0), LPoolInterface(pool1), marginRatio, dex);
+        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio, dex);
+    }
+
+
     /*** Policy Hooks ***/
-    function mintAllowed(address lpool, address minter, uint mintAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) {
+    function mintAllowed(address lpool, address minter, uint mintAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyNotSuspended() {
         // Shh - currently unused
         mintAmount;
         updateReward(LPoolInterface(lpool), minter, false);
@@ -43,7 +63,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         updateReward(LPoolInterface(lpool), to, false);
     }
 
-    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override onlyLPoolSender(lpool) {
+    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override onlyLPoolSender(lpool) onlyNotSuspended() {
         // Shh - currently unused
         redeemTokens;
         if (updateReward(LPoolInterface(lpool), redeemer, false)) {
@@ -51,8 +71,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
     }
 
-    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyOpenLevOperator(payee) {
-        require(LPoolInterface(lpool).availableForBorrow() >= borrowAmount, "borrow out of range");
+    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyOpenLevOperator(payee) onlyNotSuspended() {
+        require(LPoolInterface(lpool).availableForBorrow() >= borrowAmount, "Borrow out of range");
         updateReward(LPoolInterface(lpool), borrower, true);
     }
 
@@ -79,9 +99,9 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         if (oleTokenDistribution.liquidatorMaxPer == 0) {
             return;
         }
-        //get wChainToken quote ole price
-        (uint256 price, uint8 decimal) = (ControllerOpenLevInterface(openLev).dexAggregator()).getPrice(wChainToken, address(oleToken), dexData);
-        // oleRewards=wChainTokenValue*liquidatorOLERatio
+        //get wETH quote ole price
+        (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), dexData);
+        // oleRewards=wETHValue*liquidatorOLERatio
         uint calcLiquidatorRewards = uint(600000)
         .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))
         .mul(oleTokenDistribution.liquidatorOLERatio).div(100);
@@ -97,29 +117,11 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
     }
 
-    function marginTradeAllowed(uint marketId) external override {
+    function marginTradeAllowed(uint marketId) external override onlyNotSuspended() {
         // Shh - currently unused
         marketId;
-        require(tradeAllowed, 'Trade is UnAllowed!');
     }
 
-
-    function createLPoolPair(address token0, address token1, uint32 marginRatio) external override {
-        require(token0 != token1, 'identical address');
-        require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
-        string memory tokenName = "OpenLeverage LToken";
-        string memory tokenSymbol = "LToken";
-        LPoolDelegator pool0 = new LPoolDelegator();
-        pool0.initialize(token0, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
-            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
-        LPoolDelegator pool1 = new LPoolDelegator();
-        pool1.initialize(token1, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
-            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
-        lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
-        lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (ControllerOpenLevInterface(openLev)).addMarket(LPoolInterface(pool0), LPoolInterface(pool1), marginRatio);
-        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio);
-    }
 
     function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external override onlyAdmin {
         uint newLiquidatorBalance = oleTokenDistribution.liquidatorBalance.add(moreLiquidatorBalance);
@@ -296,6 +298,10 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         openLev = _openlev;
     }
 
+    function setDexAggregator(DexAggregatorInterface _dexAggregator) external override onlyAdmin {
+        dexAggregator = _dexAggregator;
+    }
+
     function setInterestParam(uint256 _baseRatePerBlock, uint256 _multiplierPerBlock, uint256 _jumpMultiplierPerBlock, uint256 _kink) external override onlyAdmin {
         baseRatePerBlock = _baseRatePerBlock;
         multiplierPerBlock = _multiplierPerBlock;
@@ -307,9 +313,10 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         lpoolUnAlloweds[lpool] = unAllowed;
     }
 
-    function setMarginTradeAllowed(bool isAllowed) external override onlyAdminOrDeveloper {
-        tradeAllowed = isAllowed;
+    function setSuspend(bool _uspend) external override onlyAdminOrDeveloper {
+        suspend = _uspend;
     }
+
     modifier onlyLPoolSender(address lPool) {
         require(msg.sender == lPool, "Sender not lPool");
         _;
@@ -318,20 +325,23 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         require(!lpoolUnAlloweds[lPool], "LPool paused");
         _;
     }
-
+    modifier onlyNotSuspended() {
+        require(!suspend, 'Suspended');
+        _;
+    }
     modifier onlyOpenLevOperator(address operator) {
         require(openLev == operator || openLev == address(0), "Operator not openLev");
         _;
     }
+
 }
 
 interface ControllerOpenLevInterface {
-    function dexAggregator() external view returns (DexAggregatorInterface);
-
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
-        uint32 marginRatio
+        uint32 marginRatio,
+        uint8 dex
     ) external returns (uint16);
 }
 

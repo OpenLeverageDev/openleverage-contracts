@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import "../DelegateInterface.sol";
 import "../ControllerInterface.sol";
+import "../IWETH.sol";
 
 /**
  * @title OpenLeverage's LToken Contract
@@ -34,6 +35,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      */
     function initialize(
         address underlying_,
+        bool isWethPool_,
         address controller_,
         uint256 baseRatePerBlock_,
         uint256 multiplierPerBlock_,
@@ -53,6 +55,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         require(initialExchangeRateMantissa > 0, "Initial Exchange Rate Mantissa should be greater zero");
         //set controller
         controller = controller_;
+        isWethPool = isWethPool_;
         //set interestRateModel
         baseRatePerBlock = baseRatePerBlock_;
         multiplierPerBlock = multiplierPerBlock_;
@@ -206,6 +209,12 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         mintFresh(msg.sender, mintAmount);
     }
 
+    function mintEth() external payable override nonReentrant {
+        require(isWethPool, "not eth pool");
+        accrueInterest();
+        mintFresh(msg.sender, msg.value);
+    }
+
     /**
      * Sender redeems lTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
@@ -275,12 +284,15 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      */
     function doTransferIn(address from, uint amount) internal returns (uint) {
         uint balanceBefore = IERC20(underlying).balanceOf(address(this));
-        IERC20(underlying).transferFrom(from, address(this), amount);
+        if (isWethPool) {
+            IWETH(underlying).deposit{value : msg.value}();
+        } else {
+            IERC20(underlying).transferFrom(from, address(this), amount);
+        }
         // Calculate the amount that was *actually* transferred
         uint balanceAfter = IERC20(underlying).balanceOf(address(this));
         require(balanceAfter >= balanceBefore, "transfer overflow");
         return balanceAfter - balanceBefore;
-        // underflow already checked above, just subtract
     }
 
     /**
@@ -293,7 +305,12 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferOut(address payable to, uint amount) internal {
-        IERC20(underlying).safeTransfer(to, amount);
+        if (isWethPool) {
+            IWETH(underlying).withdraw(amount);
+            to.transfer(amount);
+        } else {
+            IERC20(underlying).safeTransfer(to, amount);
+        }
     }
 
     function availableForBorrow() external view override returns (uint){

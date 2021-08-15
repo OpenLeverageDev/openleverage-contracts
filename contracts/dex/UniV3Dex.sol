@@ -12,14 +12,11 @@ import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
 
-
-import '@uniswap/v3-periphery/contracts/libraries/CallbackValidation.sol';
-
 contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
-    IUniswapV3Factory public immutable uniV3Factory;
+    IUniswapV3Factory public  uniV3Factory;
     uint24[] public feesArray;
 
     struct SwapCallbackData {
@@ -28,12 +25,16 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         uint24 fee;
         address payer;
     }
-    constructor (IUniswapV3Factory _uniV3Factory){
+
+    function initializeUniV3(
+        IUniswapV3Factory _uniV3Factory
+    ) public {
         uniV3Factory = _uniV3Factory;
         feesArray.push(500);
         feesArray.push(3000);
         feesArray.push(10000);
     }
+
     function uniV3Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, uint24 fee) internal returns (uint amountOut){
         SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
         bool zeroForOne = data.tokenIn < data.tokenOut;
@@ -88,15 +89,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     }
 
 
-    function uniV3CalBuyAmount(address buyToken, address sellToken, uint sellAmount, uint24 fee) internal pure returns (uint buyAmount) {
-        // Shh - currently unused
-        buyToken;
-        sellToken;
-        sellAmount;
-        fee;
-        require(false, "Unsupported cal");
-    }
-
     function uniV3GetPrice(address desToken, address quoteToken, uint8 decimals, uint24 fee) internal view returns (uint256){
         IUniswapV3Pool pool;
         if (fee == 0) {
@@ -124,8 +116,8 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     }
 
     function uniV3GetCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
-        currentPrice=uniV3GetPrice(desToken,quoteToken,decimals,fee);
-        (avgPrice,timestamp)=uniV3GetAvgPrice(desToken,quoteToken,secondsAgo,decimals,fee);
+        currentPrice = uniV3GetPrice(desToken, quoteToken, decimals, fee);
+        (avgPrice, timestamp) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, fee);
     }
 
     function getPriceBySqrtPriceX96(address desToken, address quoteToken, uint160 sqrtPriceX96, uint8 decimals) internal pure returns (uint256){
@@ -176,7 +168,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         require(amount0Delta > 0 || amount1Delta > 0);
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
         require(msg.sender == address(getPool(data.tokenIn, data.tokenOut, data.fee)), "V3 call back invalid");
-        //    CallbackValidation.verifyCallback(address(uniV3Factory), data.tokenIn, data.tokenOut, data.fee);
         uint256 amountToPay = uint256(amount0Delta > 0 ? amount0Delta : amount1Delta);
         IERC20(data.tokenIn).safeTransferFrom(data.payer, msg.sender, amountToPay);
     }
@@ -191,7 +182,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         uint24 fee
     ) internal view returns (IUniswapV3Pool) {
         return IUniswapV3Pool(uniV3Factory.getPool(tokenA, tokenB, fee));
-        //               return IUniswapV3Pool(PoolAddress.computeAddress(address(uniV3Factory), PoolAddress.getPoolKey(tokenA, tokenB, fee)));
     }
 
     function isPoolObservationsMoreThanOne(IUniswapV3Pool pool) internal view returns (bool){

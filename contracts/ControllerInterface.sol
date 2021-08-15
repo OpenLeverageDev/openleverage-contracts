@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 
 import "./liquidity/LPoolInterface.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
+import "./dex/DexAggregatorInterface.sol";
 
 contract ControllerStorage {
 
@@ -39,7 +39,7 @@ contract ControllerStorage {
 
     ERC20 public oleToken;
 
-    address public wChainToken;
+    address public wETH;
 
     address public lpoolImplementation;
 
@@ -51,7 +51,9 @@ contract ControllerStorage {
 
     address public openLev;
 
-    bool public tradeAllowed = true;
+    DexAggregatorInterface public dexAggregator;
+
+    bool public suspend;
 
     OLETokenDistribution public oleTokenDistribution;
     //token0=>token1=>pair
@@ -65,7 +67,7 @@ contract ControllerStorage {
     //pool=>bool=>distribution(true is borrow,false is supply)
     mapping(LPoolInterface => mapping(bool => mapping(address => LPoolRewardByAccount))) public lPoolRewardByAccounts;
 
-    event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint32 marginRatio);
+    event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint32 marginRatio, uint dex);
 
     event Distribution2Pool(address pool, uint supplyAmount, uint borrowerAmount, uint64 startTime, uint64 duration);
 
@@ -75,6 +77,8 @@ contract ControllerStorage {
   * @author OpenLeverage
   */
 interface ControllerInterface {
+
+    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, uint8 dex) external;
 
     /*** Policy Hooks ***/
 
@@ -92,7 +96,6 @@ interface ControllerInterface {
 
     function marginTradeAllowed(uint marketId) external;
 
-    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio) external;
 
     /*** Admin Functions ***/
 
@@ -100,11 +103,13 @@ interface ControllerInterface {
 
     function setOpenLev(address _openlev) external;
 
+    function setDexAggregator(DexAggregatorInterface _dexAggregator) external;
+
     function setInterestParam(uint256 _baseRatePerBlock, uint256 _multiplierPerBlock, uint256 _jumpMultiplierPerBlock, uint256 _kink) external;
 
     function setLPoolUnAllowed(address lpool, bool unAllowed) external;
 
-    function setMarginTradeAllowed(bool isAllowed) external;
+    function setSuspend(bool suspend) external;
 
     // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
     function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external;

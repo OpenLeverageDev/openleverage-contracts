@@ -25,7 +25,7 @@ contract("Upgrade", async accounts => {
     let delegate = await OpenLevDelegate.new();
     let openLev = await OpenLevV1.new("0x0000000000000000000000000000000000000001",
       "0x0000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000",[],
+      "0x0000000000000000000000000000000000000000", [], "0x0000000000000000000000000000000000000000",
       accounts[0], delegate.address);
 
     //update
@@ -66,6 +66,7 @@ contract("Upgrade", async accounts => {
     let token = await createToken("test");
     let pool = await LPoolDelegator.new();
     pool.initialize(token.address,
+      false,
       accounts[0],
       toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
       1e18 + '',
@@ -148,6 +149,7 @@ contract("Upgrade", async accounts => {
 
     let delegate = await ControllerDelegate.new();
     let controller = await ControllerDelegator.new("0x0000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000",
       "0x0000000000000000000000000000000000000000",
       "0x0000000000000000000000000000000000000000",
       "0x0000000000000000000000000000000000000000",
