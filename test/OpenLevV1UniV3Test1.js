@@ -59,12 +59,12 @@ contract("OpenLev UniV3", async accounts => {
     treasury = await Treasury.new(uniswapFactory.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
 
     let delegatee = await OpenLevV1.new();
-    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], accounts[0], delegatee.address);
+    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000",accounts[0], delegatee.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
 
-    await controller.createLPoolPair(token0.address, token1.address, 3000); // 30% margin ratio by default
+    await controller.createLPoolPair(token0.address, token1.address, 3000, 1); // 30% margin ratio by default
     assert.equal(3000, (await openLev.markets(0)).marginLimit);
 
     await openLev.setDefaultMarginLimit(1500, {from: admin});
@@ -406,6 +406,19 @@ contract("OpenLev UniV3", async accounts => {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
     }
   })
+  it("Admin setMarketDex test", async () => {
+    let {timeLock, openLev} = await instanceSimpleOpenLev();
+    await timeLock.executeTransaction(openLev.address, 0, 'setMarketDex(uint16,uint8)',
+      web3.eth.abi.encodeParameters(['uint16', 'uint8'], [1, 1]), 0)
+    assert.equal(1, (await openLev.markets(1)).dex);
+    try {
+      await openLev.setMarketDex(1, 10);
+      assert.fail("should thrown caller must be admin error");
+    } catch (error) {
+      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+    }
+  })
+
   it("Admin setInsuranceRatio test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
     await timeLock.executeTransaction(openLev.address, 0, 'setInsuranceRatio(uint8)',

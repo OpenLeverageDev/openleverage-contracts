@@ -11,10 +11,8 @@ import "./UniV2Dex.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 contract UniV2Dex {
-    IUniswapV2Factory public immutable uniV2Factory;
     using SafeMath for uint;
     using SafeERC20 for IERC20;
-    mapping(IUniswapV2Pair => V2PriceOracle) public uniV2PriceOracle;
 
     struct V2PriceOracle {
         uint32 blockTimestampLast;
@@ -23,11 +21,8 @@ contract UniV2Dex {
         uint price0CumulativeLast;
         uint price1CumulativeLast;
     }
-    constructor (IUniswapV2Factory _uniV2Factory) {
-        uniV2Factory = _uniV2Factory;
-    }
-    function uniV2Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint buyAmount){
-        address pair = uniV2Factory.getPair(buyToken, sellToken);
+
+    function uniV2Sell(address pair, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint buyAmount){
         require(pair != address(0), 'Invalid pair');
         address payer = msg.sender;
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
@@ -45,8 +40,7 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount) internal returns (uint sellAmount){
-        address pair = uniV2Factory.getPair(buyToken, sellToken);
+    function uniV2Buy(address pair, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount) internal returns (uint sellAmount){
         require(pair != address(0), 'Invalid pair');
         address payer = msg.sender;
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
@@ -64,8 +58,7 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2CalBuyAmount(address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
-        address pair = uniV2Factory.getPair(buyToken, sellToken);
+    function uniV2CalBuyAmount(address pair, address buyToken, uint sellAmount) internal view returns (uint) {
         require(pair != address(0), 'Invalid pair');
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
@@ -76,62 +69,55 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2GetPrice(address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
-        IUniswapV2Pair pair = IUniswapV2Pair(uniV2Factory.getPair(desToken, quoteToken));
+    function uniV2GetPrice(address pair, address desToken, uint8 decimals) internal view returns (uint256){
         if (address(pair) == address(0)) {
             return (0);
         }
-        (uint256 token0Reserves, uint256 token1Reserves,) = pair.getReserves();
-        return desToken == pair.token0() ? token1Reserves.mul(10 ** decimals).div(token0Reserves) : token0Reserves.mul(10 ** decimals).div(token1Reserves);
+        (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
+        return desToken == IUniswapV2Pair(pair).token0() ? token1Reserves.mul(10 ** decimals).div(token0Reserves) : token0Reserves.mul(10 ** decimals).div(token1Reserves);
     }
 
-    function uniV2GetAvgPrice(address desToken, address quoteToken) internal view returns (uint256 price, uint256 timestamp){
-        IUniswapV2Pair pair = IUniswapV2Pair(uniV2Factory.getPair(desToken, quoteToken));
-        V2PriceOracle memory priceOracle = uniV2PriceOracle[pair];
+    function uniV2GetAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken) internal view returns (uint256 price, uint256 timestamp){
         timestamp = priceOracle.blockTimestampLast;
-        price = pair.token0() == desToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
+        price = IUniswapV2Pair(pair).token0() == desToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
     }
 
-    function uniV2GetCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint8 decimals) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
-        currentPrice = uniV2GetPrice(desToken, quoteToken, decimals);
-        (avgPrice, timestamp) = uniV2GetAvgPrice(desToken, quoteToken);
+    function uniV2GetCurrentPriceAndAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
+        currentPrice = uniV2GetPrice(pair, desToken, decimals);
+        (avgPrice, timestamp) = uniV2GetAvgPrice(pair, priceOracle, desToken);
     }
 
-    function uniV2GetPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint8 decimals) internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
-        IUniswapV2Pair pair = IUniswapV2Pair(uniV2Factory.getPair(desToken, quoteToken));
-        bool isToken0 = pair.token0() == desToken;
-        (uint256 token0Reserves, uint256 token1Reserves,uint32 uniBlockTimeLast) = pair.getReserves();
+    function uniV2GetPriceCAvgPriceHAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals) internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
+        bool isToken0 = IUniswapV2Pair(pair).token0() == desToken;
+        (uint256 token0Reserves, uint256 token1Reserves,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
         price = isToken0 ? token1Reserves.mul(10 ** decimals).div(token0Reserves) : token0Reserves.mul(10 ** decimals).div(token1Reserves);
 
-        V2PriceOracle memory priceOracle = uniV2PriceOracle[pair];
         hAvgPrice = isToken0 ? uint(priceOracle.price0) : uint(priceOracle.price1);
         timestamp = priceOracle.blockTimestampLast;
         if (uniBlockTimeLast <= priceOracle.blockTimestampLast) {
             cAvgPrice = hAvgPrice;
         } else {
             uint32 timeElapsed = uniBlockTimeLast - priceOracle.blockTimestampLast;
-            cAvgPrice = uint256(isToken0 ? calTPrice(pair.price0CumulativeLast(), priceOracle.price0CumulativeLast, timeElapsed, decimals) : calTPrice(pair.price1CumulativeLast(), priceOracle.price1CumulativeLast, timeElapsed, decimals));
+            cAvgPrice = uint256(isToken0 ? calTPrice(IUniswapV2Pair(pair).price0CumulativeLast(), priceOracle.price0CumulativeLast, timeElapsed, decimals) : calTPrice(IUniswapV2Pair(pair).price1CumulativeLast(), priceOracle.price1CumulativeLast, timeElapsed, decimals));
         }
     }
 
-    function uniV2UpdatePriceOracle(address desToken, address quoteToken, uint8 decimals) internal {
-        IUniswapV2Pair pair = IUniswapV2Pair(uniV2Factory.getPair(desToken, quoteToken));
+    function uniV2UpdatePriceOracle(address pair, V2PriceOracle storage priceOracle, uint8 decimals) internal {
         if (address(pair) == address(0)) {
             return;
         }
-        V2PriceOracle storage priceOracle = uniV2PriceOracle[pair];
         uint32 currentBlockTime = toUint32(block.timestamp);
         //min 2 blocks
         if (currentBlockTime < (priceOracle.blockTimestampLast + 25)) {
             return;
         }
-        (,,uint32 uniBlockTimeLast) = pair.getReserves();
+        (,,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
         if (uniBlockTimeLast != currentBlockTime) {
-            pair.sync();
+            IUniswapV2Pair(pair).sync();
         }
         uint32 timeElapsed = currentBlockTime - priceOracle.blockTimestampLast;
-        uint currentPrice0CumulativeLast = pair.price0CumulativeLast();
-        uint currentPrice1CumulativeLast = pair.price1CumulativeLast();
+        uint currentPrice0CumulativeLast = IUniswapV2Pair(pair).price0CumulativeLast();
+        uint currentPrice1CumulativeLast = IUniswapV2Pair(pair).price1CumulativeLast();
         if (priceOracle.blockTimestampLast != 0) {
             priceOracle.price0 = calTPrice(currentPrice0CumulativeLast, priceOracle.price0CumulativeLast, timeElapsed, decimals);
             priceOracle.price1 = calTPrice(currentPrice1CumulativeLast, priceOracle.price1CumulativeLast, timeElapsed, decimals);

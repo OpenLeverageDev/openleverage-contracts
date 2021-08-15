@@ -32,6 +32,8 @@ abstract contract OpenLevStorage {
 
     address public controller;
 
+    address public wETH;
+
     event NewDefalutFeesRate(uint oldFeesRate, uint newFeesRate);
 
     event NewMarketFeesRate(uint oldFeesRate, uint newFeesRate);
@@ -49,6 +51,9 @@ abstract contract OpenLevStorage {
     event ChangeAllowedDepositTokens(address[] token, bool allowed);
 
     event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
+
+    event NewMarketDex(uint16 marketId, uint8 oldDex, uint8 newDex);
+
 
     // 0.3%
     uint public defaultFeesRate = 30; // 0.003
@@ -111,11 +116,12 @@ interface OpenLevInterface {
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
-        uint32 marginLimit
+        uint32 marginLimit,
+        uint8 dex
     ) external returns (uint16);
 
 
-    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external;
+    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable;
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount, bytes memory dexData) external;
 
@@ -146,5 +152,6 @@ interface OpenLevInterface {
 
     function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external;
 
+    function setMarketDex(uint16 marketId, uint8 dex) external;
 
 }

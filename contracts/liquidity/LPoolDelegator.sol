@@ -19,6 +19,7 @@ contract LPoolDelegator is DelegatorInterface, LPoolInterface, Adminable {
         admin = msg.sender;
     }
     function initialize(address underlying_,
+        bool isWethPool_,
         address contoller_,
         uint256 baseRatePerYear,
         uint256 multiplierPerYear,
@@ -34,8 +35,9 @@ contract LPoolDelegator is DelegatorInterface, LPoolInterface, Adminable {
         require(implementation == address(0), "initialize once");
         // Creator of the contract is admin during initialization
         // First delegate gets to initialize the delegator (i.e. storage contract)
-        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,uint256,uint256,uint256,uint256,uint256,string,string,uint8)",
+        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,bool,address,uint256,uint256,uint256,uint256,uint256,string,string,uint8)",
             underlying_,
+            isWethPool_,
             contoller_,
             baseRatePerYear,
             multiplierPerYear,
@@ -70,6 +72,10 @@ contract LPoolDelegator is DelegatorInterface, LPoolInterface, Adminable {
         delegateToImplementation(abi.encodeWithSignature("mint(uint256)", mintAmount));
     }
 
+    function mintEth() external payable override {
+        delegateToImplementation(abi.encodeWithSignature("mintEth()"));
+    }
+
     /**
      * Sender redeems lTokens in exchange for the underlying asset
      * @dev Accrues interest whether or not the operation succeeds, unless reverted
@@ -99,7 +105,8 @@ contract LPoolDelegator is DelegatorInterface, LPoolInterface, Adminable {
     function repayBorrowBehalf(address borrower, uint repayAmount) external override {
         delegateToImplementation(abi.encodeWithSignature("repayBorrowBehalf(address,uint256)", borrower, repayAmount));
     }
-    function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external override{
+
+    function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external override {
         delegateToImplementation(abi.encodeWithSignature("repayBorrowEndByOpenLev(address,uint256)", borrower, repayAmount));
     }
     /**

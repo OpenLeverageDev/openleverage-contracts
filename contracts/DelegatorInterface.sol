@@ -2,7 +2,6 @@
 pragma solidity 0.7.6;
 
 
-
 abstract contract DelegatorInterface {
     /**
      * Implementation address for this contract
@@ -71,17 +70,18 @@ abstract contract DelegatorInterface {
     receive() external payable {
         _fallback();
     }
-    function _fallback() internal {
-        require(msg.value == 0, "cannot send value to fallback");
-        // delegate all other functions to current implementation
-        (bool success,) = implementation.delegatecall(msg.data);
 
-        assembly {
-            let free_mem_ptr := mload(0x40)
-            returndatacopy(free_mem_ptr, 0, returndatasize())
-            switch success
-            case 0 {revert(free_mem_ptr, returndatasize())}
-            default {return (free_mem_ptr, returndatasize())}
+    function _fallback() internal {
+        // delegate all other functions to current implementation
+        if (msg.data.length > 0) {
+            (bool success,) = implementation.delegatecall(msg.data);
+            assembly {
+                let free_mem_ptr := mload(0x40)
+                returndatacopy(free_mem_ptr, 0, returndatasize())
+                switch success
+                case 0 {revert(free_mem_ptr, returndatasize())}
+                default {return (free_mem_ptr, returndatasize())}
+            }
         }
     }
 }

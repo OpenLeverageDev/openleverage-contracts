@@ -5,6 +5,8 @@ const LPErc20Delegate = artifacts.require('LPool');
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
+const WETH = artifacts.require("WETH");
+
 const MockUniswapV2Factory = artifacts.require("MockUniswapV2Factory");
 const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 
@@ -17,7 +19,8 @@ const MockPriceOracle = artifacts.require("MockPriceOracle");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
 const MockUniswapV3Pair = artifacts.require("MockUniswapV3Pair");
 
-const MockDexAggregator = artifacts.require("MockDexAggregator");
+const DexAggregator = artifacts.require("DexAggregatorV1");
+const DexAggregatorDelegator = artifacts.require("DexAggregatorDelegator");
 
 const Treasury = artifacts.require("Treasury");
 const Timelock = artifacts.require('Timelock');
@@ -38,6 +41,7 @@ exports.createController = async (admin, oleToken, wChainToken) => {
   let instance = await Controller.new();
   let controller = await ControllerDelegator.new(oleToken ? oleToken : zeroAddr,
     wChainToken ? wChainToken : zeroAddr,
+    zeroAddr,
     zeroAddr,
     zeroAddr,
     admin,
@@ -67,16 +71,21 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
   return gotPair;
 }
 exports.createDexAgg = async (_uniV2Factory, _uniV3Factory) => {
-  return await MockDexAggregator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr);
+  let delegate = await DexAggregator.new();
+  let dexAgg = await DexAggregatorDelegator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr, zeroAddr, delegate.address);
+  return await DexAggregator.at(dexAgg.address);
 }
 exports.createToken = async (tokenSymbol) => {
   return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+}
+exports.createWETH = async () => {
+  return await WETH.new();
 }
 exports.createPriceOracle = async () => {
   return await MockPriceOracle.new();
 }
 exports.createUniswapV2Pool = async (factory, tokenA, tokenB) => {
-  let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address,toWei(100000), toWei(100000));
+  let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address, toWei(100000), toWei(100000));
   await factory.addPair(pair.address);
   return pair;
 }
@@ -90,6 +99,7 @@ exports.createOpenLev = async (controller, admin, dexAgg, terrasury, depositToke
     dexAgg ? dexAgg : zeroAddr,
     terrasury ? terrasury : zeroAddr,
     depositTokens ? depositTokens : [],
+    zeroAddr,
     admin,
     delegate.address);
 }
@@ -105,11 +115,11 @@ exports.createTimelock = async (admin) => {
   return timeLock;
 }
 
-exports.createPool = async (tokenSymbol, controller, admin) => {
-  let testToken = await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
+  let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
   let erc20Delegate = await LPErc20Delegate.new();
   let pool = await LPErc20Delegator.new();
-  await pool.initialize(testToken.address,
+  await pool.initialize(testToken.address, wethToken ? true : false,
     controller.address,
     toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
     1e18 + '',

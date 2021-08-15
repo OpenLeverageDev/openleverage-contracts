@@ -22,17 +22,19 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         ControllerInterface _controller,
         DexAggregatorInterface _dexAggregator,
         address _treasury,
-        address[] memory depositTokens,
+        address[] memory _depositTokens,
+        address  _wETH,
         address payable _admin,
         address implementation_){
         admin = msg.sender;
         // Creator of the contract is admin during initialization
         // First delegate gets to initialize the delegator (i.e. storage contract)
-        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address,address[])",
+        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address,address[],address)",
             _controller,
             _treasury,
             _dexAggregator,
-            depositTokens
+            _depositTokens,
+            _wETH
             ));
         implementation = implementation_;
 
@@ -53,13 +55,14 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
-        uint32 marginLimit
+        uint32 marginLimit,
+        uint8 dex
     ) external override returns (uint16){
-        bytes memory data = delegateToImplementation(abi.encodeWithSignature("addMarket(address,address,uint32)", pool0, pool1, marginLimit));
+        bytes memory data = delegateToImplementation(abi.encodeWithSignature("addMarket(address,address,uint32,uint8)", pool0, pool1, marginLimit, dex));
         return abi.decode(data, (uint16));
     }
 
-    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external override {
+    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable override {
         delegateToImplementation(abi.encodeWithSignature("marginTrade(uint16,bool,bool,uint256,uint256,uint256,bytes)",
             marketId, longToken, depositToken, deposit, borrow, minBuyAmount, dexData));
     }
@@ -125,6 +128,10 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
 
     function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external override {
         delegateToImplementation(abi.encodeWithSignature("setPriceDiffientRatio(uint16)", newPriceDiffientRatio));
+    }
+
+    function setMarketDex(uint16 marketId, uint8 dex) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketDex(uint16,uint8)", marketId,dex));
     }
 
 
