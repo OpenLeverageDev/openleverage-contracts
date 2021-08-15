@@ -1,100 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity 0.7.3;
+pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Adminable.sol";
+import "./DexCaller.sol";
+import "./xOLEInterface.sol";
+import "./DelegateInterface.sol";
+
 
 // @title Voting Escrowed Token
 // @notice Lock OLE to get time and amount weighted xOLE
 // The weight in this implementation is linear, and lock cannot be more than maxtime (4 years)
-contract xOLE is Adminable, ReentrancyGuard {
+contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGuard {
     using SafeMath for uint256;
-
-    // EIP-20 token name for this token
-    string public name = 'xOLE';
-
-    // EIP-20 token symbol for this token
-    string public symbol = 'xOLE';
-
-    // EIP-20 token decimals for this token
-    uint8 public constant decimals = 18;
-
-    // Total number of tokens in circulation
-    uint public supply;
-
-    // Allowance amounts on behalf of others
-    mapping(address => mapping(address => uint)) internal allowances;
-
-    // Official record of token balances for each account
-    mapping(address => uint) internal balances;
-
-    address public oleToken;
-
-    mapping(address => LockedBalance) public locked;
-
-    uint256 public epoch;
-
-    Point[100000000000000000000000000000] public point_history; // epoch -> unsigned point
-
-    mapping(address => Point[1000000000]) public user_point_history; // user -> Point[user_epoch]
-
-    mapping(address => uint256) public user_point_epoch;
-
-    mapping(uint256 => int128) public slope_changes; // time -> signed slope change
-
-    struct Point {
-        int128 bias;
-        int128 slope;   // - dweight / dt
-        uint256 ts;
-        uint256 blk;   // block
-    }
-
-    struct LockedBalance {
-        uint256 amount;
-        uint256 end;
-    }
-
-    struct Vars {
-        uint256 _epoch;
-        uint256 user_epoch;
-    }
-
-    address ZERO_ADDRESS = address(0);
-
-    int128 constant DEPOSIT_FOR_TYPE = 0;
-    int128 constant CREATE_LOCK_TYPE = 1;
-    int128 constant INCREASE_LOCK_AMOUNT = 2;
-    int128 constant INCREASE_UNLOCK_TIME = 3;
-
-    uint256 constant WEEK = 7 * 86400;  // all future times are rounded by week
-    uint256 constant MAXTIME = 4 * 365 * 86400;  // 4 years
-    uint256 constant MULTIPLIER = 10 ** 18;
-
-    event CommitOwnership (address admin);
-
-    event ApplyOwnership (address admin);
-
-    event Deposit (
-        address indexed provider,
-        uint256 value,
-        uint256 indexed locktime,
-        int128 type_,
-        uint256 ts
-    );
-
-    event Withdraw (
-        address indexed provider,
-        uint256 value,
-        uint256 ts
-    );
-
-    event Supply (
-        uint256 prevSupply,
-        uint256 supply
-    );
+    using SafeERC20 for IERC20;
 
     /* We cannot really do block numbers per se b/c slope is per time, not per block
     and per block could be fairly bad b/c Ethereum changes blocktimes.
@@ -105,13 +28,103 @@ contract xOLE is Adminable, ReentrancyGuard {
     }
 
     function initialize(
-        address _oleToken
+        address _oleToken,
+        IUniswapV2Factory _uniswapFactory,
+        address _sharingToken,
+        uint _devFundRatio,
+        address _dev
     ) public {
         require(msg.sender == admin, "Not admin");
-        oleToken = _oleToken;
+        require(_oleToken != address(0), "_oleToken address cannot be 0");
+        require(_sharingToken != address(0), "_sharingToken address cannot be 0");
+        require(_dev != address(0), "_dev address cannot be 0");
+        oleToken = IERC20(_oleToken);
+        devFundRatio = _devFundRatio;
+        dev = _dev;
+        uniswapFactory = _uniswapFactory;
         point_history[0].blk = block.number;
         point_history[0].ts = block.timestamp;
     }
+
+    function withdrawDevFund() external override {
+        require(msg.sender == dev, "Dev only");
+        require(devFund != 0, "No fund to withdraw");
+        devFund = 0;
+        oleToken.transfer(dev, devFund);
+    }
+
+    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount) external override {
+        uint newReward;
+        if (fromToken == address(oleToken)) {
+            uint claimable = totalRewarded.sub(withdrewReward);
+            uint toShare = oleToken.balanceOf(address(this)).sub(claimable).sub(supply).sub(devFund);
+            require(toShare >= amount, 'Exceed OLE balance');
+            newReward = toShare;
+        } else {
+            require(IERC20(fromToken).balanceOf(address(this)) >= amount, "Exceed available balance");
+            newReward = flashSell(address(oleToken), fromToken, amount, minBuyAmount);
+        }
+        uint newDevFund = newReward.mul(devFundRatio).div(10000);
+        newReward = newReward.sub(newDevFund);
+        devFund = devFund.add(newDevFund);
+        totalRewarded = totalRewarded.add(newReward);
+        lastUpdateTime = block.timestamp;
+        rewardPerTokenStored = rewardPerToken(newReward);
+        emit RewardAdded(fromToken, amount, newReward);
+    }
+
+    function earned(address account) external override view returns (uint) {
+        return earnedInternal(account);
+    }
+
+    function earnedInternal(address account) internal view returns (uint) {
+        return locked[account].amount
+        .mul(rewardPerToken(0).sub(userRewardPerTokenPaid[account]))
+        .div(1e18)
+        .add(rewards[account]);
+    }
+
+    function rewardPerToken(uint newReward) internal view returns (uint) {
+        if (supply == 0) {
+            return rewardPerTokenStored;
+        }
+
+        if (block.timestamp == lastUpdateTime) {
+            return rewardPerTokenStored.add(newReward
+            .mul(1e18)
+            .div(supply));
+        } else {
+            return rewardPerTokenStored;
+        }
+    }
+
+    function getReward() internal updateReward(msg.sender) returns (uint) {
+        uint reward = earnedInternal(msg.sender);
+        if (reward > 0) {
+            rewards[msg.sender] = 0;
+            withdrewReward = withdrewReward.add(reward);
+        }
+        return reward;
+    }
+
+    modifier updateReward(address account) {
+        rewardPerTokenStored = rewardPerToken(0);
+        rewards[account] = earnedInternal(account);
+        userRewardPerTokenPaid[account] = rewardPerTokenStored;
+        _;
+    }
+
+    /*** Admin Functions ***/
+    function setDevFundRatio(uint newRatio) external override onlyAdmin {
+        require(newRatio <= 10000);
+        devFundRatio = newRatio;
+    }
+
+    function setDev(address newDev) external override onlyAdmin {
+        dev = newDev;
+    }
+
+    // xOLE functions =====
 
     /*"
     @notice Get the most recently recorded rate of voting power decrease for `addr`
@@ -399,9 +412,9 @@ contract xOLE is Adminable, ReentrancyGuard {
     */
     function withdraw() external nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
+        require(_locked.amount >= 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
         uint256 value = _locked.amount;
-
         LockedBalance memory old_locked = LockedBalance (_locked.amount, _locked.end);
         _locked.end = 0;
         _locked.amount = 0;
@@ -415,10 +428,10 @@ contract xOLE is Adminable, ReentrancyGuard {
         Both can have >= 0 amount
         */
         _checkpoint(msg.sender, old_locked, _locked);
+        uint reward = getReward();
+        require(IERC20(oleToken).transfer(msg.sender, value.add(reward)));
 
-        require(IERC20(oleToken).transfer(msg.sender, value));
-
-        emit Withdraw(msg.sender, value, block.timestamp);
+        emit Withdraw(msg.sender, value, reward, block.timestamp);
         emit Supply(supply_before, supply_before - value);
     }
 

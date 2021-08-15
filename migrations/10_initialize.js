@@ -156,48 +156,48 @@ async function intializeMarket(accounts, network, token0, token1, marginLimit) {
  */
 async function initializeFarmings(accounts) {
   //3.3% to dex Lps
-  let lvr2dexFarming = totalSupply.div(toBN(1000)).mul(toBN(3));
+  let ole2dexFarming = totalSupply.div(toBN(1000)).mul(toBN(3));
   m.log("waiting initialize Farming FEI - WETH......");
-  await initializeFarming(accounts, "0x042aCCE28AD358BB0E1D7E220DcDd89bF790d257", lvr2dexFarming);
+  await initializeFarming(accounts, "0x042aCCE28AD358BB0E1D7E220DcDd89bF790d257", ole2dexFarming);
   m.log("waiting initialize Farming XOR - WETH......");
-  await initializeFarming(accounts, "0xDD95A778a7242BC57245096764c6d15ecBe5Ef6A", lvr2dexFarming);
+  await initializeFarming(accounts, "0xDD95A778a7242BC57245096764c6d15ecBe5Ef6A", ole2dexFarming);
   m.log("waiting initialize Farming UNI - WETH......");
-  await initializeFarming(accounts, "0x7f930B4888ACf1DC4434CFDb124337D3daB470AB", lvr2dexFarming);
+  await initializeFarming(accounts, "0x7f930B4888ACf1DC4434CFDb124337D3daB470AB", ole2dexFarming);
   m.log("waiting initialize Farming DPI - WETH......");
-  await initializeFarming(accounts, "0xC11cE0176021140b197bf6Aa3deabfb2a055ce73", lvr2dexFarming);
+  await initializeFarming(accounts, "0xC11cE0176021140b197bf6Aa3deabfb2a055ce73", ole2dexFarming);
   m.log("waiting initialize Farming RAI - WETH......");
-  await initializeFarming(accounts, "0xC6965B349Bb77553eCe9287a0f9EdeDAe22733a5", lvr2dexFarming);
+  await initializeFarming(accounts, "0xC6965B349Bb77553eCe9287a0f9EdeDAe22733a5", ole2dexFarming);
   m.log("waiting initialize Farming WISE - WETH......");
-  await initializeFarming(accounts, "0xEd0d17557fF91E8350Ec8289818905f6cDBf5784", lvr2dexFarming);
+  await initializeFarming(accounts, "0xEd0d17557fF91E8350Ec8289818905f6cDBf5784", ole2dexFarming);
   m.log("waiting initialize Farming CORE - WETH......");
-  await initializeFarming(accounts, "0x73806773911a8009e4495044542B42a06C3F24Dc", lvr2dexFarming);
+  await initializeFarming(accounts, "0x73806773911a8009e4495044542B42a06C3F24Dc", ole2dexFarming);
   m.log("waiting initialize Farming USDT - WETH......");
-  await initializeFarming(accounts, "0xEcD196F51008911C758aFA6c3dc4BbA298f6423C", lvr2dexFarming);
+  await initializeFarming(accounts, "0xEcD196F51008911C758aFA6c3dc4BbA298f6423C", ole2dexFarming);
   m.log("waiting initialize Farming WBTC - WETH......");
-  await initializeFarming(accounts, "0x3d7c73F5c816286aEb28f822F7A3166752331602", lvr2dexFarming);
+  await initializeFarming(accounts, "0x3d7c73F5c816286aEb28f822F7A3166752331602", ole2dexFarming);
   m.log("waiting initialize Farming DAI - USDT......");
-  await initializeFarming(accounts, "0xc035464960B933F2C501b049a6Bd4A0745f869bf", lvr2dexFarming);
+  await initializeFarming(accounts, "0xc035464960B933F2C501b049a6Bd4A0745f869bf", ole2dexFarming);
   m.log("waiting initialize Farming Frax - USDC......");
-  await initializeFarming(accounts, "0xe2ea227D34E54B787E082fbA8b9d8487F5dB5Eb8", lvr2dexFarming);
-  //7.5% to LVR-ETH Lps
+  await initializeFarming(accounts, "0xe2ea227D34E54B787E082fbA8b9d8487F5dB5Eb8", ole2dexFarming);
+  //7.5% to OLE-ETH Lps
   m.log("waiting initialize Farming Leverage - WETH......");
   await initializeFarming(accounts, "0x327EA92cb865CD57346E0E51E4002479d018133F", totalSupply.div(toBN(1000)).mul(toBN(5)));
 
 }
 
 async function initializeFarming(accounts, farmingAddr, reward) {
-  let lvrFarming = await OpenLevFarmingPool.at(farmingAddr);
+  let oleFarming = await OpenLevFarmingPool.at(farmingAddr);
   let oleToken = await OLEToken.at(OLEToken.address);
   m.log("waiting transfer OLE to farming......");
   await oleToken.transfer(farmingAddr, reward);
   m.log("waiting Farming setRewardDistribution to account[0]......");
-  await lvrFarming.setRewardDistribution(accounts[0]);
+  await oleFarming.setRewardDistribution(accounts[0]);
   m.log("waiting Farming notifyRewardAmount......");
-  await lvrFarming.notifyRewardAmount(reward);
+  await oleFarming.notifyRewardAmount(reward);
   m.log("waiting Farming setRewardDistribution to tl......");
-  await lvrFarming.setRewardDistribution(Timelock.address);
+  await oleFarming.setRewardDistribution(Timelock.address);
   m.log("waiting Farming transferOwnership......");
-  await lvrFarming.transferOwnership(Timelock.address);
+  await oleFarming.transferOwnership(Timelock.address);
 
 }
 
@@ -223,7 +223,7 @@ async function loggerInfo() {
   m.log("ControllerV1.address=", ControllerV1.address.toLowerCase());
   m.log("PriceOracleV2.address=", PriceOracleV2.address.toLowerCase());
   m.log("OpenLevV1.address=", OpenLevV1.address.toLowerCase());
-  m.log("LVRFarmingPool.address=", OpenLevFarmingPool.address.toLowerCase());
+  m.log("OLEFarmingPool.address=", OpenLevFarmingPool.address.toLowerCase());
   m.log("Reserve.address=", Reserve.address.toLowerCase());
   m.log("Referral.address=", Referral.address.toLowerCase());
   m.log("OLETokenLock.address=", OLETokenLock.address.toLowerCase());
