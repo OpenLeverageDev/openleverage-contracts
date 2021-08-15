@@ -13,7 +13,7 @@ const {
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocks, toBN} = require("./utils/EtheUtil");
 const Treasury = artifacts.require("TreasuryDelegator");
-const TreasuryImpl = artifacts.require("Treasury");
+const xOLE = artifacts.require("xOLE");
 const m = require('mocha-logger');
 const TestToken = artifacts.require("MockERC20");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
@@ -48,19 +48,19 @@ contract("Treasury", async accounts => {
     dai = await TestToken.new('DAI', 'DAI');
 
     let pair = await MockUniswapV2Pair.new(usdt.address, dai.address, toWei(10000), toWei(10000));
-    let lvrUsdtPair = await MockUniswapV2Pair.new(usdt.address, openLevErc20.address, toWei(100000), toWei(100000));
+    let oleUsdtPair = await MockUniswapV2Pair.new(usdt.address, openLevErc20.address, toWei(100000), toWei(100000));
 
     m.log("Created MockUniswapV2Pair (", last8(await pair.token0()), ",", last8(await pair.token1()), ")");
 
     await uniswapFactory.addPair(pair.address);
-    await uniswapFactory.addPair(lvrUsdtPair.address);
-    m.log("Added pair", last8(pair.address));
+    await uniswapFactory.addPair(oleUsdtPair.address);
+    m.log("Added pairs", last8(pair.address), last8(oleUsdtPair.address));
     let dexAgg = await utils.createDexAgg(uniswapFactory.address);
     // Making sure the pair has been added correctly in mock
     let gotPair = await MockUniswapV2Pair.at(await uniswapFactory.getPair(usdt.address, dai.address));
     assert.equal(await pair.token0(), await gotPair.token0());
     assert.equal(await pair.token1(), await gotPair.token1());
-    let treasuryImpl = await TreasuryImpl.new();
+    let xOLE = await xOLE.new();
     treasury = await Treasury.new(dexAgg.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
     m.log("Created Treasury", last8(treasury.address));
 
@@ -87,7 +87,7 @@ contract("Treasury", async accounts => {
     m.log("Treasury USDT balance:", await usdt.balanceOf(treasury.address));
   })
 
-  it("Convert LVR Token exceed available", async () => {
+  it("Convert OLE Token exceed available", async () => {
     await openLevErc20.mint(treasury.address, toWei(10000));
     await openLevErc20.mint(admin, toWei(10000));
     await openLevErc20.approve(treasury.address, toWei(10000));
@@ -256,7 +256,7 @@ contract("Treasury", async accounts => {
 
   it("Admin setDevFundRatio test", async () => {
     let timeLock = await utils.createTimelock(admin);
-    let treasuryImpl = await TreasuryImpl.new();
+    let treasuryImpl = await xOLE.new();
     let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     await timeLock.executeTransaction(treasury.address, 0, 'setDevFundRatio(uint256)',
@@ -273,7 +273,7 @@ contract("Treasury", async accounts => {
   it("Admin setDev test", async () => {
     let newDev = accounts[7];
     let timeLock = await utils.createTimelock(admin);
-    let treasuryImpl = await TreasuryImpl.new();
+    let treasuryImpl = await xOLE.new();
     let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
     await timeLock.executeTransaction(treasury.address, 0, 'setDev(address)',
@@ -289,10 +289,10 @@ contract("Treasury", async accounts => {
 
   it("Admin setImplementation test", async () => {
     let timeLock = await utils.createTimelock(admin);
-    let treasuryImpl = await TreasuryImpl.new();
+    let treasuryImpl = await xOLE.new();
     let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
       50, dev, timeLock.address, treasuryImpl.address);
-    let instance = await TreasuryImpl.new();
+    let instance = await xOLE.new();
 
     await timeLock.executeTransaction(treasury.address, 0, 'setImplementation(address)',
       web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
