@@ -3,7 +3,6 @@ pragma solidity 0.7.3;
 
 import "./DelegatorInterface.sol";
 import "./ControllerInterface.sol";
-import "./TreasuryInterface.sol";
 import "./Adminable.sol";
 import "./dex/IUniswapV2Callee.sol";
 import "./ReferralInterface.sol";

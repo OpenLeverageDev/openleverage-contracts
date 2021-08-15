@@ -13,12 +13,11 @@ contract DexCaller is IUniswapV2Callee {
 
     using SafeMath for uint;
     using SafeERC20 for IERC20;
+
     struct UniVars {
         address sellToken;
         uint amount;
     }
-
-
 
     function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint buyAmount){
         address pair = uniswapFactory.getPair(buyToken, sellToken);
