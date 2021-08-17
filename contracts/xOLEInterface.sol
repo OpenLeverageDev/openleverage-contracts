@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "./dex/DexAggregatorInterface.sol";
 
 
 contract xOLEStorage {
@@ -35,6 +36,8 @@ contract xOLEStorage {
     mapping(address => uint256) public user_point_epoch;
 
     mapping(uint256 => int128) public slope_changes; // time -> signed slope change
+
+    DexAggregatorInterface dexAgg;
 
     struct Point {
         int128 bias;
@@ -107,7 +110,6 @@ contract xOLEStorage {
     event Withdraw (
         address indexed provider,
         uint256 value,
-        uint256 reward,
         uint256 ts
     );
 
@@ -115,22 +117,31 @@ contract xOLEStorage {
         uint256 prevSupply,
         uint256 supply
     );
+
+    event RewardPaid (
+        address paidTo,
+        uint256 amount
+    );
 }
 
 
 interface xOLEInterface {
 
-    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount) external;
+    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount, bytes memory data) external;
 
     function withdrawDevFund() external;
 
     function earned(address account) external view returns (uint);
+
+    function withdrawReward() external;
 
     /*** Admin Functions ***/
 
     function setDevFundRatio(uint newRatio) external;
 
     function setDev(address newDev) external;
+
+    function setDexAgg(DexAggregatorInterface newDexAgg) external;
 
     event CommitOwnership (address admin);
 
