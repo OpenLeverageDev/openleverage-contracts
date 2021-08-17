@@ -1,6 +1,6 @@
 const xOLE = artifacts.require("xOLE");
 const OLEToken = artifacts.require("OLEToken");
-const {assertPrint} = require("./utils/OpenLevUtil");
+const {assertPrint, createDexAgg, createUniswapV2Factory} = require("./utils/OpenLevUtil");
 const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
 const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
@@ -16,6 +16,9 @@ contract("xOLE", async accounts => {
   let bob = accounts[0];
   let alice = accounts[1];
   let admin = accounts[2];
+  let dev = accounts[3];
+
+  let uniswapFactory;
 
   it("Test voting powers", async () => {
 
@@ -28,7 +31,10 @@ contract("xOLE", async accounts => {
     await ole.mint(alice, _1000);
 
     let xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, {from: admin});
+
+    uniswapFactory = await createUniswapV2Factory(admin);
+    let dexAgg = await createDexAgg(uniswapFactory.address);
+    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
 
     /*
     Test voting power in the following scenario.

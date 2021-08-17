@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Adminable.sol";
-import "./DexCaller.sol";
 import "./xOLEInterface.sol";
 import "./DelegateInterface.sol";
 
@@ -15,7 +14,7 @@ import "./DelegateInterface.sol";
 // @title Voting Escrowed Token
 // @notice Lock OLE to get time and amount weighted xOLE
 // The weight in this implementation is linear, and lock cannot be more than maxtime (4 years)
-contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGuard {
+contract xOLE is xOLEInterface, xOLEStorage, Adminable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -29,31 +28,37 @@ contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGua
 
     function initialize(
         address _oleToken,
-        IUniswapV2Factory _uniswapFactory,
-        address _sharingToken,
+        DexAggregatorInterface _dexAgg,
         uint _devFundRatio,
         address _dev
     ) public {
         require(msg.sender == admin, "Not admin");
         require(_oleToken != address(0), "_oleToken address cannot be 0");
-        require(_sharingToken != address(0), "_sharingToken address cannot be 0");
         require(_dev != address(0), "_dev address cannot be 0");
         oleToken = IERC20(_oleToken);
         devFundRatio = _devFundRatio;
         dev = _dev;
-        uniswapFactory = _uniswapFactory;
         point_history[0].blk = block.number;
         point_history[0].ts = block.timestamp;
+        dexAgg = _dexAgg;
     }
+
+    function setDexAgg(DexAggregatorInterface newDexAgg) external override onlyAdmin {
+        dexAgg = newDexAgg;
+    }
+
+    // Fees sharing functions  =====
 
     function withdrawDevFund() external override {
         require(msg.sender == dev, "Dev only");
         require(devFund != 0, "No fund to withdraw");
+        uint toSend = devFund;
         devFund = 0;
-        oleToken.transfer(dev, devFund);
+        oleToken.transfer(dev, toSend);
     }
 
-    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount) external override {
+    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount, bytes memory data) external override {
+        require(supply > 0, "Can't share without locked OLE");
         uint newReward;
         if (fromToken == address(oleToken)) {
             uint claimable = totalRewarded.sub(withdrewReward);
@@ -62,7 +67,8 @@ contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGua
             newReward = toShare;
         } else {
             require(IERC20(fromToken).balanceOf(address(this)) >= amount, "Exceed available balance");
-            newReward = flashSell(address(oleToken), fromToken, amount, minBuyAmount);
+            (IERC20(fromToken)).approve(address(dexAgg), amount);
+            newReward = dexAgg.sell(address(oleToken), fromToken, amount, minBuyAmount, data);
         }
         uint newDevFund = newReward.mul(devFundRatio).div(10000);
         newReward = newReward.sub(newDevFund);
@@ -96,6 +102,12 @@ contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGua
         } else {
             return rewardPerTokenStored;
         }
+    }
+
+    function withdrawReward() external override {
+        uint reward = getReward();
+        oleToken.safeTransfer(msg.sender, reward);
+        emit RewardPaid(msg.sender, reward);
     }
 
     function getReward() internal updateReward(msg.sender) returns (uint) {
@@ -303,10 +315,10 @@ contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGua
     @param unlock_time New time when to unlock the tokens, or 0 if unchanged
     @param locked_balance Previous locked amount / timestamp
     */
-    function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal {
+    function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal updateReward(msg.sender) {
         uint256 supply_before = supply;
         supply = supply_before + _value;
-        LockedBalance memory old_locked = LockedBalance (_locked.amount, _locked.end);
+        LockedBalance memory old_locked = LockedBalance(_locked.amount, _locked.end);
 
         // Adding to existing lock, or if a lock is expired - creating a new one
         _locked.amount += _value;
@@ -410,12 +422,12 @@ contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGua
     @notice Withdraw all tokens for `msg.sender`
     @dev Only possible if the lock has expired
     */
-    function withdraw() external nonReentrant() {
+    function withdraw() external nonReentrant() updateReward(msg.sender) {
         LockedBalance memory _locked = locked[msg.sender];
         require(_locked.amount >= 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
         uint256 value = _locked.amount;
-        LockedBalance memory old_locked = LockedBalance (_locked.amount, _locked.end);
+        LockedBalance memory old_locked = LockedBalance(_locked.amount, _locked.end);
         _locked.end = 0;
         _locked.amount = 0;
         locked[msg.sender] = _locked;
@@ -431,10 +443,10 @@ contract xOLE is xOLEInterface, xOLEStorage, Adminable, DexCaller, ReentrancyGua
         uint reward = getReward();
         require(IERC20(oleToken).transfer(msg.sender, value.add(reward)));
 
-        emit Withdraw(msg.sender, value, reward, block.timestamp);
+        emit Withdraw(msg.sender, value, block.timestamp);
+        emit RewardPaid(msg.sender, reward);
         emit Supply(supply_before, supply_before - value);
     }
-
 
 
     /*
