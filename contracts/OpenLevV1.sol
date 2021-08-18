@@ -54,9 +54,9 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         require(marginLimit < 100000, "Limit is higher");
         uint16 marketId = numPairs;
         markets[marketId] = Types.Market(pool0, pool1, marginLimit, defaultFeesRate, 0, 0, dex);
-        // todo fix the temporary approve
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
+        // Approve the max number for pools
         IERC20(token0).approve(address(pool0), uint256(- 1));
         IERC20(token1).approve(address(pool1), uint256(- 1));
         numPairs ++;
@@ -72,15 +72,16 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint minBuyAmount,
         bytes memory dexData
     ) external payable override nonReentrant onlySupportDex(dexData) {
-        //controller
+        // Check if the market is enabled for trading
         (ControllerInterface(controller)).marginTradeAllowed(marketId);
         Types.MarketVars memory vars = toMarketVar(marketId, longToken, true);
-        //verify
-        verifyOpenBefore(vars, marketId, longToken, depositToken, deposit, borrow, dexData);
+        verifyTrade(vars, marketId, longToken, depositToken, deposit, borrow, dexData);
         Types.TradeVars memory tv;
+
+        // if deposit token is NOT the same as the long token
         if (depositToken != longToken) {
             tv.depositErc20 = vars.sellToken;
-            deposit = doTransferIn(msg.sender, tv.depositErc20, deposit);
+            deposit = transferIn(msg.sender, tv.depositErc20, deposit);
             tv.fees = feesAndInsurance(deposit.add(borrow), address(tv.depositErc20), marketId);
             tv.depositAfterFees = deposit.sub(tv.fees);
             tv.tradeSize = tv.depositAfterFees.add(borrow);
@@ -89,7 +90,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             (tv.currentPrice, tv.priceDecimals) = dexAggregator.getPrice(address(vars.sellToken), address(vars.buyToken), dexData);
             tv.borrowValue = borrow.mul(tv.currentPrice).div(10 ** uint(tv.priceDecimals));
             tv.depositErc20 = vars.buyToken;
-            deposit = doTransferIn(msg.sender, tv.depositErc20, deposit);
+            deposit = transferIn(msg.sender, tv.depositErc20, deposit);
             tv.fees = feesAndInsurance(deposit.add(tv.borrowValue), address(tv.depositErc20), marketId);
             tv.depositAfterFees = deposit.sub(tv.fees);
             tv.tradeSize = borrow;
@@ -391,7 +392,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return dexAggregator.calBuyAmount(buyToken, sellToken, sellAmount, data);
     }
 
-    function doTransferIn(address from, IERC20 token, uint amount) internal returns (uint) {
+    function transferIn(address from, IERC20 token, uint amount) internal returns (uint) {
         uint balanceBefore = token.balanceOf(address(this));
         if (address(token) == wETH) {
             IWETH(address(token)).deposit{value : msg.value}();
@@ -494,31 +495,37 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         emit NewMarketDex(marketId, oldDex, dex);
     }
 
-    function verifyOpenBefore(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {
-        //verify depositToken
+    function verifyTrade(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {
+
+        //verify if deposit token allowed
         address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
         require(allowedDepositTokens[depositTokenAddr], "UnAllowed deposit token");
-        //verify deposit 0.0001
-        uint minimalDeposit = 10 ** (ERC20(depositTokenAddr).decimals() - 4);
+
+        //verify minimal deposit > absolute value 0.0001
+        uint minimalDeposit = 10 ** (ERC20(depositTokenAddr).decimals() - 4); // 0.0001
         uint actualDeposit = depositTokenAddr == wETH ? msg.value : deposit;
-        require(actualDeposit > minimalDeposit, "Deposit smaller");
+        require(actualDeposit > minimalDeposit, "Deposit too small");
+
         //update price
         if (borrow != 0) {
             require(!shouldUpdatePriceInternal(address(vars.buyToken), address(vars.sellToken), true, dexData), 'Update price firstly');
         }
         Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
-        //First trade
+
+        // New trade
         if (trade.lastBlockNum == 0) {
             require(borrow > 0, "Borrow 0");
             return;
+        } else {
+            // For new trade, these checks are not needed
+            require(depositToken == trade.depositToken, "Deposit token not same");
+            require(trade.lastBlockNum != uint128(block.number), 'Same block');
+            require(vars.dex == dexData.toDex(), 'Dex not same');
         }
-        require(depositToken == trade.depositToken, "Deposit token not same");
-        require(trade.lastBlockNum != uint128(block.number), 'Same block');
-        require(vars.dex == dexData.toDex(), 'Dex not same');
     }
 
     function verifyOpenAfter(uint16 marketId, bool longToken, address token0, address token1, bytes memory dexData) internal {
-        require(isPositionHealthy(msg.sender, marketId, longToken, true, dexData), "Positon not healthy");
+        require(isPositionHealthy(msg.sender, marketId, longToken, true, dexData), "Position not healthy");
         if (dexData.toDex() == DexData.DEX_UNIV2) {
             dexAggregator.updatePriceOracle(token0, token1, dexData);
         }
