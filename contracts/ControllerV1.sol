@@ -20,7 +20,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function initialize(
         IERC20 _oleToken,
-        IERC20 _xoleToken,
+        address _xoleToken,
         address _wETH,
         address _lpoolImplementation,
         address _openlev,
@@ -48,7 +48,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             tokenName, tokenSymbol, 18, admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (ControllerOpenLevInterface(openLev)).addMarket(LPoolInterface(pool0), LPoolInterface(pool1), marginRatio, dex);
+        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(pool0), LPoolInterface(pool1), marginRatio, dex);
         emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio, dex);
     }
 
@@ -243,7 +243,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function stake(LPoolInterface lpool, address account, uint256 amount) internal returns (bool) {
         bool updateSucceed = updateReward(lpool, account, false);
-        if (address(xoleToken) == address(0) || xoleToken.balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
+        if (xoleToken == address(0) || XOleInterface(xoleToken).balanceOf(account, 0) < oleTokenDistribution.xoleRaiseMinAmount) {
             return updateSucceed;
         }
         uint addExtraToken = amount.mul(oleTokenDistribution.xoleRaiseRatio).div(100);
@@ -254,7 +254,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function withdraw(LPoolInterface lpool, address account, uint256 amount) internal returns (bool)  {
         bool updateSucceed = updateReward(lpool, account, false);
-        if (address(xoleToken) == address(0)) {
+        if (xoleToken == address(0)) {
             return updateSucceed;
         }
         uint extraToken = lPoolRewardByAccounts[lpool][false][account].extraToken;
@@ -371,12 +371,16 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
 }
 
-interface ControllerOpenLevInterface {
+interface OPENLevInterface {
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
         uint32 marginRatio,
         uint8 dex
     ) external returns (uint16);
+}
+
+interface XOleInterface {
+    function balanceOf(address addr, uint256 _t) external view returns (uint256);
 }
 

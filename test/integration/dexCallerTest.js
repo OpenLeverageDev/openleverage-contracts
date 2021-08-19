@@ -1,5 +1,4 @@
 const {toBN, maxUint} = require("../utils/EtheUtil");
-const DexCaller = artifacts.require("MockDexCaller");
 const TestToken = artifacts.require("MockERC20");
 const utils = require("../utils/OpenLevUtil");
 const m = require('mocha-logger');
