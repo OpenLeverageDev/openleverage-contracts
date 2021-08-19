@@ -30,16 +30,17 @@ const ReferralDelegator = artifacts.require("ReferralDelegator");
 
 const m = require('mocha-logger');
 const zeroAddr = "0x0000000000000000000000000000000000000000";
-exports.Uni2DexData = "0x00";
-exports.Uni3DexData = "0x01000bb8" + "0000000000000000000000000000000000000000000000000000000000000000";
+exports.Uni2DexData = "0x01";
+exports.Uni3DexData = "0x02"+"000bb8"+"01";
 
 exports.createLPoolImpl = async () => {
   return await LPErc20Delegate.new();
 }
 
-exports.createController = async (admin, oleToken, wChainToken) => {
+exports.createController = async (admin, oleToken, wChainToken, xoleToken) => {
   let instance = await Controller.new();
   let controller = await ControllerDelegator.new(oleToken ? oleToken : zeroAddr,
+    xoleToken ? xoleToken : zeroAddr,
     wChainToken ? wChainToken : zeroAddr,
     zeroAddr,
     zeroAddr,

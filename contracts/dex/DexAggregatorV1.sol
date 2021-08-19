@@ -33,11 +33,23 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     }
 
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+        address payer = msg.sender;
         if (data.toDex() == DexData.DEX_UNIV2) {
-            buyAmount = uniV2Sell(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, sellAmount, minBuyAmount);
+            buyAmount = uniV2Sell(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee());
+            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
+        }
+        else {
+            require(false, 'Unsupported dex');
+        }
+    }
+
+    function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            buyAmount = uniV2SellMul(uniV2Factory, sellAmount, minBuyAmount, data.toUniV2Path());
+        } else if (data.toDex() == DexData.DEX_UNIV3) {
+            buyAmount = uniV3SellMul(sellAmount, minBuyAmount, data.toUniV3Path());
         }
         else {
             require(false, 'Unsupported dex');
@@ -49,7 +61,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             sellAmount = uniV2Buy(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, buyAmount, maxSellAmount);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee());
+            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true);
         }
         else {
             require(false, 'Unsupported dex');

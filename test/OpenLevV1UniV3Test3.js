@@ -15,8 +15,8 @@ const LPErc20Delegator = artifacts.require("LPoolDelegator");
 const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 const TestToken = artifacts.require("MockERC20");
 
-const Uni3DexData = "0x01000bb8" + "0000000000000000000000000000000000000000000000000000000000000000";
-const Uni3DexDataMaxBuyAmount = "0x01000bb8" + "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+const Uni3DexData = "0x02000bb8" + "01";
+const Uni3DexDataMaxBuyAmount = "0x02000bb8" + "00";
 
 contract("OpenLev UniV3", async accounts => {
 
@@ -68,7 +68,7 @@ contract("OpenLev UniV3", async accounts => {
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
-    await controller.createLPoolPair(token0.address, token1.address, 3000, 1); // 30% margin ratio
+    await controller.createLPoolPair(token0.address, token1.address, 3000, 2); // 30% margin ratio
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));

@@ -67,7 +67,7 @@ contract("OpenLev UniV2", async accounts => {
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
 
-    await controller.createLPoolPair(token0.address, token1.address, 3000, 0); // 30% margin ratio by default
+    await controller.createLPoolPair(token0.address, token1.address, 3000, 1); // 30% margin ratio by default
     assert.equal(3000, (await openLev.markets(0)).marginLimit);
 
     await openLev.setDefaultMarginLimit(1500, {from: admin});
@@ -80,7 +80,7 @@ contract("OpenLev UniV2", async accounts => {
   it("Deposit Eth，return eth ", async () => {
     gotPair = await utils.createUniswapV2Pool(uniswapFactory, weth, token1);
     await openLev.setAllowedDepositTokens([weth.address], true);
-    await controller.createLPoolPair(weth.address, token1.address, 3000, 0); // 30% margin ratio by default
+    await controller.createLPoolPair(weth.address, token1.address, 3000, 1); // 30% margin ratio by default
     let pairId = 1;
     await utils.mint(token1, saver, 10000);
     checkAmount(await token1.symbol() + " Saver " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(saver), 18);

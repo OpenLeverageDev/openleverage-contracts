@@ -11,6 +11,7 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
+import "../lib/DexData.sol";
 
 contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeMath for uint;
@@ -18,6 +19,14 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeCast for uint256;
     IUniswapV3Factory public  uniV3Factory;
     uint24[] public feesArray;
+
+    struct SwapCallData {
+        IUniswapV3Pool pool;
+        address recipient;
+        bool zeroForOne;
+        int256 amountSpecified;
+        uint160 sqrtPriceLimitX96;
+    }
 
     struct SwapCallbackData {
         address tokenIn;
@@ -35,32 +44,52 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         feesArray.push(10000);
     }
 
-    function uniV3Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, uint24 fee) internal returns (uint amountOut){
-        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
-        bool zeroForOne = data.tokenIn < data.tokenOut;
-        IUniswapV3Pool pool;
+    function uniV3Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, uint24 fee, bool checkPool, address payer, address payee) internal returns (uint amountOut){
+        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : payer});
+        SwapCallData memory callData;
+        callData.zeroForOne = data.tokenIn < data.tokenOut;
+        callData.recipient = payee;
+        callData.amountSpecified = sellAmount.toInt256();
+        callData.sqrtPriceLimitX96 = getSqrtPriceLimitX96(callData.zeroForOne);
         if (fee == 0) {
-            (pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, 1);
+            (callData.pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, 1);
             data.fee = fee;
         } else {
-            pool = getPool(data.tokenIn, data.tokenOut, fee);
+            callData.pool = getPool(data.tokenIn, data.tokenOut, fee);
         }
-        require(isPoolObservationsMoreThanOne(pool), "Pool observations less than 2");
+        if (checkPool) {
+            require(isPoolObservationsMoreThanOne(callData.pool), "Pool observations less than 2");
+        }
         (int256 amount0, int256 amount1) =
-        pool.swap(
-            data.payer,
-            zeroForOne,
-            sellAmount.toInt256(),
-            getSqrtPriceLimitX96(zeroForOne),
+        callData.pool.swap(
+            callData.recipient,
+            callData.zeroForOne,
+            callData.amountSpecified,
+            callData.sqrtPriceLimitX96,
             abi.encode(data)
         );
-        amountOut = uint256(- (zeroForOne ? amount1 : amount0));
-        require(amountOut >= minBuyAmount, 'Too little received');
-        uint actualPayAmount = uint256(zeroForOne ? amount0 : amount1);
-        require(sellAmount == actualPayAmount, 'Cannot sell all');
+        amountOut = uint256(- (callData.zeroForOne ? amount1 : amount0));
+        require(amountOut >= minBuyAmount, 'buy amount less than min');
+        require(sellAmount == uint256(callData.zeroForOne ? amount0 : amount1), 'Cannot sell all');
     }
 
-    function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee) internal returns (uint amountIn){
+    function uniV3SellMul(uint sellAmount, uint minBuyAmount, DexData.V3PoolData[] memory path) internal returns (uint buyAmount){
+        for (uint i = 0; i < path.length; i++) {
+            DexData.V3PoolData memory poolData = path[i];
+            address buyToken = poolData.tokenB;
+            address sellToken = poolData.tokenA;
+            bool isLast = i == path.length - 1;
+            address payer = i == 0 ? msg.sender : address(this);
+            address payee = isLast ? msg.sender : address(this);
+            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, 0, poolData.fee, false, payer, payee);
+            if (!isLast) {
+                sellAmount = buyAmount;
+            }
+        }
+        require(buyAmount >= minBuyAmount, 'buy amount less than min');
+    }
+
+    function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
         SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
         bool zeroForOne = data.tokenIn < data.tokenOut;
         IUniswapV3Pool pool;
@@ -70,7 +99,9 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         } else {
             pool = getPool(data.tokenIn, data.tokenOut, fee);
         }
-        require(isPoolObservationsMoreThanOne(pool), "Pool observations less than 2");
+        if (checkPool) {
+            require(isPoolObservationsMoreThanOne(pool), "Pool observations less than 2");
+        }
         (int256 amount0Delta, int256 amount1Delta) =
         pool.swap(
             data.payer,
@@ -85,7 +116,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         ? (uint256(amount0Delta), uint256(- amount1Delta))
         : (uint256(amount1Delta), uint256(- amount0Delta));
         require(amountOutReceived == buyAmount, 'Cannot buy enough');
-        require(amountIn <= maxSellAmount, 'Too much requested');
+        require(amountIn <= maxSellAmount, 'sell amount not enough');
     }
 
 
@@ -169,7 +200,11 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
         require(msg.sender == address(getPool(data.tokenIn, data.tokenOut, data.fee)), "V3 call back invalid");
         uint256 amountToPay = uint256(amount0Delta > 0 ? amount0Delta : amount1Delta);
-        IERC20(data.tokenIn).safeTransferFrom(data.payer, msg.sender, amountToPay);
+        if (data.payer == address(this)) {
+            IERC20(data.tokenIn).safeTransfer(msg.sender, amountToPay);
+        } else {
+            IERC20(data.tokenIn).safeTransferFrom(data.payer, msg.sender, amountToPay);
+        }
     }
 
     function getSqrtPriceLimitX96(bool zeroForOne) internal pure returns (uint160) {
@@ -188,4 +223,5 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         (,,,,uint16 count,,) = pool.slot0();
         return count > 2;
     }
+
 }

@@ -23,7 +23,7 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         DexAggregatorInterface _dexAggregator,
         address _treasury,
         address[] memory _depositTokens,
-        address  _wETH,
+        address _wETH,
         address payable _admin,
         address implementation_){
         admin = msg.sender;
@@ -87,7 +87,10 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("shouldUpdatePrice(uint16,bool,bytes)", marketId, isOpen, dexData));
         return abi.decode(data, (bool));
     }
-
+    function getMarketSupportDexs(uint16 marketId) external override view returns (uint8[] memory){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getMarketSupportDexs(uint16)",marketId));
+        return abi.decode(data, (uint8[]));
+    }
     /*** Admin Functions ***/
 
     function setDefaultMarginLimit(uint32 newRatio) external override {
@@ -130,8 +133,8 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         delegateToImplementation(abi.encodeWithSignature("setPriceDiffientRatio(uint16)", newPriceDiffientRatio));
     }
 
-    function setMarketDex(uint16 marketId, uint8 dex) external override {
-        delegateToImplementation(abi.encodeWithSignature("setMarketDex(uint16,uint8)", marketId,dex));
+    function setMarketDexs(uint16 marketId, uint8[] memory dexs) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketDexs(uint16,uint8[])", marketId, dexs));
     }
 
 

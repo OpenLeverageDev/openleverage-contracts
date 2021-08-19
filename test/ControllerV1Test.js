@@ -10,7 +10,7 @@ contract("ControllerV1", async accounts => {
   let admin = accounts[0];
   it("create lpool pair succeed test", async () => {
     let {controller, tokenA, tokenB} = await instanceController();
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let token0 = transaction.logs[0].args.token0;
     let token1 = transaction.logs[0].args.token1;
     let pool0 = transaction.logs[0].args.pool0;
@@ -37,7 +37,7 @@ contract("ControllerV1", async accounts => {
   it("create lpool pair failed with same token test", async () => {
     let {controller, tokenA, tokenB} = await instanceController();
     try {
-      await controller.createLPoolPair(tokenA.address, tokenA.address, 3000, 1);
+      await controller.createLPoolPair(tokenA.address, tokenA.address, 3000, 2);
       assert.fail("should thrown identical address error");
     } catch (error) {
       assert.include(error.message, 'identical address', 'throws exception with identical address.');
@@ -46,9 +46,9 @@ contract("ControllerV1", async accounts => {
 
   it("create lpool pair failed with pool exists test", async () => {
     let {controller, tokenA, tokenB} = await instanceController();
-    await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     try {
-      await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+      await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
       assert.fail("should thrown pool pair exists error");
     } catch (error) {
       assert.include(error.message, 'pool pair exists', 'throws exception pool pair exists.');
@@ -59,8 +59,8 @@ contract("ControllerV1", async accounts => {
   it("Distribution by supply test", async () => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
     //start after 10s【duration 30days】
@@ -101,8 +101,8 @@ contract("ControllerV1", async accounts => {
   it("Distribution by borrow test", async () => {
     let {controller, tokenA, tokenB, oleToken, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
     await controller.distributeRewards2Pool(pool0, utils.toWei(100), utils.toWei(200), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
@@ -131,9 +131,9 @@ contract("ControllerV1", async accounts => {
     let liquidator = accounts[1];
     let {controller, tokenA, tokenB, oleToken, pair, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(100), 300, utils.toWei(400));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(100), 300, 0, 0);
     await controller.distributeLiqRewards2Market(0, true);
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
     let pool0Ctr = await LPool.at(pool0);
@@ -175,8 +175,8 @@ contract("ControllerV1", async accounts => {
   it("Distribution by add reward test", async () => {
     let {controller, tokenA, tokenB, oleToken, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
     await controller.distributeRewards2Pool(pool0, utils.toWei(100), utils.toWei(200), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
@@ -209,7 +209,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     try {
-      await controller.setOLETokenDistribution(utils.toWei(200), utils.toWei(4), 300, utils.toWei(400));
+      await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
       assert.fail("should thrown not enough balance error");
     } catch (error) {
       assert.include(error.message, 'not enough balance', 'throws exception with not enough balance');
@@ -219,8 +219,8 @@ contract("ControllerV1", async accounts => {
   it("Get all supply distribution test", async () => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(0), utils.toWei(0), 300, utils.toWei(600));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    await controller.setOLETokenDistribution(utils.toWei(600), utils.toWei(0), utils.toWei(0), 300, 0, 0);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
     //start after 10s【duration 30days】
@@ -278,8 +278,8 @@ contract("ControllerV1", async accounts => {
   it("Distribution by supply and transfer to other test", async () => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(0), utils.toWei(0), 300, utils.toWei(600));
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    await controller.setOLETokenDistribution(utils.toWei(600), utils.toWei(0), utils.toWei(0), 300, 0, 0);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
     await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(0), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
@@ -332,10 +332,272 @@ contract("ControllerV1", async accounts => {
 
   });
 
+  it("Distribution by xole raise supply test", async () => {
+    let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
+    await oleToken.mint(controller.address, utils.toWei(700));
+    await xole.mint(accounts[0], utils.toWei(310));
 
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
+    let pool0 = transaction.logs[0].args.pool0;
+    //start after 10s【duration 30days】
+    await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(100), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
+    //supply
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    //account0 supply 10 total 10+10*1.5=25
+    await token0Ctr.mint(accounts[0], utils.toWei(10));
+    await token0Ctr.approve(pool0, utils.toWei(10));
+    await pool0Ctr.mint(utils.toWei(10));
+    let pool0Dist = await controller.lpoolDistributions(pool0, false);
+    let advantageTs = toBN(pool0Dist.startTime).add(toBN(24 * 60 * 60)).toString();
+    m.log("advantageTs", advantageTs);
+    //check reward between
+    let snapshotId = (await timeMachine.takeSnapshot()).result;
+    await advanceBlockAndSetTime(advantageTs);
+    let reward = await controller.earned(pool0, accounts[0], false);
+    m.log("minted started reward", reward);
+    assert.equal('6666666666666624000', reward.toString());
+    //account1 supply 10 total 10
+    await token0Ctr.mint(accounts[1], utils.toWei(10));
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accounts[1]});
+    await pool0Ctr.mint(utils.toWei(10), {from: accounts[1]});
+    //check reward end
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).toString());
+    let endRewardAcc0 = await controller.earned(pool0, accounts[0], false);
+    let endRewardAcc1 = await controller.earned(pool0, accounts[1], false);
+    m.log("minted ended reward acc0", utils.toETH(endRewardAcc0));
+    m.log("minted ended reward acc1", utils.toETH(endRewardAcc1));
+    await timeMachine.revertToSnapshot(snapshotId);
+    assert.equal('144', utils.toETH(endRewardAcc0));
+    assert.equal('55', utils.toETH(endRewardAcc1));
+  });
+
+
+  it("Distribution by accountA and accountB xole raise supply test", async () => {
+    let accountA = accounts[0];
+    let accountB = accounts[1];
+    let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
+    await oleToken.mint(controller.address, utils.toWei(700));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    // await xole.mint(accounts[0], utils.toWei(310));
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
+    let pool0 = transaction.logs[0].args.pool0;
+    //start after 10s【duration 30days】
+    await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(100), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    //accountA supply 10
+    await token0Ctr.mint(accountA, utils.toWei(10), {from: accountA});
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountA});
+    await pool0Ctr.mint(utils.toWei(10));
+
+    let pool0Dist = await controller.lpoolDistributions(pool0, false);
+    //advantage 1 day
+    let advantageTs = toBN(pool0Dist.startTime).add(toBN(24 * 60 * 60)).toString();
+    //check reward between
+    let snapshotId = (await timeMachine.takeSnapshot()).result;
+    await advanceBlockAndSetTime(advantageTs);
+    //accountB supply 10 total 10+10*1.5=25
+    await token0Ctr.mint(accountB, utils.toWei(10));
+    await xole.mint(accountB, utils.toWei(310));
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountB});
+    await pool0Ctr.mint(utils.toWei(10), {from: accountB});
+    //check reward end
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).toString());
+    let endRewardAccA = await controller.earned(pool0, accountA, false);
+    let endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted ended reward accA", utils.toETH(endRewardAccA));
+    m.log("minted ended reward accB", utils.toETH(endRewardAccB));
+    await timeMachine.revertToSnapshot(snapshotId);
+    assert.equal('61', utils.toETH(endRewardAccA));
+    assert.equal('138', utils.toETH(endRewardAccB));
+  });
+
+  it("Distribution by accountA and accountB xole raise after 1/2duration withdraw supply test", async () => {
+    let accountA = accounts[0];
+    let accountB = accounts[1];
+    let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
+    await oleToken.mint(controller.address, utils.toWei(700));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    // await xole.mint(accounts[0], utils.toWei(310));
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
+    let pool0 = transaction.logs[0].args.pool0;
+    //start after 10s【duration 30days】
+    await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(100), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    //accountA supply 10
+    await token0Ctr.mint(accountA, utils.toWei(10), {from: accountA});
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountA});
+    await pool0Ctr.mint(utils.toWei(10));
+    //accountB supply 10 total 10+10*1.5=25
+    await token0Ctr.mint(accountB, utils.toWei(10));
+    await xole.mint(accountB, utils.toWei(310));
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountB});
+    await pool0Ctr.mint(utils.toWei(10), {from: accountB});
+
+    let pool0Dist = await controller.lpoolDistributions(pool0, false);
+    //advantage 15 day
+    let advantageTs = toBN(pool0Dist.startTime).add(toBN(15 * 24 * 60 * 60)).toString();
+    //check reward between
+    let snapshotId = (await timeMachine.takeSnapshot()).result;
+    await advanceBlockAndSetTime(advantageTs);
+    let endRewardAccA = await controller.earned(pool0, accountA, false);
+    let endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted duration 1/2 reward accA", utils.toETH(endRewardAccA));
+    m.log("minted duration 1/2 reward accB", utils.toETH(endRewardAccB));
+    //accountB redeem
+    await pool0Ctr.redeem(utils.toWei(5), {from: accountB});
+    //check reward end
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).toString());
+    endRewardAccA = await controller.earned(pool0, accountA, false);
+    endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted ended reward accA", utils.toETH(endRewardAccA));
+    m.log("minted ended reward accB", utils.toETH(endRewardAccB));
+    await timeMachine.revertToSnapshot(snapshotId);
+    assert.equal('73', utils.toETH(endRewardAccA));
+    assert.equal('55', utils.toETH(endRewardAccB));
+  });
+
+  it("Distribution by accountA and accountB xole raise after 1/2duration transfer supply test", async () => {
+    let accountA = accounts[0];
+    let accountB = accounts[1];
+    let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
+    await oleToken.mint(controller.address, utils.toWei(700));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    // await xole.mint(accounts[0], utils.toWei(310));
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
+    let pool0 = transaction.logs[0].args.pool0;
+    //start after 10s【duration 30days】
+    await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(100), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    //accountA supply 10
+    await token0Ctr.mint(accountA, utils.toWei(10), {from: accountA});
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountA});
+    await pool0Ctr.mint(utils.toWei(10));
+    //accountB supply 10 total 10+10*1.5=25
+    await token0Ctr.mint(accountB, utils.toWei(10));
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountB});
+    await pool0Ctr.mint(utils.toWei(10), {from: accountB});
+
+    let pool0Dist = await controller.lpoolDistributions(pool0, false);
+    //advantage 15 day
+    let advantageTs = toBN(pool0Dist.startTime).add(toBN(15 * 24 * 60 * 60)).toString();
+    //check reward between
+    let snapshotId = (await timeMachine.takeSnapshot()).result;
+    await advanceBlockAndSetTime(advantageTs);
+    let endRewardAccA = await controller.earned(pool0, accountA, false);
+    let endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted duration 1/2 reward accA", utils.toETH(endRewardAccA));
+    m.log("minted duration 1/2 reward accB", utils.toETH(endRewardAccB));
+    //accountB transfer
+    await xole.mint(accountA, utils.toWei(310));
+    await xole.mint(accountB, utils.toWei(310));
+    await pool0Ctr.transfer(accountA, utils.toWei(5), {from: accountB});
+    //check reward end
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).toString());
+    endRewardAccA = await controller.earned(pool0, accountA, false);
+    endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted ended reward accA", utils.toETH(endRewardAccA));
+    m.log("minted ended reward accB", utils.toETH(endRewardAccB));
+    await timeMachine.revertToSnapshot(snapshotId);
+    assert.equal('131', utils.toETH(endRewardAccA));
+    assert.equal('68', utils.toETH(endRewardAccB));
+  });
+
+  it("Distribution by accountA not raise and accountB xole raise after 1/2duration transfer supply test", async () => {
+    let accountA = accounts[0];
+    let accountB = accounts[1];
+    let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
+    await oleToken.mint(controller.address, utils.toWei(700));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    // await xole.mint(accounts[0], utils.toWei(310));
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
+    let pool0 = transaction.logs[0].args.pool0;
+    //start after 10s【duration 30days】
+    await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(100), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    //accountA supply 10
+    await token0Ctr.mint(accountA, utils.toWei(10), {from: accountA});
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountA});
+    await pool0Ctr.mint(utils.toWei(10));
+    //accountB supply 10 total 10+10*1.5=25
+    await token0Ctr.mint(accountB, utils.toWei(10));
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountB});
+    await pool0Ctr.mint(utils.toWei(10), {from: accountB});
+
+    let pool0Dist = await controller.lpoolDistributions(pool0, false);
+    //advantage 15 day
+    let advantageTs = toBN(pool0Dist.startTime).add(toBN(15 * 24 * 60 * 60)).toString();
+    //check reward between
+    let snapshotId = (await timeMachine.takeSnapshot()).result;
+    await advanceBlockAndSetTime(advantageTs);
+    let endRewardAccA = await controller.earned(pool0, accountA, false);
+    let endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted duration 1/2 reward accA", utils.toETH(endRewardAccA));
+    m.log("minted duration 1/2 reward accB", utils.toETH(endRewardAccB));
+    //accountB transfer
+    await xole.mint(accountB, utils.toWei(310));
+    await pool0Ctr.transfer(accountA, utils.toWei(5), {from: accountB});
+    //check reward end
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).toString());
+    endRewardAccA = await controller.earned(pool0, accountA, false);
+    endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted ended reward accA", utils.toETH(endRewardAccA));
+    m.log("minted ended reward accB", utils.toETH(endRewardAccB));
+    await timeMachine.revertToSnapshot(snapshotId);
+    assert.equal('124', utils.toETH(endRewardAccA));
+  });
+
+  it("Distribution by accountA not raise and accountB xole raise then distribute again test", async () => {
+    let accountA = accounts[0];
+    let accountB = accounts[1];
+    let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
+    await oleToken.mint(controller.address, utils.toWei(1700));
+    await controller.setOLETokenDistribution(utils.toWei(800), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    // await xole.mint(accounts[0], utils.toWei(310));
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
+    let pool0 = transaction.logs[0].args.pool0;
+    //start after 10s【duration 30days】
+    await controller.distributeRewards2Pool(pool0, utils.toWei(200), utils.toWei(100), await utils.lastBlockTime() + 10, 60 * 60 * 24 * 30);
+    let pool0Ctr = await LPool.at(pool0);
+    let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+    //accountA supply 10
+    await token0Ctr.mint(accountA, utils.toWei(10), {from: accountA});
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountA});
+    await pool0Ctr.mint(utils.toWei(10));
+    //accountB supply 10 total 10+10*1.5=25
+    await xole.mint(accountB, utils.toWei(310));
+    await token0Ctr.mint(accountB, utils.toWei(10));
+    await token0Ctr.approve(pool0, utils.toWei(10), {from: accountB});
+    await pool0Ctr.mint(utils.toWei(10), {from: accountB});
+
+    let pool0Dist = await controller.lpoolDistributions(pool0, false);
+    let snapshotId = (await timeMachine.takeSnapshot()).result;
+    //check reward end
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).add(toBN(10)).toString());
+    let endRewardAccA = await controller.earned(pool0, accountA, false);
+    let endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted ended reward accA", utils.toETH(endRewardAccA));
+    m.log("minted ended reward accB", utils.toETH(endRewardAccB));
+    //distribute again
+    await controller.distributeRewards2PoolMore(pool0, utils.toWei(200), utils.toWei(100));
+    pool0Dist = await controller.lpoolDistributions(pool0, false);
+    await advanceBlockAndSetTime(toBN(pool0Dist.endTime).toString());
+    endRewardAccA = await controller.earned(pool0, accountA, false);
+    endRewardAccB = await controller.earned(pool0, accountB, false);
+    m.log("minted again ended reward accA", utils.toETH(endRewardAccA));
+    m.log("minted again ended reward accB", utils.toETH(endRewardAccB));
+    await timeMachine.revertToSnapshot(snapshotId);
+    assert.equal('114', utils.toETH(endRewardAccA));
+    assert.equal('285', utils.toETH(endRewardAccB));
+  });
   it("MarginTrade Suspend test", async () => {
     let {controller, tokenA, tokenB, openLev} = await instanceController();
-    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 1);
+    let transaction = await controller.createLPoolPair(tokenA.address, tokenB.address, 3000, 2);
     let pool0 = transaction.logs[0].args.pool0;
     //supply
     let pool0Ctr = await LPool.at(pool0);
@@ -424,15 +686,17 @@ contract("ControllerV1", async accounts => {
   it("Admin setOLETokenDistribution test", async () => {
     let {controller, oleToken, timeLock} = await instanceSimpleController();
     await oleToken.mint(controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
-      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [1, 2, 3, 4]), 0)
-    assert.equal(1, (await controller.oleTokenDistribution()).liquidatorBalance);
-    assert.equal(2, (await controller.oleTokenDistribution()).liquidatorMaxPer);
-    assert.equal(3, (await controller.oleTokenDistribution()).liquidatorOLERatio);
-    assert.equal(4, (await controller.oleTokenDistribution()).supplyBorrowBalance);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint16', 'uint16', 'uint128'], [1, 2, 3, 4, 5, 6]), 0)
+    assert.equal(1, (await controller.oleTokenDistribution()).supplyBorrowBalance);
+    assert.equal(2, (await controller.oleTokenDistribution()).liquidatorBalance);
+    assert.equal(3, (await controller.oleTokenDistribution()).liquidatorMaxPer);
+    assert.equal(4, (await controller.oleTokenDistribution()).liquidatorOLERatio);
+    assert.equal(5, (await controller.oleTokenDistribution()).xoleRaiseRatio);
+    assert.equal(6, (await controller.oleTokenDistribution()).xoleRaiseMinAmount);
 
     try {
-      await controller.setOLETokenDistribution(1, 2, 3, 4);
+      await controller.setOLETokenDistribution(1, 2, 3, 4, 5, 6);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
@@ -444,8 +708,8 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createPool(accounts[0], controller, admin)).pool.address;
 
     await mint(oleToken, controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
-      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [10, 20, 30, 40]), 0);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint16', 'uint16', 'uint128'], [40, 10, 20, 30, 0, 0]), 0);
 
     await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
       web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, 3797020800, 3897020800]), 0)
@@ -462,8 +726,8 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createPool(accounts[0], controller, admin)).pool.address;
 
     await mint(oleToken, controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
-      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [10, 20, 30, 40]), 0);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint16', 'uint16', 'uint128'], [40, 10, 20, 30, 0, 0]), 0);
     await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
       web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, parseInt(await utils.lastBlockTime()) + 5, 3897020800]), 0)
     await timeMachine.advanceTime(10);
@@ -515,13 +779,17 @@ contract("ControllerV1", async accounts => {
     };
   }
 
-  async function instanceController(timelock) {
+  async function instanceController(timelock, createXOLE) {
     let tokenA = await utils.createToken("tokenA");
     let tokenB = await utils.createToken("tokenB");
     let oleToken = await utils.createToken("OLE");
+    let xole;
+    if (createXOLE) {
+      xole = await utils.createToken("XOLE");
+    }
     let weth = await utils.createWETH();
 
-    let controller = await utils.createController(timelock ? timelock : admin, oleToken.address, weth.address);
+    let controller = await utils.createController(timelock ? timelock : admin, oleToken.address, weth.address, xole ? xole.address : "0x0000000000000000000000000000000000000000");
 
     let uniswapFactory = await utils.createUniswapV3Factory();
     gotPair = await utils.createUniswapV3Pool(uniswapFactory, tokenA, tokenB, accounts[0]);
@@ -539,7 +807,8 @@ contract("ControllerV1", async accounts => {
       tokenB: tokenB,
       oleToken: oleToken,
       pair: gotPair,
-      openLev: openLev
+      openLev: openLev,
+      xole: xole
     };
   }
 })

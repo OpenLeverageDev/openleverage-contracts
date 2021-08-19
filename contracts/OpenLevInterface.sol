@@ -52,7 +52,7 @@ abstract contract OpenLevStorage {
 
     event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
 
-    event NewMarketDex(uint16 marketId, uint8 oldDex, uint8 newDex);
+    event NewMarketDex(uint16 marketId, uint8[] oldDex, uint8[] newDex);
 
 
     // 0.3%
@@ -130,6 +130,10 @@ interface OpenLevInterface {
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint avg, uint32 limit);
 
     function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external view returns (bool);
+
+    function getMarketSupportDexs(uint16 marketId) external view returns (uint8[] memory);
+
+
     /*** Admin Functions ***/
 
     function setDefaultMarginLimit(uint32 newRatio) external;
@@ -152,6 +156,6 @@ interface OpenLevInterface {
 
     function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external;
 
-    function setMarketDex(uint16 marketId, uint8 dex) external;
+    function setMarketDexs(uint16 marketId, uint8[] memory dexs) external;
 
 }
