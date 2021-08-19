@@ -9,10 +9,8 @@ const {
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocks, advanceTime, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
+const xOLE = artifacts.require("XOLE");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
-
-const Treasury = artifacts.require("TreasuryDelegator");
-const TreasuryImpl = artifacts.require("Treasury");
 const m = require('mocha-logger');
 const LPErc20Delegator = artifacts.require("LPoolDelegator");
 const TestToken = artifacts.require("MockERC20");
@@ -21,7 +19,7 @@ contract("OpenLev UniV2", async accounts => {
 
   // components
   let openLev;
-  let openLevErc20;
+  let ole;
   let treasury;
   let uniswapFactory;
   let gotPair;
@@ -46,7 +44,7 @@ contract("OpenLev UniV2", async accounts => {
     controller = await utils.createController(admin);
     m.log("Created Controller", last8(controller.address));
 
-    openLevErc20 = await TestToken.new('OpenLevERC20', 'OLE');
+    ole = await TestToken.new('OpenLevERC20', 'OLE');
     let usdt = await TestToken.new('Tether', 'USDT');
 
     token0 = await TestToken.new('TokenA', 'TKA');
@@ -58,11 +56,11 @@ contract("OpenLev UniV2", async accounts => {
 
     dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000");
 
-    let treasuryImpl = await TreasuryImpl.new();
-    treasury = await Treasury.new(uniswapFactory.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
+    let xole = await xOLE.new(admin);
+    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
 
     delegatee = await OpenLevV1.new();
-    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], weth.address, accounts[0], delegatee.address);
+    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, accounts[0], delegatee.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');

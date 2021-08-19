@@ -12,6 +12,7 @@ import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
 import "./ControllerInterface.sol";
 import "./IWETH.sol";
+import "./XOLE.sol";
 
 /**
   * @title OpenLevV1
@@ -29,17 +30,17 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
     function initialize(
         address _controller,
-        address _treasury,
         DexAggregatorInterface _dexAggregator,
         address[] memory depositTokens,
-        address _wETH
+        address _wETH,
+        address _xOLE
     ) public {
         require(msg.sender == admin, "Not admin");
-        treasury = _treasury;
         controller = _controller;
         dexAggregator = _dexAggregator;
         setAllowedDepositTokensInternal(depositTokens, true);
         wETH = _wETH;
+        xOLE = _xOLE;
     }
 
     function addMarket(
@@ -366,9 +367,13 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function feesAndInsurance(uint tradeSize, address token, uint16 marketId) internal returns (uint) {
         Types.Market storage market = markets[marketId];
         uint fees = tradeSize.mul(market.feesRate).div(10000);
+        // if trader holds more xOLE, then should enjoy trading discount.
+        if (XOLE(xOLE).balanceOf(msg.sender, 0) > feesDiscountThreshold) {
+            fees = fees.sub(fees.mul(feesDiscount).div(10000));
+        }
         uint newInsurance = fees.mul(insuranceRatio).div(100);
 
-        IERC20(token).transfer(treasury, fees.sub(newInsurance));
+        IERC20(token).transfer(xOLE, fees.sub(newInsurance));
         if (token == market.pool1.underlying()) {
             market.pool1Insurance = market.pool1Insurance.add(newInsurance);
         } else {
@@ -446,6 +451,14 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         emit NewInsuranceRatio(oldRatio, insuranceRatio);
     }
 
+    function setFeesDiscountThreshold(uint newThreshold) external override onlyAdmin() {
+        feesDiscountThreshold = newThreshold;
+    }
+
+    function setFeesDiscount(uint newDiscount) external override onlyAdmin() {
+        feesDiscount = newDiscount;
+    }
+
     function setController(address newController) external override onlyAdmin() {
         address oldController = controller;
         controller = newController;
@@ -457,7 +470,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         dexAggregator = _dexAggregator;
         emit NewDexAggregator(oldDexAggregator, dexAggregator);
     }
-
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
         Types.Market storage market = markets[marketId];

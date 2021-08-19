@@ -21,20 +21,20 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
     constructor(
         ControllerInterface _controller,
         DexAggregatorInterface _dexAggregator,
-        address _treasury,
         address[] memory _depositTokens,
         address  _wETH,
+        address _xOLE,
         address payable _admin,
         address implementation_){
         admin = msg.sender;
         // Creator of the contract is admin during initialization
         // First delegate gets to initialize the delegator (i.e. storage contract)
-        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address,address[],address)",
+        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address[],address,address)",
             _controller,
-            _treasury,
             _dexAggregator,
             _depositTokens,
-            _wETH
+            _wETH,
+            _xOLE
             ));
         implementation = implementation_;
 
@@ -132,6 +132,14 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
 
     function setMarketDex(uint16 marketId, uint8 dex) external override {
         delegateToImplementation(abi.encodeWithSignature("setMarketDex(uint16,uint8)", marketId,dex));
+    }
+
+    function setFeesDiscountThreshold (uint newThreshold) external override {
+        delegateToImplementation(abi.encodeWithSignature("setFeesDiscountThreshold(uint256)", newThreshold));
+    }
+
+    function setFeesDiscount (uint newDiscount) external override {
+        delegateToImplementation(abi.encodeWithSignature("setFeesDiscount(uint256)", newDiscount));
     }
 
 

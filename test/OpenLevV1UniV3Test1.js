@@ -8,11 +8,10 @@ const {
   assertPrint,
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocks, toBN} = require("./utils/EtheUtil");
+const xOLE = artifacts.require("XOLE");
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 
-const Treasury = artifacts.require("TreasuryDelegator");
-const TreasuryImpl = artifacts.require("Treasury");
 const m = require('mocha-logger');
 const LPErc20Delegator = artifacts.require("LPoolDelegator");
 const TestToken = artifacts.require("MockERC20");
@@ -21,8 +20,8 @@ contract("OpenLev UniV3", async accounts => {
 
   // components
   let openLev;
-  let openLevErc20;
-  let treasury;
+  let ole;
+  let xole;
   let uniswapFactory;
   let gotPair;
 
@@ -42,7 +41,7 @@ contract("OpenLev UniV3", async accounts => {
     let controller = await utils.createController(admin);
     m.log("Created Controller", last8(controller.address));
 
-    openLevErc20 = await TestToken.new('OpenLevERC20', 'OLE');
+    ole = await TestToken.new('OpenLevERC20', 'OLE');
     let usdt = await TestToken.new('Tether', 'USDT');
 
     token0 = await TestToken.new('TokenA', 'TKA');
@@ -55,11 +54,11 @@ contract("OpenLev UniV3", async accounts => {
     token1 = await TestToken.at(await gotPair.token1());
     dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
 
-    let treasuryImpl = await TreasuryImpl.new();
-    treasury = await Treasury.new(uniswapFactory.address, openLevErc20.address, usdt.address, 50, dev, controller.address, treasuryImpl.address);
+    xole = await xOLE.new(admin);
+    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
 
-    let delegatee = await OpenLevV1.new();
-    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000",accounts[0], delegatee.address);
+    delegatee = await OpenLevV1.new();
+    openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegatee.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
@@ -123,7 +122,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Check balances
     checkAmount("Trader Balance", 9600000000000000000000, await token1.balanceOf(trader), 18);
-    checkAmount("Treasury Balance", 1809000000000000000, await token1.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 1809000000000000000, await token1.balanceOf(xole.address), 18);
     checkAmount("OpenLev Balance", 886675826237735294796, await token0.balanceOf(openLev.address), 18);
 
 
@@ -147,8 +146,8 @@ contract("OpenLev UniV3", async accounts => {
     // Check contract held balance
     checkAmount("OpenLev Balance", 1089000000000000000, await token1.balanceOf(openLev.address), 18);
     checkAmount("Trader Balance", 9847747697366893321127, await token1.balanceOf(trader), 18);
-    checkAmount("Treasury Balance", 2211000000000000000, await token1.balanceOf(treasury.address), 18);
-    checkAmount("Treasury Balance", 1650506621711339942, await token0.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 2211000000000000000, await token1.balanceOf(xole.address), 18);
+    checkAmount("Treasury Balance", 1650506621711339942, await token0.balanceOf(xole.address), 18);
     await printBlockNum();
   })
 
@@ -180,7 +179,7 @@ contract("OpenLev UniV3", async accounts => {
 
 
     // Check treasury
-    assert.equal('2814000000000000000', (await token1.balanceOf(treasury.address)).toString());
+    assert.equal('2814000000000000000', (await token1.balanceOf(xole.address)).toString());
 
     // Market price change, then check margin ratio
     await gotPair.setPrice(token0.address, token1.address, 1);
@@ -197,8 +196,8 @@ contract("OpenLev UniV3", async accounts => {
     checkAmount("Borrows is zero", 0, await pool1.borrowBalanceCurrent(trader), 18);
     checkAmount("OpenLev Balance", 1358787417096470955, await token0.balanceOf(openLev.address), 18);
     checkAmount("OpenLev Balance", 1386000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Treasury Balance", 2814000000000000000, await token1.balanceOf(treasury.address), 18);
-    checkAmount("Treasury Balance", 2758750210468592548, await token0.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 2814000000000000000, await token1.balanceOf(xole.address), 18);
+    checkAmount("Treasury Balance", 2758750210468592548, await token0.balanceOf(xole.address), 18);
   })
 
   it("LONG Token0, Deposit Token0, Liquidate", async () => {
@@ -250,8 +249,8 @@ contract("OpenLev UniV3", async accounts => {
     assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
     checkAmount("OpenLev Balance", 2755128454053090685, await token0.balanceOf(openLev.address), 18);
     checkAmount("OpenLev Balance", 0, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Treasury Balance", 0, await token1.balanceOf(treasury.address), 18);
-    checkAmount("Treasury Balance", 5593745649138093211, await token0.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 0, await token1.balanceOf(xole.address), 18);
+    checkAmount("Treasury Balance", 5593745649138093211, await token0.balanceOf(xole.address), 18);
     checkAmount("Borrows is zero", 0, await pool1.borrowBalanceCurrent(trader), 18);
     checkAmount("Trader Despoit Token Balance will be back", 24756232092607505605864, await token0.balanceOf(trader), 18);
     checkAmount("Trader Borrows Token Balance is Zero", 0, await token1.balanceOf(trader), 18);
@@ -335,7 +334,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Check balances
     checkAmount("Trader Balance", 9600000000000000000000, await token0.balanceOf(trader), 18);
-    checkAmount("Treasury Balance", 1809000000000000000, await token0.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 1809000000000000000, await token0.balanceOf(xole.address), 18);
     checkAmount("OpenLev Balance", 886675826237735294796, await token1.balanceOf(openLev.address), 18);
 
     // Market price change, then check margin ratio
@@ -350,8 +349,8 @@ contract("OpenLev UniV3", async accounts => {
     // Check contract held balance
     checkAmount("OpenLev Balance", 891000000000000000, await token0.balanceOf(openLev.address), 18);
     checkAmount("Trader Balance", 9961110478590371508518, await token0.balanceOf(trader), 18);
-    checkAmount("Treasury Balance", 1809000000000000000, await token0.balanceOf(treasury.address), 18);
-    checkAmount("Treasury Balance", 1650506621711339942, await token1.balanceOf(treasury.address), 18);
+    checkAmount("Treasury Balance", 1809000000000000000, await token0.balanceOf(xole.address), 18);
+    checkAmount("Treasury Balance", 1650506621711339942, await token1.balanceOf(xole.address), 18);
     await printBlockNum();
   })
 

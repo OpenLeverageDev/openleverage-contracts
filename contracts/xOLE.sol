@@ -7,14 +7,14 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Adminable.sol";
-import "./xOLEInterface.sol";
+import "./XOLEInterface.sol";
 import "./DelegateInterface.sol";
 
 
 // @title Voting Escrowed Token
 // @notice Lock OLE to get time and amount weighted xOLE
 // The weight in this implementation is linear, and lock cannot be more than maxtime (4 years)
-contract xOLE is xOLEInterface, xOLEStorage, Adminable, ReentrancyGuard {
+contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
