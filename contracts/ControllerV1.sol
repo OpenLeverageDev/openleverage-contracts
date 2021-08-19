@@ -19,7 +19,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     constructor () {}
 
     function initialize(
-        ERC20 _oleToken,
+        IERC20 _oleToken,
+        IERC20 _xoleToken,
         address _wETH,
         address _lpoolImplementation,
         address _openlev,
@@ -27,6 +28,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     ) public {
         require(msg.sender == admin, "not admin");
         oleToken = _oleToken;
+        xoleToken = _xoleToken;
         wETH = _wETH;
         lpoolImplementation = _lpoolImplementation;
         openLev = _openlev;
@@ -52,21 +54,17 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
 
     /*** Policy Hooks ***/
-    function mintAllowed(address lpool, address minter, uint mintAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyNotSuspended() {
-        // Shh - currently unused
-        mintAmount;
-        updateReward(LPoolInterface(lpool), minter, false);
+    function mintAllowed(address lpool, address minter, uint lTokenAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyNotSuspended() {
+        stake(LPoolInterface(lpool), minter, lTokenAmount);
     }
 
-    function transferAllowed(address lpool, address from, address to) external override onlyLPoolSender(lpool) {
-        updateReward(LPoolInterface(lpool), from, false);
-        updateReward(LPoolInterface(lpool), to, false);
+    function transferAllowed(address lpool, address from, address to, uint lTokenAmount) external override onlyLPoolSender(lpool) {
+        withdraw(LPoolInterface(lpool), from, lTokenAmount);
+        stake(LPoolInterface(lpool), to, lTokenAmount);
     }
 
-    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override onlyLPoolSender(lpool) onlyNotSuspended() {
-        // Shh - currently unused
-        redeemTokens;
-        if (updateReward(LPoolInterface(lpool), redeemer, false)) {
+    function redeemAllowed(address lpool, address redeemer, uint lTokenAmount) external override onlyLPoolSender(lpool) onlyNotSuspended() {
+        if (withdraw(LPoolInterface(lpool), redeemer, lTokenAmount)) {
             getRewardInternal(LPoolInterface(lpool), redeemer, false);
         }
     }
@@ -117,21 +115,24 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
     }
 
-    function marginTradeAllowed(uint marketId) external override onlyNotSuspended() {
+    function marginTradeAllowed(uint marketId) external view override onlyNotSuspended() returns (bool){
         // Shh - currently unused
         marketId;
+        return true;
     }
 
 
-    function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external override onlyAdmin {
-        uint newLiquidatorBalance = oleTokenDistribution.liquidatorBalance.add(moreLiquidatorBalance);
+    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreLiquidatorBalance, uint liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override onlyAdmin {
         uint newSupplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.add(moreSupplyBorrowBalance);
+        uint newLiquidatorBalance = oleTokenDistribution.liquidatorBalance.add(moreLiquidatorBalance);
         uint totalAll = newLiquidatorBalance.add(newSupplyBorrowBalance);
         require(oleToken.balanceOf(address(this)) >= totalAll, 'not enough balance');
+        oleTokenDistribution.supplyBorrowBalance = newSupplyBorrowBalance;
         oleTokenDistribution.liquidatorBalance = newLiquidatorBalance;
         oleTokenDistribution.liquidatorMaxPer = liquidatorMaxPer;
         oleTokenDistribution.liquidatorOLERatio = liquidatorOLERatio;
-        oleTokenDistribution.supplyBorrowBalance = newSupplyBorrowBalance;
+        oleTokenDistribution.xoleRaiseRatio = xoleRaiseRatio;
+        oleTokenDistribution.xoleRaiseMinAmount = xoleRaiseMinAmount;
 
     }
 
@@ -139,11 +140,11 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         require(supplyAmount > 0 || borrowAmount > 0, 'amount is less than 0');
         require(startTime > block.timestamp, 'startTime < blockTime');
         if (supplyAmount > 0) {
-            require(block.timestamp > lpoolDistributions[LPoolInterface(pool)][false].endTime, 'Error on distributing');
+            require(lpoolDistributions[LPoolInterface(pool)][false].startTime == 0, 'Distribute only once');
             lpoolDistributions[LPoolInterface(pool)][false] = initDistribution(supplyAmount, startTime, duration);
         }
         if (borrowAmount > 0) {
-            require(block.timestamp > lpoolDistributions[LPoolInterface(pool)][true].endTime, 'Error on distributing');
+            require(lpoolDistributions[LPoolInterface(pool)][true].startTime == 0, 'Distribute only once');
             lpoolDistributions[LPoolInterface(pool)][true] = initDistribution(borrowAmount, startTime, duration);
         }
         uint subAmount = supplyAmount.add(borrowAmount);
@@ -178,7 +179,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         require(distribution.endTime >= startTime, 'EndTime is overflow');
         distribution.duration = duration;
         distribution.lastUpdateTime = startTime;
-        distribution.totalAmount = totalAmount;
+        distribution.totalRewardAmount = totalAmount;
         distribution.rewardRate = totalAmount.div(duration);
     }
 
@@ -192,20 +193,19 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             distribution.rewardRate = addAmount.add(leftover).div(distribution.duration);
         }
         distribution.lastUpdateTime = uint64(blockTime);
-        distribution.totalAmount = distribution.totalAmount.add(addAmount);
+        distribution.totalRewardAmount = distribution.totalRewardAmount.add(addAmount);
         distribution.endTime = distribution.duration + uint64(blockTime);
         require(distribution.endTime > blockTime, 'EndTime is overflow');
-
     }
 
     function checkStart(LPoolInterface lpool, bool isBorrow) internal view returns (bool){
-        //distribution not config
-        if (lpoolDistributions[lpool][isBorrow].totalAmount == 0) {
-            return false;
-        }
         return block.timestamp >= lpoolDistributions[lpool][isBorrow].startTime;
     }
 
+
+    function existRewards(LPoolInterface lpool, bool isBorrow) internal view returns (bool){
+        return lpoolDistributions[lpool][isBorrow].totalRewardAmount > 0;
+    }
 
     function lastTimeRewardApplicable(LPoolInterface lpool, bool isBorrow) public view returns (uint256) {
         return Math.min(block.timestamp, lpoolDistributions[lpool][isBorrow].endTime);
@@ -213,7 +213,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function rewardPerToken(LPoolInterface lpool, bool isBorrow) internal view returns (uint256) {
         LPoolDistribution memory distribution = lpoolDistributions[lpool][isBorrow];
-        uint totalAmount = isBorrow ? lpool.totalBorrowsCurrent() : lpool.totalSupply();
+        uint totalAmount = isBorrow ? lpool.totalBorrowsCurrent() : lpool.totalSupply().add(distribution.extraTotalToken);
         if (totalAmount == 0) {
             return distribution.rewardPerTokenStored;
         }
@@ -228,7 +228,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function updateReward(LPoolInterface lpool, address account, bool isBorrow) internal returns (bool) {
-        if (!checkStart(lpool, isBorrow)) {
+        if (!existRewards(lpool, isBorrow) || !checkStart(lpool, isBorrow)) {
             return false;
         }
         uint rewardPerTokenStored = rewardPerToken(lpool, isBorrow);
@@ -241,13 +241,48 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         return true;
     }
 
+    function stake(LPoolInterface lpool, address account, uint256 amount) internal returns (bool) {
+        bool updateSucceed = updateReward(lpool, account, false);
+        if (address(xoleToken) == address(0) || xoleToken.balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
+            return updateSucceed;
+        }
+        uint addExtraToken = amount.mul(oleTokenDistribution.xoleRaiseRatio).div(100);
+        lPoolRewardByAccounts[lpool][false][account].extraToken = lPoolRewardByAccounts[lpool][false][account].extraToken.add(addExtraToken);
+        lpoolDistributions[lpool][false].extraTotalToken = lpoolDistributions[lpool][false].extraTotalToken.add(addExtraToken);
+        return updateSucceed;
+    }
+
+    function withdraw(LPoolInterface lpool, address account, uint256 amount) internal returns (bool)  {
+        bool updateSucceed = updateReward(lpool, account, false);
+        if (address(xoleToken) == address(0)) {
+            return updateSucceed;
+        }
+        uint extraToken = lPoolRewardByAccounts[lpool][false][account].extraToken;
+        if (extraToken == 0) {
+            return updateSucceed;
+        }
+        uint oldBalance = lpool.balanceOf(account);
+        //withdraw all
+        if (oldBalance == amount) {
+            lPoolRewardByAccounts[lpool][false][account].extraToken = 0;
+            lpoolDistributions[lpool][false].extraTotalToken = lpoolDistributions[lpool][false].extraTotalToken.sub(extraToken);
+        } else {
+            uint subExtraToken = extraToken.mul(amount).div(oldBalance);
+            lPoolRewardByAccounts[lpool][false][account].extraToken = extraToken.sub(subExtraToken);
+            lpoolDistributions[lpool][false].extraTotalToken = lpoolDistributions[lpool][false].extraTotalToken.sub(subExtraToken);
+        }
+        return updateSucceed;
+    }
+
+
     function earnedInternal(LPoolInterface lpool, address account, bool isBorrow) internal view returns (uint256) {
-        uint accountBalance = isBorrow ? lpool.borrowBalanceCurrent(account) : lpool.balanceOf(account);
+        LPoolRewardByAccount memory accountReward = lPoolRewardByAccounts[lpool][isBorrow][account];
+        uint accountBalance = isBorrow ? lpool.borrowBalanceCurrent(account) : lpool.balanceOf(account).add(accountReward.extraToken);
         return
         accountBalance
-        .mul(rewardPerToken(lpool, isBorrow).sub(lPoolRewardByAccounts[lpool][isBorrow][account].rewardPerTokenStored))
+        .mul(rewardPerToken(lpool, isBorrow).sub(accountReward.rewardPerTokenStored))
         .div(1e18)
-        .add(lPoolRewardByAccounts[lpool][isBorrow][account].rewards);
+        .add(accountReward.rewards);
     }
 
     function getRewardInternal(LPoolInterface lpool, address account, bool isBorrow) internal {
@@ -261,7 +296,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function earned(LPoolInterface lpool, address account, bool isBorrow) external override view returns (uint256) {
-        if (!checkStart(lpool, isBorrow)) {
+        if (!existRewards(lpool, isBorrow) || !checkStart(lpool, isBorrow)) {
             return 0;
         }
         return earnedInternal(lpool, account, isBorrow);

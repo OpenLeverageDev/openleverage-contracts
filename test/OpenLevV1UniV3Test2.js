@@ -7,7 +7,7 @@ const {
   Uni3DexData,
   assertPrint,
 } = require("./utils/OpenLevUtil");
-const { toBN} = require("./utils/EtheUtil");
+const {toBN} = require("./utils/EtheUtil");
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const Treasury = artifacts.require("TreasuryDelegator");
@@ -32,7 +32,7 @@ contract("OpenLev UniV3", async accounts => {
   let token0;
   let token1;
   let dexAgg;
-    beforeEach(async () => {
+  beforeEach(async () => {
 
     // runs once before the first test in this block
     let controller = await utils.createController(admin);
@@ -48,8 +48,8 @@ contract("OpenLev UniV3", async accounts => {
     let uniswapFactory = await utils.createUniswapV3Factory();
     gotPair = await utils.createUniswapV3Pool(uniswapFactory, token0, token1, accounts[0]);
 
-    token0=await TestToken.at(await gotPair.token0());
-    token1=await TestToken.at(await gotPair.token1());
+    token0 = await TestToken.at(await gotPair.token0());
+    token1 = await TestToken.at(await gotPair.token1());
     dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
 
     let treasuryImpl = await TreasuryImpl.new();
@@ -57,11 +57,11 @@ contract("OpenLev UniV3", async accounts => {
 
     let delegate = await OpenLevDelegate.new();
 
-    openLev = await OpenLevV1.new(controller.address, dexAgg.address, treasury.address,[token0.address,token1.address],"0x0000000000000000000000000000000000000000", accounts[0], delegate.address);
+    openLev = await OpenLevV1.new(controller.address, dexAgg.address, treasury.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", accounts[0], delegate.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
-    await controller.createLPoolPair(token0.address, token1.address, 3000,1); // 30% margin ratio
+    await controller.createLPoolPair(token0.address, token1.address, 3000, 2); // 30% margin ratio
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));
@@ -373,8 +373,8 @@ contract("OpenLev UniV3", async accounts => {
     await openLev.marginTrade(0, false, false, deposit, borrow, 0, Uni3DexData, {from: trader});
     //change Price
     await utils.mint(token0, saver, 100000);
-    await token0.approve(dexAgg.address,utils.toWei(50000),{from: saver});
-    await dexAgg.sell(token1.address,token0.address,utils.toWei(50000),0,Uni3DexData,{from: saver});
+    await token0.approve(dexAgg.address, utils.toWei(50000), {from: saver});
+    await dexAgg.sell(token1.address, token0.address, utils.toWei(50000), 0, Uni3DexData, {from: saver});
     let trade = await openLev.activeTrades(trader, 0, 0);
     // Close trade
     m.log("trade.deposit=", trade.deposited);
