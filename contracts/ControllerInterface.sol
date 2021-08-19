@@ -43,7 +43,7 @@ contract ControllerStorage {
 
     IERC20 public oleToken;
 
-    IERC20 public xoleToken;
+    address public xoleToken;
 
     address public wETH;
 
