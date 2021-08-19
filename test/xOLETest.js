@@ -76,7 +76,7 @@ contract("xOLE", async accounts => {
 
     m.log("epoch", await xole.epoch());
     let end = + lastbk.timestamp + WEEK;
-    m.log("Alice creates lock till time " + end);
+    m.log("Alice creates lock with 1000 till time " + end);
     await xole.create_lock(_1000, lastbk.timestamp + WEEK, {"from": alice});
     lastbk = await web3.eth.getBlock('latest');
     stages["alice_deposit"] = {bknum: lastbk.number, bltime: lastbk.timestamp};

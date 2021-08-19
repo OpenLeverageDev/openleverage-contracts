@@ -9,7 +9,6 @@ import "./liquidity/LPoolInterface.sol";
 import "./ControllerInterface.sol";
 import "./dex/DexAggregatorInterface.sol";
 
-
 abstract contract OpenLevStorage {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
@@ -26,13 +25,13 @@ abstract contract OpenLevStorage {
 
     mapping(address => bool) public allowedDepositTokens;
 
-    address public treasury;
-
     DexAggregatorInterface public dexAggregator;
 
     address public controller;
 
     address public wETH;
+
+    address public xOLE;
 
     event NewDefalutFeesRate(uint oldFeesRate, uint newFeesRate);
 
@@ -64,6 +63,9 @@ abstract contract OpenLevStorage {
 
     uint16 public priceDiffientRatio = 10; //10=>10%
 
+    uint256 public feesDiscountThreshold = 30 * (10 ** 18); // minimal holding of xOLE to enjoy fees discount
+
+    uint public feesDiscount = 2500; // 25%
 
     event MarginTrade(
         address trader,
@@ -153,5 +155,9 @@ interface OpenLevInterface {
     function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external;
 
     function setMarketDex(uint16 marketId, uint8 dex) external;
+
+    function setFeesDiscountThreshold (uint newThreshold) external;
+
+    function setFeesDiscount (uint newDiscount) external;
 
 }

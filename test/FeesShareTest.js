@@ -12,14 +12,13 @@ const {
   resetStep
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
-const Treasury = artifacts.require("TreasuryDelegator");
 const xOLE = artifacts.require("xOLE");
 const m = require('mocha-logger');
 const TestToken = artifacts.require("MockERC20");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
 const timeMachine = require('ganache-time-traveler');
 
-contract("Treasury", async accounts => {
+contract("XOLE", async accounts => {
 
   // components
   let xole;
@@ -100,9 +99,9 @@ contract("Treasury", async accounts => {
     assert.equal('0', (await xole.devFund()).toString());
     assert.equal('10000498495030004550855', (await ole.balanceOf(xole.address)).toString());
     assert.equal('498495030004550854', (await ole.balanceOf(dev)).toString());
-    m.log("Treasury Dev Fund balance:", await xole.devFund());
+    m.log("Dev Fund balance:", await xole.devFund());
     m.log("Dev OLE balance:", await ole.balanceOf(dev));
-    m.log("Treasury USDT balance:", await ole.balanceOf(xole.address));
+    m.log("xOLE OLE balance:", await ole.balanceOf(xole.address));
   })
 
   it("Convert OLE Token exceed available", async () => {
@@ -281,14 +280,14 @@ contract("Treasury", async accounts => {
   // Admin Test TODO
   // it("Admin setDevFundRatio test", async () => {
   //   let timeLock = await utils.createTimelock(admin);
-  //   let treasuryImpl = await xOLE.new();
-  //   let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
-  //     50, dev, timeLock.address, treasuryImpl.address);
-  //   await timeLock.executeTransaction(treasury.address, 0, 'setDevFundRatio(uint256)',
+  //   let xoleImpl = await xOLE.new();
+  //   let xole = await Treasury.new(usdt.address, usdt.address, accounts[0],
+  //     50, dev, timeLock.address, xoleImpl.address);
+  //   await timeLock.executeTransaction(xole.address, 0, 'setDevFundRatio(uint256)',
   //     web3.eth.abi.encodeParameters(['uint256'], [1]), 0)
-  //   assert.equal(1, await treasury.devFundRatio());
+  //   assert.equal(1, await xole.devFundRatio());
   //   try {
-  //     await treasury.setDevFundRatio(1);
+  //     await xole.setDevFundRatio(1);
   //     assert.fail("should thrown caller must be admin error");
   //   } catch (error) {
   //     assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
@@ -298,14 +297,14 @@ contract("Treasury", async accounts => {
   // it("Admin setDev test", async () => {
   //   let newDev = accounts[7];
   //   let timeLock = await utils.createTimelock(admin);
-  //   let treasuryImpl = await xOLE.new();
-  //   let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
-  //     50, dev, timeLock.address, treasuryImpl.address);
-  //   await timeLock.executeTransaction(treasury.address, 0, 'setDev(address)',
+  //   let xoleImpl = await xOLE.new();
+  //   let xole = await Treasury.new(usdt.address, usdt.address, accounts[0],
+  //     50, dev, timeLock.address, xoleImpl.address);
+  //   await timeLock.executeTransaction(xole.address, 0, 'setDev(address)',
   //     web3.eth.abi.encodeParameters(['address'], [newDev]), 0)
-  //   assert.equal(newDev, await treasury.dev());
+  //   assert.equal(newDev, await xole.dev());
   //   try {
-  //     await treasury.setDev(newDev);
+  //     await xole.setDev(newDev);
   //     assert.fail("should thrown caller must be admin error");
   //   } catch (error) {
   //     assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
@@ -314,16 +313,16 @@ contract("Treasury", async accounts => {
 
   // it("Admin setImplementation test", async () => {
   //   let timeLock = await utils.createTimelock(admin);
-  //   let treasuryImpl = await xOLE.new();
-  //   let treasury = await Treasury.new(usdt.address, usdt.address, accounts[0],
-  //     50, dev, timeLock.address, treasuryImpl.address);
+  //   let xoleImpl = await xOLE.new();
+  //   let xole = await Treasury.new(usdt.address, usdt.address, accounts[0],
+  //     50, dev, timeLock.address, xoleImpl.address);
   //   let instance = await xOLE.new();
   //
-  //   await timeLock.executeTransaction(treasury.address, 0, 'setImplementation(address)',
+  //   await timeLock.executeTransaction(xole.address, 0, 'setImplementation(address)',
   //     web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
-  //   assert.equal(instance.address, await treasury.implementation());
+  //   assert.equal(instance.address, await xole.implementation());
   //   try {
-  //     await treasury.setImplementation(instance.address);
+  //     await xole.setImplementation(instance.address);
   //     assert.fail("should thrown caller must be admin error");
   //   } catch (error) {
   //     assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');

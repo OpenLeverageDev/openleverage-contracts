@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./dex/DexAggregatorInterface.sol";
 
 
-contract xOLEStorage {
+contract XOLEStorage {
 
     // EIP-20 token name for this token
     string public name = 'xOLE';
@@ -67,8 +67,6 @@ contract xOLEStorage {
     uint256 constant MAXTIME = 4 * 365 * 86400;  // 4 years
     uint256 constant MULTIPLIER = 10 ** 18;
 
-    // Treasury variable
-
     IERC20 oleToken;
 
     // dev team account
@@ -125,7 +123,7 @@ contract xOLEStorage {
 }
 
 
-interface xOLEInterface {
+interface XOLEInterface {
 
     function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount, bytes memory data) external;
 

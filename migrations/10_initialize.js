@@ -4,7 +4,7 @@ const Gov = artifacts.require("GovernorAlpha");
 const Timelock = artifacts.require("Timelock");
 const OLEToken = artifacts.require("OLEToken");
 const Reserve = artifacts.require("Reserve");
-const TreasuryDelegator = artifacts.require("TreasuryDelegator");
+const xOLE = artifacts.require("XOLE");
 const OLETokenLock = artifacts.require("OLETokenLock");
 const DexAggregatorV1 = artifacts.require("DexAggregatorV1");
 
@@ -46,8 +46,8 @@ async function initializeContract(accounts, network) {
   /**
    * OpenLev
    */
-  m.log("waiting openLev setReferral......");
-  await tl.executeTransaction(OpenLevV1.address, 0, 'setReferral(address)', encodeParameters(['address'], [Referral.address]), 0);
+
+
   /**
    * OLEToken
    */
