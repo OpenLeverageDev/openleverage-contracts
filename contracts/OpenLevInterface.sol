@@ -33,9 +33,9 @@ abstract contract OpenLevStorage {
 
     address public xOLE;
 
-    event NewDefalutFeesRate(uint oldFeesRate, uint newFeesRate);
+    event NewDefalutFeesRate(uint16 oldFeesRate, uint16 newFeesRate);
 
-    event NewMarketFeesRate(uint oldFeesRate, uint newFeesRate);
+    event NewMarketFeesRate(uint16 marketId,uint16 oldFeesRate, uint16 newFeesRate);
 
     event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
 
@@ -55,7 +55,7 @@ abstract contract OpenLevStorage {
 
 
     // 0.3%
-    uint public defaultFeesRate = 30; // 0.003
+    uint16 public defaultFeesRate = 30; // 0.003
 
     uint8 public insuranceRatio = 33; // 33%
 
@@ -76,8 +76,8 @@ abstract contract OpenLevStorage {
         uint borrowed,
         uint held,
         uint fees,
-        uint atPrice,
-        uint8 priceDecimals,
+        uint sellAmount,
+        uint receiveAmount,
         uint8 dex
     );
 
@@ -89,8 +89,8 @@ abstract contract OpenLevStorage {
         uint depositDecrease,
         uint depositReturn,
         uint fees,
-        uint atPrice,
-        uint8 priceDecimals,
+        uint sellAmount,
+        uint receiveAmount,
         uint8 dex
     );
 
@@ -103,8 +103,8 @@ abstract contract OpenLevStorage {
         address liquidator,
         uint depositDecrease,
         uint depositReturn,
-        uint atPrice,
-        uint8 priceDecimals,
+        uint sellAmount,
+        uint receiveAmount,
         uint8 dex
     );
 }
@@ -119,7 +119,7 @@ interface OpenLevInterface {
         LPoolInterface pool0,
         LPoolInterface pool1,
         uint32 marginLimit,
-        uint8 dex
+        bytes memory dexData
     ) external returns (uint16);
 
 
@@ -142,9 +142,9 @@ interface OpenLevInterface {
 
     function setMarketMarginLimit(uint16 marketId, uint32 newRatio) external;
 
-    function setDefaultFeesRate(uint newRate) external;
+    function setDefaultFeesRate(uint16 newRate) external;
 
-    function setMarketFeesRate(uint16 marketId, uint newRate) external;
+    function setMarketFeesRate(uint16 marketId, uint16 newRate) external;
 
     function setInsuranceRatio(uint8 newRatio) external;
 

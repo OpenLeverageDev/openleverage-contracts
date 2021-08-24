@@ -1,18 +1,17 @@
 const utils = require("./utils/OpenLevUtil");
 const {
-  toWei,
   last8,
   checkAmount,
   printBlockNum,
   Uni2DexData,
   assertPrint,
 } = require("./utils/OpenLevUtil");
-const {advanceMultipleBlocks, advanceTime, toBN} = require("./utils/EtheUtil");
+const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const xOLE = artifacts.require("XOLE");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const m = require('mocha-logger');
-const LPErc20Delegator = artifacts.require("LPoolDelegator");
+const LPool = artifacts.require("LPool");
 const TestToken = artifacts.require("MockERC20");
 
 contract("OpenLev UniV2", async accounts => {
@@ -45,8 +44,6 @@ contract("OpenLev UniV2", async accounts => {
     m.log("Created Controller", last8(controller.address));
 
     ole = await TestToken.new('OpenLevERC20', 'OLE');
-    let usdt = await TestToken.new('Tether', 'USDT');
-
     token0 = await TestToken.new('TokenA', 'TKA');
     token1 = await TestToken.new('TokenB', 'TKB');
     weth = await utils.createWETH();
@@ -57,7 +54,7 @@ contract("OpenLev UniV2", async accounts => {
     dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000");
 
     let xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
+    await xole.initialize(ole.address, dexAgg.address, 1, dev, {from: admin});
 
     delegatee = await OpenLevV1.new();
     openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, accounts[0], delegatee.address);
@@ -65,7 +62,9 @@ contract("OpenLev UniV2", async accounts => {
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
 
-    await controller.createLPoolPair(token0.address, token1.address, 3000, 1); // 30% margin ratio by default
+    let createPoolTx = await controller.createLPoolPair(token0.address, token1.address, 3000, Uni2DexData); // 30% margin ratio by default
+    m.log("Create Market Gas Used: ", createPoolTx.receipt.gasUsed);
+
     assert.equal(3000, (await openLev.markets(0)).marginLimit);
 
     await openLev.setDefaultMarginLimit(1500, {from: admin});
@@ -78,23 +77,21 @@ contract("OpenLev UniV2", async accounts => {
   it("Deposit Eth，return eth ", async () => {
     gotPair = await utils.createUniswapV2Pool(uniswapFactory, weth, token1);
     await openLev.setAllowedDepositTokens([weth.address], true);
-    await controller.createLPoolPair(weth.address, token1.address, 3000, 1); // 30% margin ratio by default
+    await controller.createLPoolPair(weth.address, token1.address, 3000, Uni2DexData); // 30% margin ratio by default
     let pairId = 1;
     await utils.mint(token1, saver, 10000);
     checkAmount(await token1.symbol() + " Saver " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(saver), 18);
     let deposit = utils.toWei(1);
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
     let borrow = utils.toWei(1);
     m.log("toBorrow from Pool 1: \t", borrow);
-    await dexAgg.updatePriceOracle(weth.address, token1.address, Uni2DexData);
-    await advanceTime(30);
+    await advanceMultipleBlocksAndTime(2);
     await dexAgg.updatePriceOracle(weth.address, token1.address, Uni2DexData);
     await openLev.marginTrade(pairId, false, false, 0, borrow, 0, Uni2DexData, {from: trader, value: deposit});
-
     let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
     m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");
@@ -131,10 +128,10 @@ contract("OpenLev UniV2", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
-    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
@@ -161,21 +158,19 @@ contract("OpenLev UniV2", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
-    await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
-    let priceData1 = await dexAgg.uniV2PriceOracle(gotPair.address);
-    m.log("PriceData1: \t", JSON.stringify(priceData1));
-    await advanceTime(30);
+    await advanceMultipleBlocksAndTime(2);
     await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
     let priceData2 = await dexAgg.uniV2PriceOracle(gotPair.address);
     m.log("PriceData2: \t", JSON.stringify(priceData2));
-    let priceData3 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData3 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData3: \t", JSON.stringify(priceData3));
-    await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+    let marginTradeTx = await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+    m.log("V2 Margin Trade Gas Used: ", marginTradeTx.receipt.gasUsed);
 
     let marginRatio = await openLev.marginRatio(trader, 0, 0, Uni2DexData);
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
@@ -185,7 +180,9 @@ contract("OpenLev UniV2", async accounts => {
     let tradeBefore = await openLev.activeTrades(trader, 0, 0);
     m.log("Trade.held:", tradeBefore.held);
     assert.equal(tradeBefore.held, "886675826237735294796");
-    await openLev.closeTrade(0, false, tradeBefore.held, 0, Uni2DexData, {from: trader});
+    let closeTradeTx = await openLev.closeTrade(0, false, tradeBefore.held, 0, Uni2DexData, {from: trader});
+    m.log("V2 Close Trade Gas Used: ", closeTradeTx.receipt.gasUsed);
+
     let tradeAfter = await openLev.activeTrades(trader, 0, 0);
     m.log("Trade.held:", tradeAfter.held);
     assert.equal(tradeAfter.held, 0);
@@ -204,12 +201,11 @@ contract("OpenLev UniV2", async accounts => {
     await token1.approve(openLev.address, utils.toWei(100000), {from: trader});
     // Saver deposit to pool1
     let saverSupply = utils.toWei(2000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, saverSupply, {from: saver});
     await pool1.mint(saverSupply, {from: saver});
     let borrow = utils.toWei(500);
-    await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
-    await advanceTime(30);
+    await advanceMultipleBlocksAndTime(2);
     await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
     await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
     //set price 1.2
@@ -217,7 +213,7 @@ contract("OpenLev UniV2", async accounts => {
 
     let shouldUpatePrice = await openLev.shouldUpdatePrice(0, false, Uni2DexData);
     assert.equal(shouldUpatePrice, true);
-    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
     // should update price first
     try {
@@ -226,7 +222,7 @@ contract("OpenLev UniV2", async accounts => {
     } catch (error) {
       assert.include(error.message, 'Update price firstly', 'throws exception with  Update price firstly');
     }
-    // update time <25s ,not succeed
+    // update time <1s ,not succeed
     await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
     try {
       await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
@@ -237,17 +233,20 @@ contract("OpenLev UniV2", async accounts => {
 
     // add deposit needn't update price
     await openLev.marginTrade(0, false, true, deposit, 0, 0, Uni2DexData, {from: trader});
-    await advanceTime(30);
+    await advanceMultipleBlocksAndTime(2);
     await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
-    let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
 
     await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+    let priceData2 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    m.log("priceData2: \t", JSON.stringify(priceData2));
+
     //
     let marginRatio = await openLev.marginRatio(trader, 0, 0, Uni2DexData);
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
     m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");
-    assert.equal(marginRatio.current.toString(), 11736);
+    assert.equal(marginRatio.current.toString(), 13599);
 
   })
 
@@ -264,13 +263,13 @@ contract("OpenLev UniV2", async accounts => {
     await token1.approve(openLev.address, utils.toWei(100000), {from: trader});
     // Saver deposit to pool1
     let saverSupply = utils.toWei(2000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, saverSupply, {from: saver});
     await pool1.mint(saverSupply, {from: saver});
     let borrow = utils.toWei(500);
+    await advanceMultipleBlocksAndTime(3);
     await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
-    await advanceTime(30);
-    await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
+
     await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
     //set price 0.5
     await gotPair.setPrice(token0.address, token1.address, 50);
@@ -278,11 +277,10 @@ contract("OpenLev UniV2", async accounts => {
     m.log("Margin Ratio0 current:", marginRatio0.current / 100, "%");
     m.log("Margin Ratio0 avg:", marginRatio0.avg / 100, "%");
     assert.equal(marginRatio0.current.toString(), 0);
-    assert.equal(marginRatio0.avg.toString(), 7733);
 
     let shouldUpatePrice = await openLev.shouldUpdatePrice(0, false, Uni2DexData);
     assert.equal(shouldUpatePrice, true);
-    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
     // should update price first
     try {
@@ -291,18 +289,17 @@ contract("OpenLev UniV2", async accounts => {
     } catch (error) {
       assert.include(error.message, 'Update price firstly', 'throws exception with  Update price firstly');
     }
-    await advanceTime(30);
+    await advanceMultipleBlocksAndTime(3);
     await dexAgg.updatePriceOracle(token0.address, token1.address, Uni2DexData);
-    let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
     //
     let marginRatio1 = await openLev.marginRatio(trader, 0, 0, Uni2DexData);
     m.log("Margin Ratio1 current:", marginRatio1.current / 100, "%");
     m.log("Margin Ratio1 avg:", marginRatio1.avg / 100, "%");
     assert.equal(marginRatio1.current, 0);
-    assert.equal(marginRatio1.avg, 0);
     let liquidationTx = await openLev.liquidate(trader, 0, 0, Uni2DexData, {from: liquidator2});
-    m.log("liquidationTx:", JSON.stringify(liquidationTx.logs[0].args));
+    m.log("V2 Liquidation Gas Used: ", liquidationTx.receipt.gasUsed);
     assertPrint("Deposit Decrease", '397300000000000000000', liquidationTx.logs[0].args.depositDecrease);
     assertPrint("Deposit Return", '0', liquidationTx.logs[0].args.depositReturn);
 

@@ -42,8 +42,8 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         emit NewImplementation(oldImplementation, implementation);
     }
 
-    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, uint8 dex) external override {
-        delegateToImplementation(abi.encodeWithSignature("createLPoolPair(address,address,uint32,uint8)", tokenA, tokenB, marginRatio, dex));
+    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("createLPoolPair(address,address,uint32,bytes)", tokenA, tokenB, marginRatio, dexData));
     }
     /*** Policy Hooks ***/
 

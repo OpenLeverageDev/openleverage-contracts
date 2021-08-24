@@ -7,7 +7,7 @@ interface DexAggregatorInterface {
 
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 
-    function sellMul(uint sellAmount,uint minBuyAmount,bytes memory data) external returns (uint buyAmount);
+    function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 
     function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external returns (uint sellAmount);
 
@@ -17,10 +17,12 @@ interface DexAggregatorInterface {
 
     function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view returns (uint256 price, uint8 decimals, uint256 timestamp);
 
-    function getCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view returns (uint currentPrice, uint256 avgPrice, uint8 decimals, uint256 timestamp);
+    function getPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view returns (uint currentPrice, uint256 avgPrice, uint8 decimals, uint256 timestamp);
 
     //cal current avg price and get history avg price
     function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp);
 
     function updatePriceOracle(address desToken, address quoteToken, bytes memory data) external;
+
+    function updateV3Observation(address desToken, address quoteToken, bytes memory data) external;
 }

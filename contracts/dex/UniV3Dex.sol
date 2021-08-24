@@ -19,6 +19,8 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeCast for uint256;
     IUniswapV3Factory public  uniV3Factory;
     uint24[] public feesArray;
+    uint16 private constant observationSize = 3;
+    uint16 private constant maxSecondAgo = (observationSize - 1) * 14;
 
     struct SwapCallData {
         IUniswapV3Pool pool;
@@ -52,13 +54,13 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         callData.amountSpecified = sellAmount.toInt256();
         callData.sqrtPriceLimitX96 = getSqrtPriceLimitX96(callData.zeroForOne);
         if (fee == 0) {
-            (callData.pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, 1);
+            (callData.pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, maxSecondAgo);
             data.fee = fee;
         } else {
             callData.pool = getPool(data.tokenIn, data.tokenOut, fee);
         }
         if (checkPool) {
-            require(isPoolObservationsMoreThanOne(callData.pool), "Pool observations less than 2");
+            require(isPoolObservationsEnough(callData.pool), "Pool observations not enough");
         }
         (int256 amount0, int256 amount1) =
         callData.pool.swap(
@@ -94,13 +96,13 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         bool zeroForOne = data.tokenIn < data.tokenOut;
         IUniswapV3Pool pool;
         if (fee == 0) {
-            (pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, 1);
+            (pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, maxSecondAgo);
             data.fee = fee;
         } else {
             pool = getPool(data.tokenIn, data.tokenOut, fee);
         }
         if (checkPool) {
-            require(isPoolObservationsMoreThanOne(pool), "Pool observations less than 2");
+            require(isPoolObservationsEnough(pool), "Pool observations not enough");
         }
         (int256 amount0Delta, int256 amount1Delta) =
         pool.swap(
@@ -123,7 +125,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     function uniV3GetPrice(address desToken, address quoteToken, uint8 decimals, uint24 fee) internal view returns (uint256){
         IUniswapV3Pool pool;
         if (fee == 0) {
-            (pool,,,) = getMaxLiquidityPoolInfo(desToken, quoteToken, 1);
+            (pool,,,) = getMaxLiquidityPoolInfo(desToken, quoteToken, maxSecondAgo);
         } else {
             pool = getPool(desToken, quoteToken, fee);
         }
@@ -135,7 +137,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         return getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
     }
     //get maximum liquidity in previous block as a reference price
-    function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 price, uint256 timestamp){
+    function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 price, uint256 timestamp, IUniswapV3Pool pool){
         // Shh - currently unused
         fee;
         require(secondsAgo > 0, "SecondsAgo must >0");
@@ -144,11 +146,28 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(avgTick);
         price = getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
         timestamp = block.timestamp.sub(secondsAgo);
+        pool = maxPool;
     }
 
-    function uniV3GetCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
+    function uniV3GetPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp, IUniswapV3Pool pool){
         currentPrice = uniV3GetPrice(desToken, quoteToken, decimals, fee);
-        (avgPrice, timestamp) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, fee);
+        (avgPrice, timestamp, pool) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, fee);
+    }
+
+    function uniV3GetPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
+        IUniswapV3Pool pool;
+        (price, hAvgPrice, timestamp, pool) = uniV3GetPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, fee);
+        // get previous block price
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = 0;
+        secondsAgos[1] = 1;
+        (int56[] memory tickCumulatives,) = pool.observe(secondsAgos);
+        int24 avgTick = int24(((tickCumulatives[0] - tickCumulatives[1]) / (1)));
+        cAvgPrice = getPriceBySqrtPriceX96(desToken, quoteToken, TickMath.getSqrtRatioAtTick(avgTick), decimals);
+    }
+
+    function increaseV3Observation(address desToken, address quoteToken, uint24 fee) internal {
+        getPool(desToken, quoteToken, fee).increaseObservationCardinalityNext(observationSize);
     }
 
     function getPriceBySqrtPriceX96(address desToken, address quoteToken, uint160 sqrtPriceX96, uint8 decimals) internal pure returns (uint256){
@@ -177,7 +196,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
             if (address(pool) == address(0)) {
                 continue;
             }
-            if (!isPoolObservationsMoreThanOne(pool)) {
+            if (!isPoolObservationsEnough(pool)) {
                 continue;
             }
             (int56[] memory tickCumulatives1, uint160[] memory secondsPerLiquidityCumulativeX128s1) = pool.observe(secondsAgos);
@@ -219,9 +238,9 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         return IUniswapV3Pool(uniV3Factory.getPool(tokenA, tokenB, fee));
     }
 
-    function isPoolObservationsMoreThanOne(IUniswapV3Pool pool) internal view returns (bool){
+    function isPoolObservationsEnough(IUniswapV3Pool pool) internal view returns (bool){
         (,,,,uint16 count,,) = pool.slot0();
-        return count > 2;
+        return count >= observationSize;
     }
 
 }

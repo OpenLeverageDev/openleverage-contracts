@@ -12,7 +12,7 @@ const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const xOLE = artifacts.require("XOLE");
 const m = require('mocha-logger');
-const LPErc20Delegator = artifacts.require("LPoolDelegator");
+const LPool = artifacts.require("LPool");
 const TestToken = artifacts.require("MockERC20");
 
 contract("OpenLev UniV3", async accounts => {
@@ -39,7 +39,6 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Created Controller", last8(controller.address));
 
     ole = await TestToken.new('OpenLevERC20', 'OLE');
-    let usdt = await TestToken.new('Tether', 'USDT');
 
     token0 = await TestToken.new('TokenA', 'TKA');
     token1 = await TestToken.new('TokenB', 'TKB');
@@ -60,7 +59,7 @@ contract("OpenLev UniV3", async accounts => {
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
-    await controller.createLPoolPair(token0.address, token1.address, 3000, 2); // 30% margin ratio
+    await controller.createLPoolPair(token0.address, token1.address, 3000, Uni3DexData); // 30% margin ratio
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));
@@ -86,7 +85,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await usdt.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -145,7 +144,6 @@ contract("OpenLev UniV3", async accounts => {
     trade = await openLev.activeTrades(trader, 0, 0);
     m.log("Trade held:", trade.held);
     m.log("Trade deposited:", trade.deposited);
-    m.log("Trade marketValueOpen:", trade.marketValueOpen);
 
     let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Ratio, current:", ratio.current, "limit", ratio.marketLimit);
@@ -181,7 +179,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await usdt.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -232,7 +230,7 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Trade deposited:", trade.deposited);
 
     let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
-    m.log("Ratio, current:", ratio.current, "limit", ratio.marketLimit);
+    m.log("Ratio, current:", ratio.current, "limit", ratio.limit);
     assert.equal(7906, ratio.current.toString());
     //
     // Partial Close trade
@@ -275,7 +273,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(2000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(2000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -362,7 +360,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(10000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(10000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 

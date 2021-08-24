@@ -5,6 +5,7 @@ const {toBN, maxUint, advanceMultipleBlocks} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
 const LPool = artifacts.require('LPool');
+const LPoolDelegator = artifacts.require('LPoolDelegator');
 
 contract("LPoolDelegator", async accounts => {
 
@@ -199,22 +200,22 @@ contract("LPoolDelegator", async accounts => {
       m.log("ethAfter=", ethAfter);
       assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
     })
-    it("pool not allowed test", async () => {
-      let controller = await utils.createController(accounts[0]);
-      let createPoolResult = await utils.createPool(accounts[0], controller, admin);
-      let testToken = createPoolResult.token;
-      let erc20Pool = createPoolResult.pool;
-      await utils.mint(testToken, admin, 10000);
-      //deposit 10000
-      await testToken.approve(erc20Pool.address, maxUint());
-      controller.setLPoolUnAllowed(await erc20Pool.address, true);
-      try {
-        await erc20Pool.mint(10000 * 1e10);
-        assert.fail("should thrown LPool paused error");
-      } catch (error) {
-        assert.include(error.message, 'LPool paused', 'throws exception with LPool paused');
-      }
-    }),
+  it("pool not allowed test", async () => {
+    let controller = await utils.createController(accounts[0]);
+    let createPoolResult = await utils.createPool(accounts[0], controller, admin);
+    let testToken = createPoolResult.token;
+    let erc20Pool = createPoolResult.pool;
+    await utils.mint(testToken, admin, 10000);
+    //deposit 10000
+    await testToken.approve(erc20Pool.address, maxUint());
+    controller.setLPoolUnAllowed(await erc20Pool.address, true);
+    try {
+      await erc20Pool.mint(10000 * 1e10);
+      assert.fail("should thrown LPool paused error");
+    } catch (error) {
+      assert.include(error.message, 'LPool paused', 'throws exception with LPool paused');
+    }
+  }),
     it("pool change admin test", async () => {
       let controller = await utils.createController(accounts[0]);
       let createPoolResult = await utils.createPool(accounts[0], controller, admin);
@@ -453,7 +454,7 @@ contract("LPoolDelegator", async accounts => {
       web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
     assert.equal(instance.address, await erc20Pool.implementation());
     try {
-      await erc20Pool.setImplementation(instance.address);
+      await (await LPoolDelegator.at(erc20Pool.address)).setImplementation(instance.address);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');

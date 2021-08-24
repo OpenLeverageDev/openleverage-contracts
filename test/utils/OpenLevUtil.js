@@ -1,7 +1,7 @@
 "use strict";
 const {toBN, maxUint} = require("./EtheUtil");
-const LPErc20Delegator = artifacts.require("LPoolDelegator");
-const LPErc20Delegate = artifacts.require('LPool');
+const LPoolDelegator = artifacts.require("LPoolDelegator");
+const LPool = artifacts.require('LPool');
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
@@ -29,7 +29,7 @@ exports.Uni2DexData = "0x01";
 exports.Uni3DexData = "0x02"+"000bb8"+"01";
 
 exports.createLPoolImpl = async () => {
-    return await LPErc20Delegate.new();
+    return await LPool.new();
 }
 
 exports.createController = async (admin, oleToken, wChainToken, xoleToken) => {
@@ -113,8 +113,8 @@ exports.createTimelock = async (admin) => {
 
 exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
     let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
-    let erc20Delegate = await LPErc20Delegate.new();
-    let pool = await LPErc20Delegator.new();
+    let erc20Delegate = await LPool.new();
+    let pool = await LPoolDelegator.new();
     await pool.initialize(testToken.address, wethToken ? true : false,
         controller.address,
         toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
@@ -127,7 +127,7 @@ exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
     return {
         'token': testToken,
         'controller': controller,
-        'pool': pool
+        'pool': await LPool.at(pool.address)
     };
 }
 
@@ -158,7 +158,9 @@ exports.last8 = function (aString) {
         return aString;
     }
 }
-
+exports.addressToBytes = function (address) {
+    return address.substr(2);
+}
 exports.printBlockNum = async () => {
     m.log("Block number:", await web3.eth.getBlockNumber());
 }

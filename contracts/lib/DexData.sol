@@ -54,6 +54,10 @@ library DexData {
         }
         return temp > 0;
     }
+    // univ2 class
+    function isUniV2Class(bytes memory data) internal pure returns (bool) {
+        return (data.length - dexNameLength) % 20 == 0;
+    }
     // v2 path
     function toUniV2Path(bytes memory data) internal pure returns (address[] memory path) {
         data = slice(data, dexNameLength, data.length - dexNameLength);

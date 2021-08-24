@@ -45,17 +45,10 @@ contract MockUniswapV2Pair {
         require(reserve0 != 0);
         require(reserve1 != 0);
 
-        //        if (tokenA < tokenB) {
         _token0 = tokenA;
         _token1 = tokenB;
         _reserve0 = reserve0;
         _reserve1 = reserve1;
-        //        } else {
-        //            _token1 = tokenA;
-        //            _token0 = tokenB;
-        //            _reserve1 = reserve0;
-        //            _reserve0 = reserve1;
-        //        }
 
         MockERC20(_token0).mint(address(this), _reserve0);
         MockERC20(_token1).mint(address(this), _reserve1);
@@ -90,6 +83,16 @@ contract MockUniswapV2Pair {
         if (_token1 == tokenA) {
             _reserve1 = 1000000 * 1e18 * 1;
             _reserve0 = 1000000 * 1e18 * uint112(price) / 100;
+        }
+        if (MockERC20(_token0).balanceOf(address(this)) > _reserve0) {
+            MockERC20(_token0).transfer(_token0, MockERC20(_token0).balanceOf(address(this)) - _reserve0);
+        } else {
+            MockERC20(_token0).mint(address(this), _reserve0 - MockERC20(_token0).balanceOf(address(this)));
+        }
+        if (MockERC20(_token1).balanceOf(address(this)) > _reserve1) {
+            MockERC20(_token1).transfer(_token1, MockERC20(_token1).balanceOf(address(this)) - _reserve1);
+        } else {
+            MockERC20(_token1).mint(address(this), _reserve1 - MockERC20(_token1).balanceOf(address(this)));
         }
     }
     // update reserves and, on the first call per block, price accumulators

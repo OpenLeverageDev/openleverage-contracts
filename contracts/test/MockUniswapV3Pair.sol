@@ -476,6 +476,7 @@ prePrice = uint160(price << 95);
 prePrice = uint160(price << 97);
 }
 }
+
 /// @inheritdoc IUniswapV3PoolActions
 /// @dev  is applied indirectly via _modifyPosition
 function mint(
