@@ -33,27 +33,6 @@ abstract contract OpenLevStorage {
 
     address public xOLE;
 
-    event NewDefalutFeesRate(uint16 oldFeesRate, uint16 newFeesRate);
-
-    event NewMarketFeesRate(uint16 marketId,uint16 oldFeesRate, uint16 newFeesRate);
-
-    event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
-
-    event NewMarketMarginLimit(uint16 marketId, uint32 oldRatio, uint32 newRatio);
-
-    event NewInsuranceRatio(uint8 oldInsuranceRatio, uint8 newInsuranceRatio);
-
-    event NewController(address oldController, address newController);
-
-    event NewDexAggregator(DexAggregatorInterface oldDexAggregator, DexAggregatorInterface newDexAggregator);
-
-    event ChangeAllowedDepositTokens(address[] token, bool allowed);
-
-    event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
-
-    event NewMarketDex(uint16 marketId, uint32[] oldDex, uint32[] newDex);
-
-
     // 0.3%
     uint16 public defaultFeesRate = 30; // 0.003
 
@@ -106,7 +85,26 @@ abstract contract OpenLevStorage {
         uint sellAmount,
         uint receiveAmount,
         uint32 dex
-    );
+    );    event NewDefalutFeesRate(uint16 oldFeesRate, uint16 newFeesRate);
+
+    event NewMarketFeesRate(uint16 marketId,uint16 oldFeesRate, uint16 newFeesRate);
+
+    event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
+
+    event NewMarketMarginLimit(uint16 marketId, uint32 oldRatio, uint32 newRatio);
+
+    event NewInsuranceRatio(uint8 oldInsuranceRatio, uint8 newInsuranceRatio);
+
+    event NewController(address oldController, address newController);
+
+    event NewDexAggregator(DexAggregatorInterface oldDexAggregator, DexAggregatorInterface newDexAggregator);
+
+    event ChangeAllowedDepositTokens(address[] token, bool allowed);
+
+    event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
+
+    event NewMarketDex(uint16 marketId, uint32[] oldDex, uint32[] newDex);
+
 }
 
 /**
