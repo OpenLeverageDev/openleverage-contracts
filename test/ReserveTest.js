@@ -1,6 +1,6 @@
 const Reserve = artifacts.require("Reserve");
 const OLEToken = artifacts.require("OLEToken");
-const {assertPrint} = require("./utils/OpenLevUtil");
+const {assertPrint, approxAssertPrint} = require("./utils/OpenLevUtil");
 const timeMachine = require('ganache-time-traveler');
 
 const m = require('mocha-logger');
@@ -61,7 +61,7 @@ contract("Reserve", async accounts => {
 
     avail = await reserve.availableToVest();
     m.log("Avail to vest:", avail);
-    assertPrint("Available To Vest Check", avail, '999452354874041622');
+    approxAssertPrint("Available To Vest Check", avail, '999452354874041622');
 
     await reserve.transfer(user, avail, {from: admin});
     assertPrint("Transferred Out", '1000000000000000000', await oleToken.balanceOf(user));
