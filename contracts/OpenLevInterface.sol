@@ -33,29 +33,8 @@ abstract contract OpenLevStorage {
 
     address public xOLE;
 
-    event NewDefalutFeesRate(uint oldFeesRate, uint newFeesRate);
-
-    event NewMarketFeesRate(uint oldFeesRate, uint newFeesRate);
-
-    event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
-
-    event NewMarketMarginLimit(uint16 marketId, uint32 oldRatio, uint32 newRatio);
-
-    event NewInsuranceRatio(uint8 oldInsuranceRatio, uint8 newInsuranceRatio);
-
-    event NewController(address oldController, address newController);
-
-    event NewDexAggregator(DexAggregatorInterface oldDexAggregator, DexAggregatorInterface newDexAggregator);
-
-    event ChangeAllowedDepositTokens(address[] token, bool allowed);
-
-    event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
-
-    event NewMarketDex(uint16 marketId, uint8 oldDex, uint8 newDex);
-
-
     // 0.3%
-    uint public defaultFeesRate = 30; // 0.003
+    uint16 public defaultFeesRate = 30; // 0.003
 
     uint8 public insuranceRatio = 33; // 33%
 
@@ -76,9 +55,9 @@ abstract contract OpenLevStorage {
         uint borrowed,
         uint held,
         uint fees,
-        uint atPrice,
-        uint8 priceDecimals,
-        uint8 dex
+        uint sellAmount,
+        uint receiveAmount,
+        uint32 dex
     );
 
     event TradeClosed(
@@ -89,9 +68,9 @@ abstract contract OpenLevStorage {
         uint depositDecrease,
         uint depositReturn,
         uint fees,
-        uint atPrice,
-        uint8 priceDecimals,
-        uint8 dex
+        uint sellAmount,
+        uint receiveAmount,
+        uint32 dex
     );
 
     event Liquidation(
@@ -103,10 +82,29 @@ abstract contract OpenLevStorage {
         address liquidator,
         uint depositDecrease,
         uint depositReturn,
-        uint atPrice,
-        uint8 priceDecimals,
-        uint8 dex
-    );
+        uint sellAmount,
+        uint receiveAmount,
+        uint32 dex
+    );    event NewDefalutFeesRate(uint16 oldFeesRate, uint16 newFeesRate);
+
+    event NewMarketFeesRate(uint16 marketId,uint16 oldFeesRate, uint16 newFeesRate);
+
+    event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
+
+    event NewMarketMarginLimit(uint16 marketId, uint32 oldRatio, uint32 newRatio);
+
+    event NewInsuranceRatio(uint8 oldInsuranceRatio, uint8 newInsuranceRatio);
+
+    event NewController(address oldController, address newController);
+
+    event NewDexAggregator(DexAggregatorInterface oldDexAggregator, DexAggregatorInterface newDexAggregator);
+
+    event ChangeAllowedDepositTokens(address[] token, bool allowed);
+
+    event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
+
+    event NewMarketDex(uint16 marketId, uint32[] oldDex, uint32[] newDex);
+
 }
 
 /**
@@ -119,7 +117,7 @@ interface OpenLevInterface {
         LPoolInterface pool0,
         LPoolInterface pool1,
         uint32 marginLimit,
-        uint8 dex
+        bytes memory dexData
     ) external returns (uint16);
 
 
@@ -132,15 +130,19 @@ interface OpenLevInterface {
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint avg, uint32 limit);
 
     function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external view returns (bool);
+
+    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
+
+
     /*** Admin Functions ***/
 
     function setDefaultMarginLimit(uint32 newRatio) external;
 
     function setMarketMarginLimit(uint16 marketId, uint32 newRatio) external;
 
-    function setDefaultFeesRate(uint newRate) external;
+    function setDefaultFeesRate(uint16 newRate) external;
 
-    function setMarketFeesRate(uint16 marketId, uint newRate) external;
+    function setMarketFeesRate(uint16 marketId, uint16 newRate) external;
 
     function setInsuranceRatio(uint8 newRatio) external;
 
@@ -154,7 +156,7 @@ interface OpenLevInterface {
 
     function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external;
 
-    function setMarketDex(uint16 marketId, uint8 dex) external;
+    function setMarketDexs(uint16 marketId, uint32[] memory dexs) external;
 
     function setFeesDiscountThreshold (uint newThreshold) external;
 

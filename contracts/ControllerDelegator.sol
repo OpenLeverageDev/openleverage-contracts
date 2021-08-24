@@ -8,7 +8,8 @@ import "./ControllerInterface.sol";
 
 contract ControllerDelegator is DelegatorInterface, ControllerInterface, ControllerStorage, Adminable {
 
-    constructor(ERC20 _oleToken,
+    constructor(IERC20 _oleToken,
+        IERC20 _xoleToken,
         address _wETH,
         address _lpoolImplementation,
         address _openlev,
@@ -18,8 +19,9 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         admin = msg.sender;
         // Creator of the contract is admin during initialization
         // First delegate gets to initialize the delegator (i.e. storage contract)
-        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address,address,address)",
+        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address,address,address,address)",
             _oleToken,
+            _xoleToken,
             _wETH,
             _lpoolImplementation,
             _openlev,
@@ -39,21 +41,22 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         implementation = implementation_;
         emit NewImplementation(oldImplementation, implementation);
     }
-    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio,uint8 dex) external override {
-        delegateToImplementation(abi.encodeWithSignature("createLPoolPair(address,address,uint32,uint8)", tokenA, tokenB, marginRatio,dex));
+
+    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("createLPoolPair(address,address,uint32,bytes)", tokenA, tokenB, marginRatio, dexData));
     }
     /*** Policy Hooks ***/
 
-    function mintAllowed(address lpool, address minter, uint mintAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("mintAllowed(address,address,uint256)", lpool, minter, mintAmount));
+    function mintAllowed(address lpool, address minter, uint lTokenAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("mintAllowed(address,address,uint256)", lpool, minter, lTokenAmount));
     }
 
-    function transferAllowed(address lpool, address from, address to) external override {
-        delegateToImplementation(abi.encodeWithSignature("transferAllowed(address,address,address)", lpool, from, to));
+    function transferAllowed(address lpool, address from, address to, uint lTokenAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("transferAllowed(address,address,address,uint256)", lpool, from, to, lTokenAmount));
     }
 
-    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external override {
-        delegateToImplementation(abi.encodeWithSignature("redeemAllowed(address,address,uint256)", lpool, redeemer, redeemTokens));
+    function redeemAllowed(address lpool, address redeemer, uint lTokenAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("redeemAllowed(address,address,uint256)", lpool, redeemer, lTokenAmount));
     }
 
     function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override {
@@ -68,8 +71,9 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("liquidateAllowed(uint256,address,uint256,bytes)", marketId, liquidator, liquidateAmount, dexData));
     }
 
-    function marginTradeAllowed(uint marketId) external override {
-        delegateToImplementation(abi.encodeWithSignature("marginTradeAllowed(uint256)", marketId));
+    function marginTradeAllowed(uint marketId) external view override returns (bool){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginTradeAllowed(uint256)", marketId));
+        return abi.decode(data, (bool));
     }
 
     /*** Admin Functions ***/
@@ -94,13 +98,14 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("setLPoolUnAllowed(address,bool)", lpool, unAllowed));
     }
 
-    function setSuspend(bool suspend) external override{
+    function setSuspend(bool suspend) external override {
         delegateToImplementation(abi.encodeWithSignature("setSuspend(bool)", suspend));
     }
 
 
-    function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external override {
-        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint256,uint256)", moreLiquidatorBalance, liquidatorMaxPer, liquidatorOLERatio, moreSupplyBorrowBalance));
+    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreLiquidatorBalance, uint liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)",
+            moreSupplyBorrowBalance, moreLiquidatorBalance, liquidatorMaxPer, liquidatorOLERatio, xoleRaiseRatio, xoleRaiseMinAmount));
     }
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override {

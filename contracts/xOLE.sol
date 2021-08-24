@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Adminable.sol";
 import "./XOLEInterface.sol";
 import "./DelegateInterface.sol";
+import "./lib/DexData.sol";
 
 
 // @title Voting Escrowed Token
@@ -19,6 +20,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using SignedSafeMath128 for int128;
+    using DexData for bytes;
 
     /* We cannot really do block numbers per se b/c slope is per time, not per block
     and per block could be fairly bad b/c Ethereum changes blocktimes.
@@ -59,8 +61,25 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         oleToken.transfer(dev, toSend);
     }
 
-    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount, bytes memory data) external override {
+    function convertToSharingToken(uint amount, uint minBuyAmount, bytes memory dexData) external override onlyAdminOrDeveloper() {
         require(supply > 0, "Can't share without locked OLE");
+        address fromToken;
+        address toToken;
+        // If no swapping, then assuming OLE reward distribution
+        if (dexData.length == 0) {
+            fromToken = address(oleToken);
+        } // Not OLE
+        else {
+            if (dexData.isUniV2Class()) {
+                address[] memory path = dexData.toUniV2Path();
+                fromToken = path[0];
+                toToken = path[path.length - 1];
+            } else {
+                DexData.V3PoolData[] memory path = dexData.toUniV3Path();
+                fromToken = path[0].tokenA;
+                toToken = path[path.length - 1].tokenB;
+            }
+        }
         uint newReward;
         if (fromToken == address(oleToken)) {
             uint claimable = totalRewarded.sub(withdrewReward);
@@ -70,15 +89,21 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         } else {
             require(IERC20(fromToken).balanceOf(address(this)) >= amount, "Exceed available balance");
             (IERC20(fromToken)).approve(address(dexAgg), amount);
-            newReward = dexAgg.sell(address(oleToken), fromToken, amount, minBuyAmount, data);
+            newReward = dexAgg.sellMul(amount, minBuyAmount, dexData);
         }
-        uint newDevFund = newReward.mul(devFundRatio).div(10000);
-        newReward = newReward.sub(newDevFund);
-        devFund = devFund.add(newDevFund);
-        totalRewarded = totalRewarded.add(newReward);
-        lastUpdateTime = block.timestamp;
-        rewardPerTokenStored = rewardPerToken(newReward);
-        emit RewardAdded(fromToken, amount, newReward);
+        //fromToken or toToken equal OLE ,update reward
+        if (fromToken == address(oleToken) || toToken == address(oleToken)) {
+            uint newDevFund = newReward.mul(devFundRatio).div(10000);
+            newReward = newReward.sub(newDevFund);
+            devFund = devFund.add(newDevFund);
+            totalRewarded = totalRewarded.add(newReward);
+            lastUpdateTime = block.timestamp;
+            rewardPerTokenStored = rewardPerToken(newReward);
+            emit RewardAdded(fromToken, amount, newReward);
+        } else {
+            emit RewardConvert(fromToken, toToken, amount, newReward);
+        }
+
     }
 
     function earned(address account) external override view returns (uint) {

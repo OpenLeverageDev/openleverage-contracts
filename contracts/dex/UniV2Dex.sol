@@ -22,22 +22,36 @@ contract UniV2Dex {
         uint price1CumulativeLast;
     }
 
-    function uniV2Sell(address pair, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint buyAmount){
+    function uniV2Sell(address pair, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, address payer, address payee) internal returns (uint buyAmount){
         require(pair != address(0), 'Invalid pair');
-        address payer = msg.sender;
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
         if (isToken0) {
             buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves);
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
-            IERC20(sellToken).safeTransferFrom(payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
+            transferOut(IERC20(sellToken), payer, pair, sellAmount);
+            IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
         } else {
             buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves);
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
-            IERC20(sellToken).safeTransferFrom(payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
+            transferOut(IERC20(sellToken), payer, pair, sellAmount);
+            IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
+    }
+
+    function uniV2SellMul(IUniswapV2Factory factory, uint sellAmount, uint minBuyAmount, address[] memory tokens) internal returns (uint buyAmount){
+        for (uint i = 1; i < tokens.length; i++) {
+            address sellToken = tokens[i - 1];
+            address buyToken = tokens[i];
+            bool isLast = i == tokens.length - 1;
+            address payer = i == 1 ? msg.sender : address(this);
+            address payee = isLast ? msg.sender : address(this);
+            buyAmount = uniV2Sell(factory.getPair(sellToken, buyToken), buyToken, sellToken, sellAmount, 0, payer, payee);
+            if (!isLast) {
+                sellAmount = buyAmount;
+            }
+        }
+        require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
     function uniV2Buy(address pair, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount) internal returns (uint sellAmount){
@@ -48,12 +62,12 @@ contract UniV2Dex {
         if (isToken0) {
             sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
-            IERC20(sellToken).safeTransferFrom(payer, pair, sellAmount);
+            transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
         } else {
             sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
-            IERC20(sellToken).safeTransferFrom(payer, pair, sellAmount);
+            transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
         }
     }
@@ -82,7 +96,7 @@ contract UniV2Dex {
         price = IUniswapV2Pair(pair).token0() == desToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
     }
 
-    function uniV2GetCurrentPriceAndAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
+    function uniV2GetPriceAndAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
         currentPrice = uniV2GetPrice(pair, desToken, decimals);
         (avgPrice, timestamp) = uniV2GetAvgPrice(pair, priceOracle, desToken);
     }
@@ -157,5 +171,13 @@ contract UniV2Dex {
         amountIn = (numerator / denominator).add(1);
     }
 
+    function transferOut(IERC20 token, address payer, address to, uint amount) private {
+        if (payer == address(this)) {
+            token.safeTransfer(to, amount);
+        } else {
+            token.safeTransferFrom(payer, to, amount);
+        }
+
+    }
 
 }
