@@ -11,6 +11,7 @@ contract("DexCaller integration test ", async accounts => {
     networkId = await web3.eth.net.getId();
   });
   it("swapSell succeed test", async () => {
+    m.log("Network id", networkId);
     if (networkId != '42') {
       m.log("Ignore swap test because it should run on Kovan network")
       return;
