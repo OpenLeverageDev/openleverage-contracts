@@ -8,6 +8,7 @@ import "./Adminable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "./DelegateInterface.sol";
+import "./lib/DexData.sol";
 
 /**
   * @title Controller
@@ -98,7 +99,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             return;
         }
         //get wETH quote ole price
-        (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), dexData);
+        (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), DexData.UNIV2);
         // oleRewards=wETHValue*liquidatorOLERatio
         uint calcLiquidatorRewards = uint(600000)
         .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))

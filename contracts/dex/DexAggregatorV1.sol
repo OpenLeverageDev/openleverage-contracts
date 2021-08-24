@@ -85,7 +85,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             price = uniV2GetPrice(uniV2Factory.getPair(desToken, quoteToken), desToken, decimals);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            price = uniV3GetPrice(desToken, quoteToken, decimals, data.toFee());
+            (price,) = uniV3GetPrice(desToken, quoteToken, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');

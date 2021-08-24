@@ -448,13 +448,23 @@ returns (int56[] memory tickCumulatives, uint160[] memory lCumulatives)
 {
 tickCumulatives = new int56[](secondsAgos.length);
 lCumulatives = new uint160[](secondsAgos.length);
-tickCumulatives[1] = 0;
-lCumulatives[1] = 0;
-lCumulatives[0] = 1 * secondsAgos[1];
+tickCumulatives[secondsAgos.length -1] = 0;
+if (secondsAgos.length== 2){
 if (prePrice == 0){
 tickCumulatives[0] = 0;
 }else {
 tickCumulatives[0] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[1]));
+}
+}
+else if (secondsAgos.length == 3){
+if (prePrice == 0){
+tickCumulatives[0] = 0;
+tickCumulatives[1] = 0;
+}
+else {
+tickCumulatives[0] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[2]));
+tickCumulatives[1] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[2]-1));
+}
 }
 }
 function setPrice(address tokenA, address tokenB, uint price) external {

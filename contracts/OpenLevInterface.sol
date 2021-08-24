@@ -51,7 +51,7 @@ abstract contract OpenLevStorage {
 
     event NewPriceDiffientRatio(uint16 oldPriceDiffientRatio, uint32 newPriceDiffientRatio);
 
-    event NewMarketDex(uint16 marketId, uint8[] oldDex, uint8[] newDex);
+    event NewMarketDex(uint16 marketId, uint32[] oldDex, uint32[] newDex);
 
 
     // 0.3%
@@ -78,7 +78,7 @@ abstract contract OpenLevStorage {
         uint fees,
         uint sellAmount,
         uint receiveAmount,
-        uint8 dex
+        uint32 dex
     );
 
     event TradeClosed(
@@ -91,7 +91,7 @@ abstract contract OpenLevStorage {
         uint fees,
         uint sellAmount,
         uint receiveAmount,
-        uint8 dex
+        uint32 dex
     );
 
     event Liquidation(
@@ -105,7 +105,7 @@ abstract contract OpenLevStorage {
         uint depositReturn,
         uint sellAmount,
         uint receiveAmount,
-        uint8 dex
+        uint32 dex
     );
 }
 
@@ -133,7 +133,7 @@ interface OpenLevInterface {
 
     function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external view returns (bool);
 
-    function getMarketSupportDexs(uint16 marketId) external view returns (uint8[] memory);
+    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
 
     /*** Admin Functions ***/
@@ -158,7 +158,7 @@ interface OpenLevInterface {
 
     function setPriceDiffientRatio(uint16 newPriceDiffientRatio) external;
 
-    function setMarketDexs(uint16 marketId, uint8[] memory dexs) external;
+    function setMarketDexs(uint16 marketId, uint32[] memory dexs) external;
 
     function setFeesDiscountThreshold (uint newThreshold) external;
 
