@@ -319,11 +319,11 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     */
     function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal updateReward(msg.sender) {
         uint256 supply_before = supply;
-        supply = supply_before + _value;
+        supply = supply_before.add(_value);
         LockedBalance memory old_locked = LockedBalance(_locked.amount, _locked.end);
 
         // Adding to existing lock, or if a lock is expired - creating a new one
-        _locked.amount += _value;
+        _locked.amount = _locked.amount.add(_value);
 
         if (unlock_time != 0) {
             _locked.end = unlock_time;
@@ -337,8 +337,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         _checkpoint(_addr, old_locked, _locked);
 
         if (_value != 0) {
-            IERC20(oleToken).transferFrom(_addr, address(this), _value);
-            //assert(IERC20(oleToken).transferFrom(_addr, address(this), _value));
+            assert(IERC20(oleToken).transferFrom(_addr, address(this), _value));
         }
 
         emit Deposit(_addr, _value, _locked.end, _type, block.timestamp);
