@@ -185,12 +185,12 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
             // Calculate slopes and biases
             // Kept at zero when they have to
             if (old_locked.end > block.timestamp && old_locked.amount > 0) {
-                u_old.slope = int128(old_locked.amount / MAXTIME);
-                u_old.bias = u_old.slope * int128(old_locked.end - block.timestamp);
+                u_old.slope = toInt128(old_locked.amount.div(MAXTIME));
+                u_old.bias = u_old.slope.mul(toInt128(old_locked.end.sub(block.timestamp)));
             }
             if (new_locked.end > block.timestamp && new_locked.amount > 0) {
-                u_new.slope = int128(new_locked.amount / MAXTIME);
-                u_new.bias = u_new.slope * int128(new_locked.end - block.timestamp);
+                u_new.slope = toInt128(new_locked.amount.div(MAXTIME));
+                u_new.bias = u_new.slope.mul(toInt128(new_locked.end.sub(block.timestamp)));
             }
 
             // Read values of scheduled changes in the slope
@@ -222,25 +222,25 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         // dblock / dt
 
         if (block.timestamp > last_point.ts) {
-            block_slope = MULTIPLIER * (block.number - last_point.blk) / (block.timestamp - last_point.ts);
+            block_slope = MULTIPLIER.mul(block.number.sub(last_point.blk)).div(block.timestamp.sub(last_point.ts));
         }
         // If last point is already recorded in this block, slope = 0
         // But that's ok b / c we know the block in such case
 
         // Go over weeks to fill history and calculate what the current point is
-        uint256 t_i = (last_checkpoint / WEEK) * WEEK;
+        uint256 t_i = last_checkpoint.div(WEEK).mul(WEEK);
 
         for (uint i = 0; i <= 255; i++) {
             // Hopefully it won't happen that this won't get used in 5 years!
             // If it does, users will be able to withdraw but vote weight will be broken
-            t_i += WEEK;
+            t_i = t_i.add(WEEK);
             int128 d_slope = 0;
             if (t_i > block.timestamp)
                 t_i = block.timestamp;
             else
                 d_slope = slope_changes[t_i];
 
-            last_point.bias -= last_point.slope * int128(t_i - last_checkpoint);
+            last_point.bias -= last_point.slope * toInt128(t_i.sub(last_checkpoint));
             last_point.slope += d_slope;
 
             if (last_point.bias < 0) // This can happen
@@ -267,7 +267,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         if (addr != ZERO_ADDRESS) {
             // If last point was in this block, the slope change has been applied already
             // But in such case we have 0 slope(s)
-            last_point.slope += (u_new.slope - u_old.slope);
+            last_point.slope = last_point.slope.add(u_new.slope.sub(u_old.slope));
             last_point.bias += (u_new.bias - u_old.bias);
             if (last_point.slope < 0)
                 last_point.slope = 0;
@@ -284,16 +284,16 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
             // and add old_user_slope to [old_locked.end]
             if (old_locked.end > block.timestamp) {
                 // old_dslope was < something > - u_old.slope, so we cancel that
-                old_dslope += u_old.slope;
+                old_dslope = old_dslope.add(u_old.slope);
                 if (new_locked.end == old_locked.end)
-                    old_dslope -= u_new.slope;
+                    old_dslope = old_dslope.sub(u_new.slope);
                 // It was a new deposit, not extension
                 slope_changes[old_locked.end] = old_dslope;
             }
 
             if (new_locked.end > block.timestamp) {
                 if (new_locked.end > old_locked.end) {
-                    new_dslope -= u_new.slope;
+                    new_dslope = new_dslope.sub(u_new.slope);
                     // old slope disappeared at this point
                     slope_changes[new_locked.end] = new_dslope;
                 }
