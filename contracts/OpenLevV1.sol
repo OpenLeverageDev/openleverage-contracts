@@ -63,8 +63,8 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         IERC20(token1).approve(address(pool1), uint256(- 1));
         //Create Market
         uint16 marketId = numPairs;
-        uint8[] memory dexs = new uint8[](16);
-        dexs[0] = dex;
+        uint32[] memory dexs = new uint32[](16);
+        dexs[0] = dexData.toDexDetail();
         markets[marketId] = Types.Market(pool0, pool1, marginLimit, defaultFeesRate, 0, 0, dexs);
         numPairs ++;
         // Init price oracle
@@ -90,7 +90,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         verifyTrade(vars, marketId, longToken, depositToken, deposit, borrow, dexData);
         (ControllerInterface(controller)).marginTradeAllowed(marketId);
         Types.TradeVars memory tv;
-        tv.dex = dexData.toDex();
+        tv.dexDetail = dexData.toDexDetail();
         // if deposit token is NOT the same as the long token
         if (depositToken != longToken) {
             tv.depositErc20 = vars.sellToken;
@@ -128,7 +128,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         trade.held = trade.held.add(tv.newHeld);
         //verify
         verifyOpenAfter(marketId, longToken, address(vars.buyToken), address(vars.sellToken), dexData);
-        emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.tradeSize, tv.receiveAmount, tv.dex);
+        emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.tradeSize, tv.receiveAmount, tv.dexDetail);
     }
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
@@ -195,7 +195,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         //verify
         verifyCloseAfter(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         emit TradeClosed(msg.sender, closeTradeVars.marketId, closeTradeVars.longToken, closeAmount, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
-            closeTradeVars.sellAmount, closeTradeVars.receiveAmount, dexData.toDex());
+            closeTradeVars.sellAmount, closeTradeVars.receiveAmount, dexData.toDexDetail());
     }
 
 
@@ -208,7 +208,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         (ControllerInterface(controller)).liquidateAllowed(marketId, msg.sender, trade.held, dexData);
         require(!isPositionHealthy(owner, marketId, longToken, false, dexData), "Position is Healthy");
         Types.LiquidateVars memory liquidateVars;
-        liquidateVars.dex = dexData.toDex();
+        liquidateVars.dexDetail = dexData.toDexDetail();
         liquidateVars.marketId = marketId;
         liquidateVars.longToken = longToken;
         liquidateVars.fees = feesAndInsurance(trade.held, address(marketVars.sellToken), liquidateVars.marketId);
@@ -218,7 +218,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         // Check need to sell all held,base on longToken=depositToken
         if (longToken == trade.depositToken) {
             // uniV3 can't cal buy amount on chain,so get from dexdata
-            if (liquidateVars.dex == DexData.DEX_UNIV3) {
+            if (dexData.toDex() == DexData.DEX_UNIV3) {
                 liquidateVars.isSellAllHeld = dexData.toUniV3QuoteFlag();
             } else {
                 liquidateVars.isSellAllHeld = calBuyAmount(address(marketVars.buyToken), address(marketVars.sellToken), trade.held.sub(liquidateVars.fees), dexData) > liquidateVars.borrowed ? false : true;
@@ -232,10 +232,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             liquidateVars.depositReturn = trade.held.sub(liquidateVars.fees).sub(liquidateVars.sellAmount);
             doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
         } else {
-            //uniV3 swap with the max liquidity pool
-            if (liquidateVars.dex == DexData.DEX_UNIV3) {
-                dexData = DexData.UNIV3_FEE0;
-            }
             liquidateVars.sellAmount = trade.held.sub(liquidateVars.fees);
             liquidateVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, 0, dexData);
             // can repay
@@ -260,7 +256,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         //verify
         verifyLiquidateAfter(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
 
-        emit Liquidation(owner, liquidateVars.marketId, longToken, trade.held, liquidateVars.outstandingAmount, msg.sender, liquidateVars.depositDecrease, liquidateVars.depositReturn, liquidateVars.sellAmount, liquidateVars.receiveAmount, liquidateVars.dex);
+        emit Liquidation(owner, liquidateVars.marketId, longToken, trade.held, liquidateVars.outstandingAmount, msg.sender, liquidateVars.depositDecrease, liquidateVars.depositReturn, liquidateVars.sellAmount, liquidateVars.receiveAmount, liquidateVars.dexDetail);
         delete activeTrades[owner][marketId][longToken];
     }
 
@@ -304,7 +300,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return shouldUpdatePriceInternal(market.pool1.underlying(), market.pool0.underlying(), isOpen, dexData);
     }
 
-    function getMarketSupportDexs(uint16 marketId) external override view returns (uint8[] memory){
+    function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
         return markets[marketId].dexs;
     }
 
@@ -521,11 +517,11 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         emit NewPriceDiffientRatio(oldPriceDiffientRatio, priceDiffientRatio);
     }
 
-    function setMarketDexs(uint16 marketId, uint8[] memory dexs) external override onlyAdmin() {
+    function setMarketDexs(uint16 marketId, uint32[] memory dexs) external override onlyAdmin() {
         for (uint i = 0; i < dexs.length; i++) {
-            require(isSupportDex(dexs[i]), 'Unsupported dex');
+            require(isSupportDex(getDexUint8(dexs[i])), 'Unsupported dex');
         }
-        uint8[] memory oldDex = markets[marketId].dexs;
+        uint32[] memory oldDex = markets[marketId].dexs;
         markets[marketId].dexs = dexs;
         emit NewMarketDex(marketId, oldDex, dexs);
     }
@@ -554,7 +550,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             // For new trade, these checks are not needed
             require(depositToken == trade.depositToken, "Deposit token not same");
             require(trade.lastBlockNum != uint128(block.number), 'Same block');
-            require(isInSupportDex(vars.dexs, dexData.toDex()), 'Dex not support');
+            require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
         }
     }
 
@@ -569,7 +565,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         require(trade.lastBlockNum != block.number, "Same block");
         require(trade.held != 0, "Held is 0");
         require(closeAmount <= trade.held, "Close > held");
-        require(isInSupportDex(vars.dexs, dexData.toDex()), 'Dex not support');
+        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
     }
 
     function verifyCloseAfter(address token0, address token1, bytes memory dexData) internal {
@@ -581,7 +577,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function verifyLiquidateBefore(Types.Trade memory trade, Types.MarketVars memory vars, bytes memory dexData) internal view {
         require(trade.held != 0, "Held is 0");
         require(trade.lastBlockNum != block.number, "Same block");
-        require(isInSupportDex(vars.dexs, dexData.toDex()), 'Dex not support');
+        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
         require(!shouldUpdatePriceInternal(address(vars.sellToken), address(vars.buyToken), false, dexData), 'Update price firstly');
     }
 
@@ -591,11 +587,15 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
     }
 
+    function getDexUint8(uint32 dexData) internal pure returns (uint8){
+        return uint8(dexData >= 2 ** 24 ? dexData >> 24 : dexData);
+    }
+
     function isSupportDex(uint8 dex) internal pure returns (bool){
         return dex == DexData.DEX_UNIV3 || dex == DexData.DEX_UNIV2;
     }
 
-    function isInSupportDex(uint8[] memory dexs, uint8 dex) internal pure returns (bool supported){
+    function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){
         for (uint i = 0; i < dexs.length; i++) {
             if (dexs[i] == 0) {
                 break;

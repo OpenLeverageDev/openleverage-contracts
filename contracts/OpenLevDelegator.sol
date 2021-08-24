@@ -88,9 +88,9 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         return abi.decode(data, (bool));
     }
 
-    function getMarketSupportDexs(uint16 marketId) external override view returns (uint8[] memory){
+    function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getMarketSupportDexs(uint16)", marketId));
-        return abi.decode(data, (uint8[]));
+        return abi.decode(data, (uint32[]));
     }
     /*** Admin Functions ***/
 
@@ -134,8 +134,8 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         delegateToImplementation(abi.encodeWithSignature("setPriceDiffientRatio(uint16)", newPriceDiffientRatio));
     }
 
-    function setMarketDexs(uint16 marketId, uint8[] memory dexs) external override {
-        delegateToImplementation(abi.encodeWithSignature("setMarketDexs(uint16,uint8[])", marketId, dexs));
+    function setMarketDexs(uint16 marketId, uint32[] memory dexs) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketDexs(uint16,uint32[])", marketId, dexs));
     }
 
     function setFeesDiscountThreshold(uint newThreshold) external override {

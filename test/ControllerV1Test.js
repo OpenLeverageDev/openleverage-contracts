@@ -113,7 +113,7 @@ contract("ControllerV1", async accounts => {
     await token0Ctr.approve(pool0, utils.toWei(10));
     await pool0Ctr.mint(utils.toWei(5));
     await controller.setOpenLev("0x0000000000000000000000000000000000000000");
-    let availabeBorrow=await pool0Ctr.availableForBorrow();
+    let availabeBorrow = await pool0Ctr.availableForBorrow();
     m.log("availabeBorrow", utils.toETH(availabeBorrow));
 
     await pool0Ctr.borrowBehalf(accounts[1], utils.toWei(1));
@@ -799,10 +799,12 @@ contract("ControllerV1", async accounts => {
 
     let controller = await utils.createController(timelock ? timelock : admin, oleToken.address, weth.address, xole ? xole.address : "0x0000000000000000000000000000000000000000");
 
-    let uniswapFactory = await utils.createUniswapV3Factory();
-    gotPair = await utils.createUniswapV3Pool(uniswapFactory, tokenA, tokenB, accounts[0]);
-    await utils.createUniswapV3Pool(uniswapFactory, weth, oleToken, accounts[0]);
-    let dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
+    let uniswapFactoryV3 = await utils.createUniswapV3Factory();
+    let uniswapFactoryV2 = await utils.createUniswapV2Factory();
+    await utils.createUniswapV2Pool(uniswapFactoryV2, weth, oleToken);
+    gotPair = await utils.createUniswapV3Pool(uniswapFactoryV3, tokenA, tokenB, accounts[0]);
+    await utils.createUniswapV3Pool(uniswapFactoryV3, weth, oleToken, accounts[0]);
+    let dexAgg = await utils.createDexAgg(uniswapFactoryV2.address, uniswapFactoryV3.address);
     m.log("oleToken.address " + oleToken.address);
     let xOLE = await utils.createXOLE(oleToken.address, admin, accounts[9], dexAgg.address);
     let openLev = await utils.createOpenLev(controller.address, admin, dexAgg.address, xOLE.address, [tokenA.address, tokenB.address]);

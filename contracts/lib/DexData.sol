@@ -20,7 +20,8 @@ library DexData {
 
     uint8 constant DEX_UNIV2 = 1;
     uint8 constant DEX_UNIV3 = 2;
-    bytes constant UNIV3_FEE0 = hex"02000000";
+    bytes constant UNIV2 = hex"01";
+    //    bytes constant UNIV3_FEE0 = hex"02000000";
 
     struct V3PoolData {
         address tokenA;
@@ -44,6 +45,22 @@ library DexData {
             temp := mload(add(data, add(0x20, feeStart)))
         }
         return uint24(temp >> (256 - (feeLength * 8)));
+    }
+
+    function toDexDetail(bytes memory data) internal pure returns (uint32) {
+        if (data.length == dexNameLength) {
+            uint8 temp;
+            assembly {
+                temp := byte(0, mload(add(data, add(0x20, dexNameStart))))
+            }
+            return uint32(temp);
+        } else {
+            uint temp;
+            assembly {
+                temp := mload(add(data, add(0x20, dexNameStart)))
+            }
+            return uint32(temp >> (256 - ((feeLength + dexNameLength) * 8)));
+        }
     }
     // true ,sell all
     function toUniV3QuoteFlag(bytes memory data) internal pure returns (bool) {

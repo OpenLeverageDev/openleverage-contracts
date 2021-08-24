@@ -18,7 +18,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
     IUniswapV3Factory public  uniV3Factory;
-    uint24[] public feesArray;
     uint16 private constant observationSize = 3;
     uint16 private constant maxSecondAgo = (observationSize - 1) * 14;
 
@@ -41,9 +40,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         IUniswapV3Factory _uniV3Factory
     ) public {
         uniV3Factory = _uniV3Factory;
-        feesArray.push(500);
-        feesArray.push(3000);
-        feesArray.push(10000);
     }
 
     function uniV3Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, uint24 fee, bool checkPool, address payer, address payee) internal returns (uint amountOut){
@@ -53,12 +49,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         callData.recipient = payee;
         callData.amountSpecified = sellAmount.toInt256();
         callData.sqrtPriceLimitX96 = getSqrtPriceLimitX96(callData.zeroForOne);
-        if (fee == 0) {
-            (callData.pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, maxSecondAgo);
-            data.fee = fee;
-        } else {
-            callData.pool = getPool(data.tokenIn, data.tokenOut, fee);
-        }
+        callData.pool = getPool(data.tokenIn, data.tokenOut, fee);
         if (checkPool) {
             require(isPoolObservationsEnough(callData.pool), "Pool observations not enough");
         }
@@ -94,13 +85,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
         SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
         bool zeroForOne = data.tokenIn < data.tokenOut;
-        IUniswapV3Pool pool;
-        if (fee == 0) {
-            (pool, fee,,) = getMaxLiquidityPoolInfo(data.tokenIn, data.tokenOut, maxSecondAgo);
-            data.fee = fee;
-        } else {
-            pool = getPool(data.tokenIn, data.tokenOut, fee);
-        }
+        IUniswapV3Pool pool = getPool(data.tokenIn, data.tokenOut, fee);
         if (checkPool) {
             require(isPoolObservationsEnough(pool), "Pool observations not enough");
         }
@@ -122,48 +107,30 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     }
 
 
-    function uniV3GetPrice(address desToken, address quoteToken, uint8 decimals, uint24 fee) internal view returns (uint256){
-        IUniswapV3Pool pool;
-        if (fee == 0) {
-            (pool,,,) = getMaxLiquidityPoolInfo(desToken, quoteToken, maxSecondAgo);
-        } else {
-            pool = getPool(desToken, quoteToken, fee);
-        }
-
-        if (address(0) == address(pool)) {
-            return 0;
-        }
+    function uniV3GetPrice(address desToken, address quoteToken, uint8 decimals, uint24 fee) internal view returns (uint256 price, IUniswapV3Pool pool){
+        pool = getPool(desToken, quoteToken, fee);
         (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
-        return getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
-    }
-    //get maximum liquidity in previous block as a reference price
-    function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 price, uint256 timestamp, IUniswapV3Pool pool){
-        // Shh - currently unused
-        fee;
-        require(secondsAgo > 0, "SecondsAgo must >0");
-        (IUniswapV3Pool maxPool,,, int24 avgTick) = getMaxLiquidityPoolInfo(desToken, quoteToken, secondsAgo);
-        require(address(maxPool) != address(0), "Pool Not found");
-        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(avgTick);
         price = getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
+    }
+
+    function uniV3GetAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 price, uint256 timestamp, IUniswapV3Pool pool){
+        require(secondsAgo > 0, "SecondsAgo must >0");
+        pool = getPool(desToken, quoteToken, fee);
+        price = calcAvgPrice(pool, desToken, quoteToken, secondsAgo, decimals);
         timestamp = block.timestamp.sub(secondsAgo);
-        pool = maxPool;
     }
 
     function uniV3GetPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp, IUniswapV3Pool pool){
-        currentPrice = uniV3GetPrice(desToken, quoteToken, decimals, fee);
-        (avgPrice, timestamp, pool) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, fee);
+        (currentPrice, pool) = uniV3GetPrice(desToken, quoteToken, decimals, fee);
+        avgPrice = calcAvgPrice(pool, desToken, quoteToken, secondsAgo, decimals);
+        timestamp = block.timestamp.sub(secondsAgo);
     }
 
     function uniV3GetPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
         IUniswapV3Pool pool;
-        (price, hAvgPrice, timestamp, pool) = uniV3GetPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, fee);
-        // get previous block price
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = 0;
-        secondsAgos[1] = 1;
-        (int56[] memory tickCumulatives,) = pool.observe(secondsAgos);
-        int24 avgTick = int24(((tickCumulatives[0] - tickCumulatives[1]) / (1)));
-        cAvgPrice = getPriceBySqrtPriceX96(desToken, quoteToken, TickMath.getSqrtRatioAtTick(avgTick), decimals);
+        (price, pool) = uniV3GetPrice(desToken, quoteToken, decimals, fee);
+        (cAvgPrice, hAvgPrice) = calcAvgPrices(pool, desToken, quoteToken, 1, secondsAgo, decimals);
+        timestamp = block.timestamp.sub(secondsAgo);
     }
 
     function increaseV3Observation(address desToken, address quoteToken, uint24 fee) internal {
@@ -187,29 +154,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         }
     }
 
-    function getMaxLiquidityPoolInfo(address desToken, address quoteToken, uint32 secondsAgo) internal view returns (IUniswapV3Pool maxPool, uint24 fees, uint160 maxAvgLiquidity, int24 maxAvgTick) {
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = 0;
-        secondsAgos[1] = secondsAgo;
-        for (uint i = 0; i < feesArray.length; i++) {
-            IUniswapV3Pool pool = getPool(desToken, quoteToken, feesArray[i]);
-            if (address(pool) == address(0)) {
-                continue;
-            }
-            if (!isPoolObservationsEnough(pool)) {
-                continue;
-            }
-            (int56[] memory tickCumulatives1, uint160[] memory secondsPerLiquidityCumulativeX128s1) = pool.observe(secondsAgos);
-            uint160 avgLiquidity1 = (secondsPerLiquidityCumulativeX128s1[0] - secondsPerLiquidityCumulativeX128s1[1]) / (secondsAgo);
-            if (avgLiquidity1 > maxAvgLiquidity) {
-                maxAvgLiquidity = avgLiquidity1;
-                maxAvgTick = int24(((tickCumulatives1[0] - tickCumulatives1[1]) / (secondsAgo)));
-                maxPool = pool;
-                fees = feesArray[i];
-            }
-        }
-    }
-
     function uniswapV3SwapCallback(
         int256 amount0Delta,
         int256 amount1Delta,
@@ -224,6 +168,30 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         } else {
             IERC20(data.tokenIn).safeTransferFrom(data.payer, msg.sender, amountToPay);
         }
+    }
+
+    function calcAvgPrice(IUniswapV3Pool pool, address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals) internal view returns (uint price){
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = 0;
+        secondsAgos[1] = secondsAgo;
+        (int56[] memory tickCumulatives1,) = pool.observe(secondsAgos);
+        int24 avgTick = int24(((tickCumulatives1[0] - tickCumulatives1[1]) / (secondsAgo)));
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(avgTick);
+        price = getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX96, decimals);
+    }
+
+    function calcAvgPrices(IUniswapV3Pool pool, address desToken, address quoteToken, uint32 second1, uint32 second2, uint8 decimals) internal view returns (uint price1, uint price2){
+        uint32[] memory secondsAgos = new uint32[](3);
+        secondsAgos[0] = 0;
+        secondsAgos[1] = second1;
+        secondsAgos[2] = second2;
+        (int56[] memory tickCumulatives,) = pool.observe(secondsAgos);
+        int24 avgTick1 = int24(((tickCumulatives[0] - tickCumulatives[1]) / (second1)));
+        uint160 sqrtPriceX961 = TickMath.getSqrtRatioAtTick(avgTick1);
+        price1 = getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX961, decimals);
+        int24 avgTick2 = int24(((tickCumulatives[1] - tickCumulatives[2]) / (second2 - second1)));
+        uint160 sqrtPriceX962 = TickMath.getSqrtRatioAtTick(avgTick2);
+        price2 = getPriceBySqrtPriceX96(desToken, quoteToken, sqrtPriceX962, decimals);
     }
 
     function getSqrtPriceLimitX96(bool zeroForOne) internal pure returns (uint160) {

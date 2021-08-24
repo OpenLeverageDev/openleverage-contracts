@@ -135,7 +135,7 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Trade.held:", trade.held);
     m.log("Trade.deposited:", trade.deposited);
 
-    m.log("Margin Ratio after deposit:", marginRatio_3.current, marginRatio_3.marketLimit);
+    m.log("Margin Ratio after deposit:", marginRatio_3.current, marginRatio_3.limit);
     assert.equal(marginRatio_3.current.toString(), 12098); // TODO check
 
     // Close trade
@@ -174,7 +174,6 @@ contract("OpenLev UniV3", async accounts => {
     m.log("toBorrow from Pool 1: \t", borrow);
 
     await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni3DexData, {from: trader});
-
 
     // Check xole
     assert.equal('2814000000000000000', (await token1.balanceOf(xole.address)).toString());
@@ -415,7 +414,7 @@ contract("OpenLev UniV3", async accounts => {
   })
   it("Admin setMarketDexs test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setMarketDexs(uint16,uint8[])',
+    await timeLock.executeTransaction(openLev.address, 0, 'setMarketDexs(uint16,uint32[])',
       web3.eth.abi.encodeParameters(['uint16', 'uint8[]'], [0, [1]]), 0)
     assert.equal(1, (await openLev.getMarketSupportDexs(0))[0]);
     try {
