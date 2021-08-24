@@ -156,27 +156,26 @@ contract("xOLE", async accounts => {
         await advanceMultipleBlocksAndTime(39000);
         lastbk = await web3.eth.getBlock('latest');
         stages["check_point"] = {bknum: lastbk.number, bltime: lastbk.timestamp};
-
-        m.log("xOLE Total supply", await xole.totalSupply(0));
-        m.log("Alice's balance of xOLE", await xole.balanceOf(alice, 0));
-        m.log("Bob's balance of xOLE", await xole.balanceOf(bob, 0));
+        approxAssertPrint("xOLE Total supply", "4594748858447403600", await xole.totalSupply(0));
+        approxAssertPrint("Alice's balance of xOLE", "0", await xole.balanceOf(alice, 0));
+        approxAssertPrint("Bob's balance of xOLE", "4594748858447403600", await xole.balanceOf(bob, 0));
         //
         m.log("Alice withdraw");
         await xole.withdraw({from: alice});
 
-        m.log("xOLE Total supply", await xole.totalSupply(0));
-        m.log("Alice's balance of xOLE", await xole.balanceOf(alice, 0));
-        m.log("Bob's balance of xOLE", await xole.balanceOf(bob, 0));
+        approxAssertPrint("xOLE Total supply", await xole.totalSupply(0));
+        approxAssertPrint("Alice's balance of xOLE", await xole.balanceOf(alice, 0));
+        approxAssertPrint("Bob's balance of xOLE", await xole.balanceOf(bob, 0));
 
-        m.log("Now check for historical balance for stage [alice_deposit]");
-        m.log("xOLE Total supply", await xole.totalSupplyAt(stages.alice_deposit.bknum));
-        m.log("Alice's balance of xOLE", await xole.balanceOfAt(alice, stages.alice_deposit.bknum));
-        m.log("Bob's balance of xOLE", await xole.balanceOfAt(bob, stages.alice_deposit.bknum));
+        approxAssertPrint("Now check for historical balance for stage [alice_deposit]");
+        approxAssertPrint("xOLE Total supply", "4794520547945116800", await xole.totalSupplyAt(stages.alice_deposit.bknum));
+        approxAssertPrint("Alice's balance of xOLE", "4794520547945116800", await xole.balanceOfAt(alice, stages.alice_deposit.bknum));
+        approxAssertPrint("Bob's balance of xOLE", "0", await xole.balanceOfAt(bob, stages.alice_deposit.bknum));
 
         m.log("Now check for historical balance for stage [bob_deposit]");
-        m.log("xOLE Total supply", await xole.totalSupplyAt(stages.bob_deposit.bknum));
-        m.log("Alice's balance of xOLE", await xole.balanceOfAt(alice, stages.bob_deposit.bknum));
-        m.log("Bob's balance of xOLE", await xole.balanceOfAt(bob, stages.bob_deposit.bknum));
+        approxAssertPrint("xOLE Total supply", "14145738203957120400", await xole.totalSupplyAt(stages.bob_deposit.bknum));
+        approxAssertPrint("Alice's balance of xOLE", "4675608828006001800", await xole.balanceOfAt(alice, stages.bob_deposit.bknum));
+        approxAssertPrint("Bob's balance of xOLE", "9470129375951118600", await xole.balanceOfAt(bob, stages.bob_deposit.bknum));
 
     })
 
