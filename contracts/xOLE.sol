@@ -377,7 +377,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     */
     function create_lock(uint256 _value, uint256 _unlock_time) external nonReentrant() {
         // Locktime is rounded down to weeks
-        uint256 unlock_time = (_unlock_time / WEEK) * WEEK;
+        uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
         LockedBalance memory _locked = locked[msg.sender];
 
         require(_value > 0, "Non zero value");
