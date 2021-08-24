@@ -33,11 +33,23 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     }
 
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+        address payer = msg.sender;
         if (data.toDex() == DexData.DEX_UNIV2) {
-            buyAmount = uniV2Sell(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, sellAmount, minBuyAmount);
+            buyAmount = uniV2Sell(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee());
+            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
+        }
+        else {
+            require(false, 'Unsupported dex');
+        }
+    }
+
+    function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            buyAmount = uniV2SellMul(uniV2Factory, sellAmount, minBuyAmount, data.toUniV2Path());
+        } else if (data.toDex() == DexData.DEX_UNIV3) {
+            buyAmount = uniV3SellMul(sellAmount, minBuyAmount, data.toUniV3Path());
         }
         else {
             require(false, 'Unsupported dex');
@@ -49,7 +61,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             sellAmount = uniV2Buy(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, buyAmount, maxSellAmount);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee());
+            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true);
         }
         else {
             require(false, 'Unsupported dex');
@@ -73,7 +85,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             price = uniV2GetPrice(uniV2Factory.getPair(desToken, quoteToken), desToken, decimals);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            price = uniV3GetPrice(desToken, quoteToken, decimals, data.toFee());
+            (price,) = uniV3GetPrice(desToken, quoteToken, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');
@@ -88,22 +100,22 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             (price, timestamp) = uniV2GetAvgPrice(pair, priceOracle, desToken);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            (price, timestamp) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
+            (price, timestamp,) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');
         }
     }
 
-    function getCurrentPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint currentPrice, uint256 avgPrice, uint8 decimals, uint256 timestamp){
+    function getPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint currentPrice, uint256 avgPrice, uint8 decimals, uint256 timestamp){
         decimals = priceDecimals;
         if (data.toDex() == DexData.DEX_UNIV2) {
             address pair = uniV2Factory.getPair(desToken, quoteToken);
             V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
-            (currentPrice, avgPrice, timestamp) = uniV2GetCurrentPriceAndAvgPrice(pair, priceOracle, desToken, decimals);
+            (currentPrice, avgPrice, timestamp) = uniV2GetPriceAndAvgPrice(pair, priceOracle, desToken, decimals);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            (currentPrice, avgPrice, timestamp) = uniV3GetCurrentPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
+            (currentPrice, avgPrice, timestamp,) = uniV3GetPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');
@@ -119,6 +131,8 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             address pair = uniV2Factory.getPair(desToken, quoteToken);
             V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
             (price, cAvgPrice, hAvgPrice, timestamp) = uniV2GetPriceCAvgPriceHAvgPrice(pair, priceOracle, desToken, decimals);
+        } else if (data.toDex() == DexData.DEX_UNIV3) {
+            (price, cAvgPrice, hAvgPrice, timestamp) = uniV3GetPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');
@@ -133,4 +147,9 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
         }
     }
 
+    function updateV3Observation(address desToken, address quoteToken, bytes memory data) external override {
+        if (data.toDex() == DexData.DEX_UNIV3) {
+            increaseV3Observation(desToken, quoteToken, data.toFee());
+        }
+    }
 }

@@ -81,7 +81,10 @@ contract("xOLE", async accounts => {
 
 
     it("Lock to get voting powers, and withdraw", async () => {
-
+        if (fastMode) {
+            m.log("Test skipping on fast mode");
+            return;
+        }
         /*
         Test voting power in the following scenario.
         Alice:
@@ -109,7 +112,7 @@ contract("xOLE", async accounts => {
         await ole.approve(xole.address, _1000 + "0", {"from": alice});
         await ole.approve(xole.address, _1000 + "0", {"from": bob});
 
-        assertPrint("Totol Supply","0", await xole.totalSupply(0));
+        assertPrint("Totol Supply", "0", await xole.totalSupply(0));
         assertPrint("Alice's Balance", "0", await xole.balanceOf(alice, 0));
         assertPrint("Bob's Balance", "0", await xole.balanceOf(bob, 0));
 

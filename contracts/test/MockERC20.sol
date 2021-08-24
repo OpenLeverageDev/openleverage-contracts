@@ -13,4 +13,8 @@ contract MockERC20 is ERC20 {
     function mint(address to, uint256 amount) public {
         _mint(to, amount);
     }
+
+    function balanceOf(address addr, uint256 _t) external view returns (uint256){
+        return balanceOf(addr);
+    }
 }

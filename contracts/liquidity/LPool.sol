@@ -18,7 +18,7 @@ import "../IWETH.sol";
  * Abstract base for LTokens
  * @author OpenLeverage
  */
-contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, ReentrancyGuard {
+contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
 
@@ -65,6 +65,11 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         // Initialize block number and borrow index (block number mocks depend on controller being set)
         accrualBlockNumber = getBlockNumber();
         borrowIndex = 1e25;
+        //80%
+        borrowCapFactorMantissa = 0.8e18;
+        //20%
+        reserveFactorMantissa= 0.2e18;
+
 
         name = name_;
         symbol = symbol_;
@@ -91,7 +96,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         /* Do not allow self-transfers */
         require(src != dst, "src = dst");
         /* Fail if transfer not allowed */
-        (ControllerInterface(controller)).transferAllowed(address(this), src, dst);
+        (ControllerInterface(controller)).transferAllowed(address(this), src, dst, tokens);
 
         /* Get the allowance, infinite for the account owner */
         uint startingAllowance = 0;
@@ -695,11 +700,7 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
      * @return uint the actual mint amount.
      */
     function mintFresh(address minter, uint mintAmount) internal sameBlock returns (uint) {
-        /* Fail if mint not allowed */
-        (ControllerInterface(controller)).mintAllowed(address(this), minter, mintAmount);
-
         MintLocalVars memory vars;
-
         (vars.mathErr, vars.exchangeRateMantissa) = exchangeRateStoredInternal();
         require(vars.mathErr == MathError.NO_ERROR, 'calc exchangerate error');
 
@@ -721,6 +722,8 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         (vars.mathErr, vars.mintTokens) = divScalarByExpTruncate(vars.actualMintAmount, Exp({mantissa : vars.exchangeRateMantissa}));
         require(vars.mathErr == MathError.NO_ERROR, "calc mint token error");
 
+        /* Fail if mint not allowed */
+        (ControllerInterface(controller)).mintAllowed(address(this), minter, vars.mintTokens);
         /*
          * We calculate the new total supply of lTokens and minter token balance, checking for overflow:
          *  totalSupplyNew = totalSupply + mintTokens

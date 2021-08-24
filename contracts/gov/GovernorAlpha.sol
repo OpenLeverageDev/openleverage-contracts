@@ -8,10 +8,10 @@ contract GovernorAlpha {
     string public constant name = "Open Leverage Governor Alpha";
 
     // The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes() public view returns (uint) {return oleToken.totalSupply() / 25;} //  4% of OLE
+    function quorumVotes(uint blockNumber) public view returns (uint) {return oleToken.totalSupplyAt(blockNumber) / 25;} //  4% of OLE
 
     // The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public view returns (uint) {return oleToken.totalSupply() / 100;} // 1% of OLE
+    function proposalThreshold(uint blockNumber) public view returns (uint) {return oleToken.totalSupplyAt(blockNumber) / 100;} // 1% of OLE
 
     // The maximum number of actions that can be included in a proposal
     function proposalMaxOperations() public pure returns (uint) {return 10;} // 10 actions
@@ -26,7 +26,7 @@ contract GovernorAlpha {
     TimelockInterface public timelock;
 
     // The address of the OpenLev governance token
-    OLETokenInterface public oleToken;
+    XOLETokenInterface public oleToken;
 
     // The address of the Governor Guardian
     address public guardian;
@@ -134,12 +134,13 @@ contract GovernorAlpha {
 
     constructor(address timelock_, address oleToken_, address guardian_) {
         timelock = TimelockInterface(timelock_);
-        oleToken = OLETokenInterface(oleToken_);
+        oleToken = XOLETokenInterface(oleToken_);
         guardian = guardian_;
     }
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) external returns (uint) {
-        require(oleToken.getPriorVotes(msg.sender, sub256(block.number, 1)) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
+        uint previousBlockNumber = sub256(block.number, 1);
+        require(oleToken.balanceOfAt(msg.sender, previousBlockNumber) > proposalThreshold(previousBlockNumber), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -212,7 +213,8 @@ contract GovernorAlpha {
         require(proposalState != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
-        require(msg.sender == guardian || oleToken.getPriorVotes(proposal.proposer, sub256(block.number, 1)) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
+        uint previousBlockNumber = sub256(block.number, 1);
+        require(msg.sender == guardian || oleToken.balanceOfAt(proposal.proposer, previousBlockNumber) < proposalThreshold(previousBlockNumber), "GovernorAlpha::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -241,7 +243,7 @@ contract GovernorAlpha {
             return ProposalState.Pending;
         } else if (block.number <= proposal.endBlock) {
             return ProposalState.Active;
-        } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes()) {
+        } else if (proposal.forVotes <= proposal.againstVotes || proposal.forVotes < quorumVotes(proposal.startBlock)) {
             return ProposalState.Defeated;
         } else if (proposal.eta == 0) {
             return ProposalState.Succeeded;
@@ -275,7 +277,7 @@ contract GovernorAlpha {
 
         Receipt storage receipt = receipts[proposalId][voter];
         require(!receipt.hasVoted, "GovernorAlpha::_castVote: voter already voted");
-        uint votes = oleToken.getPriorVotes(voter, proposal.startBlock);
+        uint votes = oleToken.balanceOfAt(voter, proposal.startBlock);
 
         if (support) {
             proposal.forVotes = add256(proposal.forVotes, votes);
@@ -335,8 +337,8 @@ interface TimelockInterface {
     function executeTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external payable returns (bytes memory);
 }
 
-interface OLETokenInterface {
-    function getPriorVotes(address account, uint blockNumber) external view returns (uint);
+interface XOLETokenInterface {
+    function balanceOfAt(address account, uint blockNumber) external view returns (uint);
 
-    function totalSupply() external view returns (uint);
+    function totalSupplyAt(uint256 blockNumber) external view returns (uint);
 }

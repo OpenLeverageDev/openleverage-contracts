@@ -1,15 +1,10 @@
-const {toBN, maxUint, advanceMultipleBlocks} = require("./utils/EtheUtil");
-const EIP712 = require('./utils/EIP712');
+const {advanceMultipleBlocks} = require("./utils/EtheUtil");
 const {toWei} = require("./utils/OpenLevUtil");
 
-const LToken = artifacts.require("OLEToken");
-
+const OLEToken = artifacts.require("OLEToken");
+const xOLE = artifacts.require("xOLE");
 const Timelock = artifacts.require("Timelock");
-
-
 const GovernorAlpha = artifacts.require("GovernorAlpha");
-
-
 const MockTLAdmin = artifacts.require("MockTLAdmin");
 
 const m = require('mocha-logger');
@@ -17,77 +12,59 @@ const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
 
 contract("GovernorAlphaTest", async accounts => {
+  let xole;
+  let ole;
+  let gov;
+  let tlAdmin;
+  let admin = accounts[0];
+  let againsAccount = accounts[2];
+  let proposeAccount = accounts[3];
+  let DAY = 86400;
+  let WEEK = 7 * DAY;
+  beforeEach(async () => {
+    ole = await OLEToken.new(admin, 'OLE', 'OLE');
+    let timelock = await Timelock.new(admin, 180 + '');
+    tlAdmin = await MockTLAdmin.new(timelock.address);
 
-    before(async () => {
+    xole = await xOLE.new(admin);
+    await xole.initialize(ole.address, "0x0000000000000000000000000000000000000000", 5000, admin, {from: admin});
 
-  });
-
-    async function beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, vote) {
-
-    let gov = await GovernorAlpha.new(timelock.address, lToken.address, initBalanceAccount);
-    await timelock.setPendingAdmin(gov.address, {from: initBalanceAccount});
-    await gov.__acceptAdmin({from: initBalanceAccount});
-    await gov.__abdicate({from: initBalanceAccount});
+    gov = await GovernorAlpha.new(timelock.address, xole.address, admin);
+    await timelock.setPendingAdmin(gov.address, {from: admin});
+    await gov.__acceptAdmin({from: admin});
+    await gov.__abdicate({from: admin});
 
     assert.equal(await gov.guardian(), "0x0000000000000000000000000000000000000000");
     assert.equal(await timelock.admin(), gov.address);
     assert.equal(await tlAdmin.admin(), timelock.address);
-
-    await lToken.transfer(proposalAccount, toWei(vote), {from: initBalanceAccount});
-    await lToken.delegate(proposalAccount, {from: proposalAccount});
-
-    return gov;
-  }
+  });
 
 
   it('not enough votes to initiate a proposal', async () => {
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
-
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    // timelock.address
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 10001);
-
     try {
-      await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1')
+      await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount})
       assert.equal("message", 'TokenTimeLock: not time to unlock');
     } catch (error) {
       assert.include(error.message, 'GovernorAlpha::propose: proposer votes below proposal threshold');
     }
-    //
-    // let encodeParameters1=web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'],
-    //   ['0xbf28726f535f0fbd10d11c00476a67329bab73ca', '100000000000000000000000', '100000000000000000000000', '1619366400', '15552000']);
-    // m.log("encodeParameters1=",encodeParameters1);
-    // let encodeParameters2=web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'],
-    //   ['0xbdbd1ebad3d786b3b7a6e313c48b41f5e9d7a8a0', '100000000000000000000000', '100000000000000000000000', '1619366400', '15552000']);
-    // m.log("encodeParameters2=",encodeParameters2);
   });
 
 
   it('Repeat vote', async () => {
 
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
 
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
 
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 100001);
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-
-    await lToken.transfer(accounts[1], toWei(10));
-
-    await gov.castVote(1, true, {from: proposalAccount});
+    await gov.castVote(1, true, {from: proposeAccount});
 
     try {
-      await gov.castVote(1, false, {from: proposalAccount});
+      await gov.castVote(1, false, {from: proposeAccount});
       assert.equal("message", 'voter success');
     } catch (error) {
       assert.include(error.message, 'GovernorAlpha::_castVote: voter already voted.');
@@ -97,25 +74,18 @@ contract("GovernorAlphaTest", async accounts => {
 
 
   it('Not enough votes to join the queue', async () => {
-
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
-
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 100001);
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-
-    await lToken.transfer(accounts[1], toWei(10));
-
-
-    await gov.castVote(1, true, {from: proposalAccount});
-
-
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+    //mint other
+    await ole.mint(admin, toWei(500000));
+    await ole.approve(xole.address, toWei(500000), {from: admin});
+    await xole.create_lock(toWei(500000), lastbk.timestamp + WEEK, {from: admin});
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.castVote(1, true, {from: proposeAccount});
     try {
       await gov.queue(1);
       assert.equal("message", 'add queue success');
@@ -123,127 +93,59 @@ contract("GovernorAlphaTest", async accounts => {
       assert.include(error.message, 'GovernorAlpha::queue: proposal can only be queued if it is succeeded');
     }
   });
-
-
-  it(' proposal is not over. can\'t join the queue', async () => {
-
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
-
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 410001);
-
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-    await lToken.transfer(accounts[1], toWei(10));
-
-    await gov.castVote(1, true, {from: proposalAccount});
-
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-
-    try {
-      await gov.queue(1);
-      assert.equal("message", 'add queue success');
-    } catch (error) {
-
-      assert.include(error.message, 'GovernorAlpha::queue: proposal can only be queued if it is succeeded');
-    }
-
-  });
-
 
   it(' negative vote is greater than the affirmative vote', async () => {
 
-    let proposalAccount_two = accounts[1];
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
 
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-    await lToken.transfer(proposalAccount_two, toWei(200000), {from: initBalanceAccount});
-    await lToken.delegate(proposalAccount_two, {from: proposalAccount_two});
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 100001);
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-
-
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-
-
-    await gov.castVote(1, true, {from: proposalAccount});
-    await gov.castVote(1, false, {from: proposalAccount_two});
-
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+    //mint other
+    await ole.mint(againsAccount, toWei(10001));
+    await ole.approve(xole.address, toWei(10001), {from: againsAccount});
+    await xole.create_lock(toWei(10001), lastbk.timestamp + WEEK, {from: againsAccount});
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.castVote(1, true, {from: proposeAccount});
+    await gov.castVote(1, false, {from: againsAccount});
 
     await advanceMultipleBlocks(17280);
-
     assert.equal(3, (await gov.state(1)).toString());
   });
 
   it('Propose to cancel', async () => {
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
-
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 100001);
-
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-    await lToken.transfer(accounts[1], toWei(10));
-
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.castVote(1, true, {from: proposeAccount});
+    await ole.mint(againsAccount, toWei(1000000));
+    await ole.approve(xole.address, toWei(1000000), {from: againsAccount});
+    await xole.create_lock(toWei(1000000), lastbk.timestamp + WEEK, {from: againsAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
     await gov.cancel(1);
     assert.equal(2, (await gov.state(1)).toString());
 
   });
 
   it('Proposal expired', async () => {
-
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
-
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 410001);
-
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-    await lToken.transfer(accounts[1], toWei(10));
-
-    await gov.castVote(1, true, {from: proposalAccount});
-
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-    await lToken.transfer(accounts[1], toWei(10));
-
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.castVote(1, true, {from: proposeAccount});
     await advanceMultipleBlocks(17280);
-
     await gov.queue(1);
     await timeMachine.advanceTime(15 * 24 * 60 * 60);
-
     try {
       await gov.execute(1);
       assert.equal("message", 'add queue success');
@@ -254,34 +156,18 @@ contract("GovernorAlphaTest", async accounts => {
   });
 
   it('Proposal executed succeed', async () => {
-
-    let initBalanceAccount = accounts[3];
-    let proposalAccount = accounts[0];
-
-    let lToken = await LToken.new(initBalanceAccount, 'TEST', 'TEST');
-    let timelock = await Timelock.new(initBalanceAccount, 180 + '');
-    let tlAdmin = await MockTLAdmin.new(timelock.address);
-
-    let gov = await beforeAll(initBalanceAccount, proposalAccount, lToken, tlAdmin, timelock, 410001);
-
-    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1');
-
-    await lToken.transfer(accounts[1], toWei(10));
-
-    await gov.castVote(1, true, {from: proposalAccount});
-
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.castVote(1, true, {from: proposeAccount});
     await advanceMultipleBlocks(17280);
-
-    let state = await gov.state(1);
-
-    m.log("Before queue proposal's  state ", state);
-
     await gov.queue(1);
-
     await timeMachine.advanceTime(181);
-
-    state = await gov.state(1);
-
+    let state = await gov.state(1);
     m.log("Before execute proposal's  state ", state);
     await gov.execute(1);
 

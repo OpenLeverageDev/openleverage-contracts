@@ -13,10 +13,10 @@ library Types {
         LPoolInterface pool0;       // Lending Pool 0
         LPoolInterface pool1;       // Lending Pool 1
         uint32 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
-        uint feesRate;              // feesRate 30=>0.3%
+        uint16 feesRate;              // feesRate 30=>0.3%
         uint pool0Insurance;        // Insurance balance for token 0
         uint pool1Insurance;        // Insurance balance for token 1
-        uint8 dex;
+        uint32[] dexs;
     }
 
     struct Trade {// Trade storage
@@ -34,7 +34,7 @@ library Types {
         uint buyPoolInsurance;      // Insurance balance of token to buy
         uint sellPoolInsurance;     // Insurance balance of token to sell
         uint32 marginRatio;         // Margin Ratio Limit for specific trading pair.
-        uint8 dex;
+        uint32[] dexs;
     }
 
     struct TradeVars {// A variables holder for trade info
@@ -44,9 +44,9 @@ library Types {
         uint depositAfterFees;      // Deposit minus fees
         uint tradeSize;             // Trade amount to be swap on DEX
         uint newHeld;               // Latest held position
-        uint currentPrice;
-        uint8 priceDecimals;
         uint borrowValue;
+        uint receiveAmount;
+        uint32 dexDetail;
     }
 
     struct CloseTradeVars {// A variables holder for close trade info
@@ -58,27 +58,24 @@ library Types {
         uint repayAmount;           // Repay to pool value
         uint depositDecrease;       // Deposit decrease
         uint depositReturn;         // Deposit actual returns
+        uint sellAmount;
+        uint receiveAmount;
         uint fees;                  // Fees value
-        uint settlePrice;           // Settle price at close
-        uint8 priceDecimals;        // Settle price decimal at close
     }
 
 
     struct LiquidateVars {// A variable holder for liquidation process
         uint16 marketId;
         bool longToken;
-        uint settlePrice;           // Settle price at liquidation
-        uint8 priceDecimals;        // Settle price decimal at liquidation
         uint borrowed;              // Total borrowed balance of trade
         uint fees;                  // Fees for liquidation process
-        uint remaining;             // Remaining token for repayment
         bool isSellAllHeld;         // Is need sell all held
         uint depositDecrease;       // Deposit decrease
         uint depositReturn;         // Deposit actual returns
-        uint maxBuyAmount;
         uint sellAmount;
+        uint receiveAmount;
         uint outstandingAmount;
-        uint8 dex;
+        uint32 dexDetail;
     }
 
 }

@@ -1,19 +1,18 @@
 "use strict";
 const {toBN, maxUint} = require("./EtheUtil");
-const LPErc20Delegator = artifacts.require("LPoolDelegator");
-const LPErc20Delegate = artifacts.require('LPool');
-const xOLE = artifacts.require('XOLE');
+const LPoolDelegator = artifacts.require("LPoolDelegator");
+const LPool = artifacts.require('LPool');
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
 const WETH = artifacts.require("WETH");
+const xOLE = artifacts.require("xOLE");
 
 const MockUniswapV2Factory = artifacts.require("MockUniswapV2Factory");
 const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 
 const UniswapV2Router = artifacts.require("IUniswapV2Router");
 const uniRouterV2Address_kovan = exports.uniRouterV2Address_kovan = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
-const uniFactoryV2Address_kovan = exports.uniFactoryV2Address_kovan = "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f";
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
@@ -26,23 +25,24 @@ const Timelock = artifacts.require('Timelock');
 
 const m = require('mocha-logger');
 const zeroAddr = "0x0000000000000000000000000000000000000000";
-exports.Uni2DexData = "0x00";
-exports.Uni3DexData = "0x01000bb8" + "0000000000000000000000000000000000000000000000000000000000000000";
+exports.Uni2DexData = "0x01";
+exports.Uni3DexData = "0x02"+"000bb8"+"01";
 
 exports.createLPoolImpl = async () => {
-    return await LPErc20Delegate.new();
+    return await LPool.new();
 }
 
-exports.createController = async (admin, oleToken, wChainToken) => {
-    let instance = await Controller.new();
-    let controller = await ControllerDelegator.new(oleToken ? oleToken : zeroAddr,
-        wChainToken ? wChainToken : zeroAddr,
-        zeroAddr,
-        zeroAddr,
-        zeroAddr,
-        admin,
-        instance.address);
-    return controller;
+exports.createController = async (admin, oleToken, wChainToken, xoleToken) => {
+  let instance = await Controller.new();
+  let controller = await ControllerDelegator.new(oleToken ? oleToken : zeroAddr,
+    xoleToken ? xoleToken : zeroAddr,
+    wChainToken ? wChainToken : zeroAddr,
+    zeroAddr,
+    zeroAddr,
+    zeroAddr,
+    admin,
+    instance.address);
+  return controller;
 }
 
 
@@ -113,8 +113,8 @@ exports.createTimelock = async (admin) => {
 
 exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
     let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
-    let erc20Delegate = await LPErc20Delegate.new();
-    let pool = await LPErc20Delegator.new();
+    let erc20Delegate = await LPool.new();
+    let pool = await LPoolDelegator.new();
     await pool.initialize(testToken.address, wethToken ? true : false,
         controller.address,
         toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
@@ -127,7 +127,7 @@ exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
     return {
         'token': testToken,
         'controller': controller,
-        'pool': pool
+        'pool': await LPool.at(pool.address)
     };
 }
 
@@ -158,7 +158,9 @@ exports.last8 = function (aString) {
         return aString;
     }
 }
-
+exports.addressToBytes = function (address) {
+    return address.substr(2);
+}
 exports.printBlockNum = async () => {
     m.log("Block number:", await web3.eth.getBlockNumber());
 }

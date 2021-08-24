@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./liquidity/LPoolInterface.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./dex/DexAggregatorInterface.sol";
 
 contract ControllerStorage {
@@ -20,24 +20,30 @@ contract ControllerStorage {
         uint64 endTime;
         uint64 duration;
         uint64 lastUpdateTime;
-        uint256 totalAmount;
+        uint256 totalRewardAmount;
         uint256 rewardRate;
         uint256 rewardPerTokenStored;
+        uint256 extraTotalToken;
     }
     //lpool-rewardByAccount
     struct LPoolRewardByAccount {
         uint rewardPerTokenStored;
         uint rewards;
+        uint extraToken;
     }
 
     struct OLETokenDistribution {
+        uint supplyBorrowBalance;
         uint liquidatorBalance;
         uint liquidatorMaxPer;
-        uint liquidatorOLERatio;
-        uint supplyBorrowBalance;
+        uint16 liquidatorOLERatio;//300=>300%
+        uint16 xoleRaiseRatio;//150=>150%
+        uint128 xoleRaiseMinAmount;
     }
 
-    ERC20 public oleToken;
+    IERC20 public oleToken;
+
+    address public xoleToken;
 
     address public wETH;
 
@@ -67,7 +73,7 @@ contract ControllerStorage {
     //pool=>bool=>distribution(true is borrow,false is supply)
     mapping(LPoolInterface => mapping(bool => mapping(address => LPoolRewardByAccount))) public lPoolRewardByAccounts;
 
-    event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint32 marginRatio, uint dex);
+    event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint32 marginRatio, bytes dexData);
 
     event Distribution2Pool(address pool, uint supplyAmount, uint borrowerAmount, uint64 startTime, uint64 duration);
 
@@ -78,15 +84,15 @@ contract ControllerStorage {
   */
 interface ControllerInterface {
 
-    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, uint8 dex) external;
+    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, bytes memory dexData) external;
 
     /*** Policy Hooks ***/
 
-    function mintAllowed(address lpool, address minter, uint mintAmount) external;
+    function mintAllowed(address lpool, address minter, uint lTokenAmount) external;
 
-    function transferAllowed(address lpool, address from, address to) external;
+    function transferAllowed(address lpool, address from, address to, uint lTokenAmount) external;
 
-    function redeemAllowed(address lpool, address redeemer, uint redeemTokens) external;
+    function redeemAllowed(address lpool, address redeemer, uint lTokenAmount) external;
 
     function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external;
 
@@ -94,8 +100,7 @@ interface ControllerInterface {
 
     function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external;
 
-    function marginTradeAllowed(uint marketId) external;
-
+    function marginTradeAllowed(uint marketId) external view returns (bool);
 
     /*** Admin Functions ***/
 
@@ -112,7 +117,7 @@ interface ControllerInterface {
     function setSuspend(bool suspend) external;
 
     // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
-    function setOLETokenDistribution(uint moreLiquidatorBalance, uint liquidatorMaxPer, uint liquidatorOLERatio, uint moreSupplyBorrowBalance) external;
+    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreLiquidatorBalance, uint liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external;
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external;
 

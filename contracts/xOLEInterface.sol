@@ -96,6 +96,7 @@ contract XOLEStorage {
     uint public rewardPerTokenStored;
 
     event RewardAdded(address fromToken, uint convertAmount, uint reward);
+    event RewardConvert(address fromToken, address toToken, uint convertAmount, uint returnAmount);
 
     event Deposit (
         address indexed provider,
@@ -125,7 +126,7 @@ contract XOLEStorage {
 
 interface XOLEInterface {
 
-    function convertToSharingToken(address fromToken, uint amount, uint minBuyAmount, bytes memory data) external;
+    function convertToSharingToken(uint amount, uint minBuyAmount, bytes memory data) external;
 
     function withdrawDevFund() external;
 
