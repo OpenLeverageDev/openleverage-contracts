@@ -96,7 +96,7 @@ contract UniV2Dex {
         price = IUniswapV2Pair(pair).token0() == desToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
     }
 
-    function uniV2GetCurrentPriceAndAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
+    function uniV2GetPriceAndAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
         currentPrice = uniV2GetPrice(pair, desToken, decimals);
         (avgPrice, timestamp) = uniV2GetAvgPrice(pair, priceOracle, desToken);
     }

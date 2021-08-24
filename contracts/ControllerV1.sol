@@ -35,7 +35,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         dexAggregator = _dexAggregator;
     }
 
-    function createLPoolPair(address token0, address token1, uint32 marginRatio, uint8 dex) external override {
+    function createLPoolPair(address token0, address token1, uint32 marginRatio, bytes memory dexData) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
         string memory tokenName = "OpenLeverage LToken";
@@ -48,8 +48,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             tokenName, tokenSymbol, 18, admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(pool0), LPoolInterface(pool1), marginRatio, dex);
-        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio, dex);
+        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), marginRatio, dexData);
+        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio, dexData);
     }
 
 
@@ -376,7 +376,7 @@ interface OPENLevInterface {
         LPoolInterface pool0,
         LPoolInterface pool1,
         uint32 marginRatio,
-        uint8 dex
+        bytes memory dexData
     ) external returns (uint16);
 }
 

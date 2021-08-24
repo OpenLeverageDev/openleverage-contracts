@@ -8,6 +8,7 @@ const {
   wait,
   assertPrint,
   Uni2DexData,
+  addressToBytes,
   step,
   resetStep
 } = require("./utils/OpenLevUtil");
@@ -38,6 +39,9 @@ contract("XOLE", async accounts => {
   let john = accounts[1];
   let tom = accounts[2];
   let dev = accounts[7];
+  let daiOLEDexData;
+  let usdtOLEDexData;
+  let daiUsdtDexData;
 
   beforeEach(async () => {
 
@@ -55,7 +59,17 @@ contract("XOLE", async accounts => {
     let pair = await MockUniswapV2Pair.new(usdt.address, dai.address, toWei(10000), toWei(10000));
     let oleUsdtPair = await MockUniswapV2Pair.new(usdt.address, ole.address, toWei(100000), toWei(100000));
     let oleDaiPair = await MockUniswapV2Pair.new(dai.address, ole.address, toWei(100000), toWei(100000));
+    daiOLEDexData = Uni2DexData + addressToBytes(dai.address) + addressToBytes(ole.address);
+    usdtOLEDexData = Uni2DexData + addressToBytes(usdt.address) + addressToBytes(ole.address);
+    daiUsdtDexData = Uni2DexData + addressToBytes(dai.address) + addressToBytes(usdt.address);
 
+
+    m.log("ole.address=", ole.address);
+    m.log("usdt.address=", usdt.address);
+    m.log("dai.address=", dai.address);
+
+    m.log("daiOLEDexData=", daiOLEDexData);
+    m.log("usdtOLEDexData=", usdtOLEDexData);
     m.log("Created MockUniswapV2Pair (", last8(await pair.token0()), ",", last8(await pair.token1()), ")");
 
     await uniswapFactory.addPair(pair.address);
@@ -86,7 +100,7 @@ contract("XOLE", async accounts => {
     let lastbk = await web3.eth.getBlock('latest');
     await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK);
 
-    await xole.convertToSharingToken(usdt.address, toWei(1), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(1), 0, usdtOLEDexData);
     m.log("devFund:", (await xole.devFund()).toString());
     m.log("totalRewarded:", (await xole.totalRewarded()).toString());
     m.log("supply:", (await xole.supply()).toString());
@@ -111,7 +125,7 @@ contract("XOLE", async accounts => {
     let lastbk = await web3.eth.getBlock('latest');
     await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK);
 
-    await xole.convertToSharingToken(ole.address, toWei(10000), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(10000), 0, '0x');
 
     m.log("Withdrawing dev fund");
     await xole.withdrawDevFund({from: dev});
@@ -124,7 +138,7 @@ contract("XOLE", async accounts => {
 
 
     try {
-      await xole.convertToSharingToken(ole.address, toWei(1), 0, Uni2DexData);
+      await xole.convertToSharingToken(toWei(1), 0, '0x');
       assert.fail("should thrown Exceed available balance error");
     } catch (error) {
       assert.include(error.message, 'Exceed OLE balance', 'throws exception with Exceed available balance');
@@ -137,8 +151,7 @@ contract("XOLE", async accounts => {
     await ole.approve(xole.address, toWei(10000));
     let lastbk = await web3.eth.getBlock('latest');
     await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK);
-
-    await xole.convertToSharingToken(dai.address, toWei(1000), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(1000), 0, daiOLEDexData);
 
     m.log("xOLE OLE balance:", await ole.balanceOf(xole.address));
     assert.equal('10987158034397061298850', (await ole.balanceOf(xole.address)).toString());
@@ -163,19 +176,65 @@ contract("XOLE", async accounts => {
     //add sharingToken Reward 2000
     await usdt.mint(xole.address, toWei(2000));
     //sharing 1000
-    await xole.convertToSharingToken(usdt.address, toWei(1000), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(1000), 0, usdtOLEDexData);
 
     assert.equal('987158034397061298850', (await xole.totalRewarded()).toString());
 
     //Exceed available balance
     try {
-      await xole.convertToSharingToken(usdt.address, toWei(1001), 0, Uni2DexData);
+      await xole.convertToSharingToken(toWei(1001), 0, usdtOLEDexData);
       assert.fail("should thrown Exceed available balance error");
     } catch (error) {
       assert.include(error.message, 'Exceed available balance', 'throws exception with Exceed available balance');
     }
   })
+  it("Convert DAI to USDT", async () => {
+    await dai.mint(xole.address, toWei(1000));
+    await ole.mint(admin, toWei(10000));
+    await ole.approve(xole.address, toWei(10000));
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK);
+    assert.equal('10000000000000000000000', (await usdt.balanceOf(xole.address)).toString());
+    await xole.convertToSharingToken(toWei(1000), 0, daiUsdtDexData);
+    m.log("xOLE USDT balance:", await usdt.balanceOf(xole.address));
+    assert.equal('10906610893880149131581', (await usdt.balanceOf(xole.address)).toString());
 
+    m.log("xOLE DAI balance:", await dai.balanceOf(xole.address));
+    assert.equal('0', (await dai.balanceOf(xole.address)).toString());
+
+    m.log("xOLE OLE balance:", await ole.balanceOf(xole.address));
+    assert.equal('10000000000000000000000', (await ole.balanceOf(xole.address)).toString());
+
+    m.log("xOLE totalRewarded:", await xole.totalRewarded());
+    assert.equal('0', (await xole.totalRewarded()).toString());
+
+    m.log("xOLE devFund:", await xole.devFund());
+    assert.equal('0', (await xole.devFund()).toString());
+  })
+
+  it("Convert DAI to USDT to OLE ", async () => {
+    await dai.mint(xole.address, toWei(1000));
+    await ole.mint(admin, toWei(10000));
+    await ole.approve(xole.address, toWei(10000));
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK);
+    assert.equal('10000000000000000000000', (await usdt.balanceOf(xole.address)).toString());
+    await xole.convertToSharingToken(toWei(1000), 0, daiUsdtDexData + addressToBytes(ole.address));
+    m.log("xOLE USDT balance:", await usdt.balanceOf(xole.address));
+    assert.equal('10000000000000000000000', (await usdt.balanceOf(xole.address)).toString());
+
+    m.log("xOLE DAI balance:", await dai.balanceOf(xole.address));
+    assert.equal('0', (await dai.balanceOf(xole.address)).toString());
+
+    m.log("xOLE OLE balance:", await ole.balanceOf(xole.address));
+    assert.equal('10895794058774498675511', (await ole.balanceOf(xole.address)).toString());
+
+    m.log("xOLE totalRewarded:", await xole.totalRewarded());
+    assert.equal('447897029387249337756', (await xole.totalRewarded()).toString());
+
+    m.log("xOLE devFund:", await xole.devFund());
+    assert.equal('447897029387249337755', (await xole.devFund()).toString());
+  })
   it("John and Tom stakes, Tom stakes more, shares fees", async () => {
     await ole.mint(john, toWei(10000));
     await ole.mint(tom, toWei(10000));
@@ -192,9 +251,8 @@ contract("XOLE", async accounts => {
     await xole.create_lock(toWei(300), lastbk.timestamp + WEEK, {from: tom});
     assertPrint("Tom staked:", toWei(300), (await xole.locked(tom)).amount);
     assertPrint("Total staked:", toWei(800), await xole.supply());
-
     step("New reward 1");
-    await xole.convertToSharingToken(dai.address, toWei(1), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
     assertPrint("Dev Fund:", '498495030004550854', await xole.devFund());
     assertPrint("Total to share:", '498495030004550855', await xole.totalRewarded());
     assertPrint("John earned:", '311559393752844000', await xole.earned(john));
@@ -210,7 +268,7 @@ contract("XOLE", async accounts => {
     assertPrint("Total staked:", toWei(1000), await xole.supply());
 
     step("New reward 1");
-    await xole.convertToSharingToken(dai.address, toWei(1), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
     assertPrint("Dev Fund:", '996980105262148814', await xole.devFund());
     assertPrint("John earned:", '560801931381642500', await xole.earned(john));
     assertPrint("Tom earned:", '436178173880504900', await xole.earned(tom));
@@ -231,7 +289,7 @@ contract("XOLE", async accounts => {
     assertPrint("Tom earned:", '436178173880504900', await xole.earned(tom));
 
     step("New reward 200");
-    await xole.convertToSharingToken(dai.address, toWei(200), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(200), 0, daiOLEDexData);
     assertPrint("Dev Fund:", '100494603912584309258', await xole.devFund());
     assertPrint("John earned:", '75184019786873262500', await xole.earned(john));
     assertPrint("Tom earned:", '25310584125711044900', await xole.earned(tom));
@@ -245,7 +303,7 @@ contract("XOLE", async accounts => {
     assertPrint("Tom earned:", '25310584125711044900', await xole.earned(tom));
 
     step("New reward 100");
-    await xole.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(100), 0, daiOLEDexData);
     assertPrint("Dev Fund:", '150094767100146587308', await xole.devFund());
     assertPrint("John earned:", '0', await xole.earned(john));
     assertPrint("Tom earned:", '74910747313273322900', await xole.earned(tom));
@@ -260,7 +318,7 @@ contract("XOLE", async accounts => {
     assertPrint("John earned:", '0', await xole.earned(john));
 
     step("New reward 100");
-    await xole.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(100), 0, daiOLEDexData);
     assertPrint("Dev Fund:", '199596275059873518079', await xole.devFund());
     assertPrint("John earned:", '49501507959726930000', await xole.earned(john));
 
@@ -271,7 +329,7 @@ contract("XOLE", async accounts => {
     assertPrint("John earned:", '49501507959726930000', await xole.earned(john));
 
     step("New reward 100");
-    await xole.convertToSharingToken(dai.address, toWei(100), 0, Uni2DexData);
+    await xole.convertToSharingToken(toWei(100), 0, daiOLEDexData);
     assertPrint("Dev Fund:", '248999421985512891445', await xole.devFund());
     assertPrint("John earned:", '98904654885366303000', await xole.earned(john));
 

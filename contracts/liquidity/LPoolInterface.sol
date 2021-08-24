@@ -41,7 +41,7 @@ abstract contract LPoolStorage {
     /**
     * Maximum fraction of borrower cap(80%)
     */
-    uint public  borrowCapFactorMantissa = 0.8e18;
+    uint public  borrowCapFactorMantissa;
     /**
      * Contract which oversees inter-lToken operations
      */
@@ -69,7 +69,7 @@ abstract contract LPoolStorage {
     /**
     * @notice Fraction of interest currently set aside for reserves 20%
     */
-    uint public reserveFactorMantissa = 0.2e18;
+    uint public reserveFactorMantissa;
 
 
     uint public totalReserves;

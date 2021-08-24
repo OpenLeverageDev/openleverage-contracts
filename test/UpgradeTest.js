@@ -74,10 +74,6 @@ contract("Upgrade", async accounts => {
     //update
     let updateDelegate = await LPoolUpgradeV2.new();
     await pool.setImplementation(updateDelegate.address);
-    let borrowRatePerBlock = await pool.borrowRatePerBlock();
-    m.log("borrowRatePerBlock ", borrowRatePerBlock);
-
-    assert.equal("23782343987", borrowRatePerBlock);
 
     let functionCall = await web3.eth.abi.encodeFunctionCall({
       name: 'getName',

@@ -22,7 +22,7 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         ControllerInterface _controller,
         DexAggregatorInterface _dexAggregator,
         address[] memory _depositTokens,
-        address  _wETH,
+        address _wETH,
         address _xOLE,
         address payable _admin,
         address implementation_){
@@ -56,9 +56,9 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         LPoolInterface pool0,
         LPoolInterface pool1,
         uint32 marginLimit,
-        uint8 dex
+        bytes memory dexData
     ) external override returns (uint16){
-        bytes memory data = delegateToImplementation(abi.encodeWithSignature("addMarket(address,address,uint32,uint8)", pool0, pool1, marginLimit, dex));
+        bytes memory data = delegateToImplementation(abi.encodeWithSignature("addMarket(address,address,uint32,bytes)", pool0, pool1, marginLimit, dexData));
         return abi.decode(data, (uint16));
     }
 
@@ -87,8 +87,9 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("shouldUpdatePrice(uint16,bool,bytes)", marketId, isOpen, dexData));
         return abi.decode(data, (bool));
     }
+
     function getMarketSupportDexs(uint16 marketId) external override view returns (uint8[] memory){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getMarketSupportDexs(uint16)",marketId));
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getMarketSupportDexs(uint16)", marketId));
         return abi.decode(data, (uint8[]));
     }
     /*** Admin Functions ***/
@@ -101,12 +102,12 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         delegateToImplementation(abi.encodeWithSignature("setMarketMarginLimit(uint16,uint32)", marketId, newRatio));
     }
 
-    function setDefaultFeesRate(uint newRate) external override {
-        delegateToImplementation(abi.encodeWithSignature("setDefaultFeesRate(uint256)", newRate));
+    function setDefaultFeesRate(uint16 newRate) external override {
+        delegateToImplementation(abi.encodeWithSignature("setDefaultFeesRate(uint16)", newRate));
     }
 
-    function setMarketFeesRate(uint16 marketId, uint newRate) external override {
-        delegateToImplementation(abi.encodeWithSignature("setMarketFeesRate(uint16,uint256)", marketId, newRate));
+    function setMarketFeesRate(uint16 marketId, uint16 newRate) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketFeesRate(uint16,uint16)", marketId, newRate));
     }
 
     function setInsuranceRatio(uint8 newRatio) external override {
@@ -137,11 +138,11 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         delegateToImplementation(abi.encodeWithSignature("setMarketDexs(uint16,uint8[])", marketId, dexs));
     }
 
-    function setFeesDiscountThreshold (uint newThreshold) external override {
+    function setFeesDiscountThreshold(uint newThreshold) external override {
         delegateToImplementation(abi.encodeWithSignature("setFeesDiscountThreshold(uint256)", newThreshold));
     }
 
-    function setFeesDiscount (uint newDiscount) external override {
+    function setFeesDiscount(uint newDiscount) external override {
         delegateToImplementation(abi.encodeWithSignature("setFeesDiscount(uint256)", newDiscount));
     }
 

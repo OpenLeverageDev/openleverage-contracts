@@ -13,7 +13,7 @@ const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 
 const m = require('mocha-logger');
-const LPErc20Delegator = artifacts.require("LPoolDelegator");
+const LPool = artifacts.require("LPool");
 const TestToken = artifacts.require("MockERC20");
 
 contract("OpenLev UniV3", async accounts => {
@@ -31,7 +31,6 @@ contract("OpenLev UniV3", async accounts => {
   let trader = accounts[2];
 
   let dev = accounts[3];
-  let liquidator1 = accounts[8];
   let liquidator2 = accounts[9];
   let token0;
   let token1;
@@ -42,12 +41,11 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Created Controller", last8(controller.address));
 
     ole = await TestToken.new('OpenLevERC20', 'OLE');
-    let usdt = await TestToken.new('Tether', 'USDT');
 
     token0 = await TestToken.new('TokenA', 'TKA');
     token1 = await TestToken.new('TokenB', 'TKB');
 
-    let uniswapFactory = await utils.createUniswapV3Factory();
+    uniswapFactory = await utils.createUniswapV3Factory();
     gotPair = await utils.createUniswapV3Pool(uniswapFactory, token0, token1, accounts[0]);
 
     token0 = await TestToken.at(await gotPair.token0());
@@ -57,13 +55,15 @@ contract("OpenLev UniV3", async accounts => {
     xole = await xOLE.new(admin);
     await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
 
-    let  delegatee = await OpenLevV1.new();
+    let delegatee = await OpenLevV1.new();
     openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegatee.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
 
-    await controller.createLPoolPair(token0.address, token1.address, 3000, 2); // 30% margin ratio by default
+    let createPoolTx = await controller.createLPoolPair(token0.address, token1.address, 3000, Uni3DexData); // 30% margin ratio by default
+    // m.log("Create PoolPair Gas Used: ", createPoolTx.receipt.gasUsed);
+
     assert.equal(3000, (await openLev.markets(0)).marginLimit);
 
     await openLev.setDefaultMarginLimit(1500, {from: admin});
@@ -91,7 +91,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -134,14 +134,12 @@ contract("OpenLev UniV3", async accounts => {
     trade = await openLev.activeTrades(trader, 0, 0);
     m.log("Trade.held:", trade.held);
     m.log("Trade.deposited:", trade.deposited);
-    m.log("Trade.depositFixedValue:", trade.depositFixedValue);
-    m.log("Trade.marketValueOpen:", trade.marketValueOpen);
 
     m.log("Margin Ratio after deposit:", marginRatio_3.current, marginRatio_3.marketLimit);
     assert.equal(marginRatio_3.current.toString(), 12098); // TODO check
 
     // Close trade
-    let tx_close = await openLev.closeTrade(0, 0, "821147572990716389330", 0, Uni3DexData, {from: trader});
+     await openLev.closeTrade(0, 0, "821147572990716389330", 0, Uni3DexData, {from: trader});
 
     // Check contract held balance
     checkAmount("OpenLev Balance", 1089000000000000000, await token1.balanceOf(openLev.address), 18);
@@ -167,7 +165,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(2000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(2000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -216,7 +214,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(2000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(2000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -275,7 +273,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(3000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(3000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
 
@@ -284,12 +282,23 @@ contract("OpenLev UniV3", async accounts => {
 
     await openLev.marginTrade(0, false, false, deposit, borrow, 0, Uni3DexData, {from: trader});
 
-    await utils.mint(token0, saver, 100000);
-    await token0.approve(dexAgg.address, utils.toWei(50000), {from: saver});
-    await dexAgg.sell(token1.address, token0.address, utils.toWei(50000), 0, Uni3DexData, {from: saver});
-    await gotPair.setPreviousPrice(token0.address, token1.address, 1);
+    await utils.mint(token0, saver, 1000000);
+    await token0.approve(dexAgg.address, utils.toWei(108000), {from: saver});
+    await dexAgg.sell(token1.address, token0.address, utils.toWei(108000), 0, Uni3DexData, {from: saver});
+    await gotPair.setPreviousPrice(token0.address, token1.address, 10);
     m.log("Liquidating trade ... ");
+    try {
+      await openLev.liquidate(trader, 0, 0, Uni3DexData, {from: liquidator2});
+      assert.fail("should thrown Update price firstly error");
+    } catch (error) {
+      assert.include(error.message, 'Update price firstly', 'throws exception with Update price firstly');
+    }
+    await gotPair.setPreviousPrice(token0.address, token1.address, 1);
+    let priceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni3DexData);
+    m.log("priceData: \t", JSON.stringify(priceData));
+
     let tx_liquidate = await openLev.liquidate(trader, 0, 0, Uni3DexData, {from: liquidator2});
+    m.log("V3 Liquidation Gas Used: ", tx_liquidate.receipt.gasUsed);
 
     assertPrint("Deposit Return", '0', tx_liquidate.logs[0].args.depositReturn);
 
@@ -317,18 +326,17 @@ contract("OpenLev UniV3", async accounts => {
 
     // Saver deposit to pool1
     let saverSupply = utils.toWei(1000);
-    let pool0 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool0);
+    let pool0 = await LPool.at((await openLev.markets(pairId)).pool0);
     await token0.approve(await pool0.address, utils.toWei(1000), {from: saver});
     await pool0.mint(saverSupply, {from: saver});
 
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
 
-    let tx = await openLev.marginTrade(0, true, false, deposit, borrow, 0, Uni3DexData, {from: trader});
-    m.log("marginTrade tx: \t", JSON.stringify(tx));
-
+    let marginTradeTx = await openLev.marginTrade(0, true, false, deposit, borrow, 0, Uni3DexData, {from: trader});
+    m.log("V3 Margin Trade Gas Used: ", marginTradeTx.receipt.gasUsed);
     // Check events
-    let fees = tx.logs[0].args.fees;
+    let fees = marginTradeTx.logs[0].args.fees;
     m.log("Fees", fees);
     assert.equal(fees, 2700000000000000000);
 
@@ -343,8 +351,8 @@ contract("OpenLev UniV3", async accounts => {
     assert.equal(marginRatio_1.current.toString(), 8052);
 
     // Close trade
-    let tx_close = await openLev.closeTrade(0, 1, "821147572990716389330", 0, Uni3DexData, {from: trader});
-    m.log("closeTrade tx: \t", JSON.stringify(tx_close));
+    let closeTradeTx = await openLev.closeTrade(0, 1, "821147572990716389330", 0, Uni3DexData, {from: trader});
+    m.log("V3 Close Trade Gas Used: ", closeTradeTx.receipt.gasUsed);
 
     // Check contract held balance
     checkAmount("OpenLev Balance", 891000000000000000, await token0.balanceOf(openLev.address), 18);
@@ -383,8 +391,8 @@ contract("OpenLev UniV3", async accounts => {
   })
   it("Admin setDefaultFeesRate test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setDefaultFeesRate(uint256)',
-      web3.eth.abi.encodeParameters(['uint256'], [1]), 0)
+    await timeLock.executeTransaction(openLev.address, 0, 'setDefaultFeesRate(uint16)',
+      web3.eth.abi.encodeParameters(['uint16'], [1]), 0)
     assert.equal(1, await openLev.defaultFeesRate());
     try {
       await openLev.setDefaultFeesRate(1);
@@ -395,8 +403,8 @@ contract("OpenLev UniV3", async accounts => {
   })
   it("Admin setMarketFeesRate test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setMarketFeesRate(uint16,uint256)',
-      web3.eth.abi.encodeParameters(['uint16', 'uint256'], [1, 10]), 0)
+    await timeLock.executeTransaction(openLev.address, 0, 'setMarketFeesRate(uint16,uint16)',
+      web3.eth.abi.encodeParameters(['uint16', 'uint16'], [1, 10]), 0)
     assert.equal(10, (await openLev.markets(1)).feesRate);
     try {
       await openLev.setMarketFeesRate(1, 10);
@@ -493,7 +501,7 @@ contract("OpenLev UniV3", async accounts => {
     let deposit = utils.toWei(400);
     await token1.approve(openLev.address, deposit, {from: trader});
     let saverSupply = utils.toWei(1000);
-    let pool1 = await LPErc20Delegator.at((await openLev.markets(pairId)).pool1);
+    let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
     let borrow = utils.toWei(500);

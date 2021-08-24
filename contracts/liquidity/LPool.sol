@@ -18,7 +18,7 @@ import "../IWETH.sol";
  * Abstract base for LTokens
  * @author OpenLeverage
  */
-contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, ReentrancyGuard {
+contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint;
 
@@ -65,6 +65,11 @@ contract LPool is DelegateInterface, LPoolInterface, Adminable, Exponential, Ree
         // Initialize block number and borrow index (block number mocks depend on controller being set)
         accrualBlockNumber = getBlockNumber();
         borrowIndex = 1e25;
+        //80%
+        borrowCapFactorMantissa = 0.8e18;
+        //20%
+        reserveFactorMantissa= 0.2e18;
+
 
         name = name_;
         symbol = symbol_;
