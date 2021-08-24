@@ -167,7 +167,7 @@ contract("xOLE", async accounts => {
         assertPrint("Alice's balance of xOLE", "0", await xole.balanceOf(alice, 0));
         approxAssertPrint("Bob's balance of xOLE", "4594748858447403600", await xole.balanceOf(bob, 0));
 
-        approxAssertPrint("Now check for historical balance for stage [alice_deposit]");
+        m.log("Now check for historical balance for stage [alice_deposit]");
         approxAssertPrint("xOLE Total supply", "4794520547945116800", await xole.totalSupplyAt(stages.alice_deposit.bknum));
         approxAssertPrint("Alice's balance of xOLE", "4794520547945116800", await xole.balanceOfAt(alice, stages.alice_deposit.bknum));
         assertPrint("Bob's balance of xOLE", "0", await xole.balanceOfAt(bob, stages.alice_deposit.bknum));
