@@ -241,7 +241,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         // (approximately, for * At methods) and save them
         // as we cannot figure that out exactly from inside the contract
 
-        Point memory initial_last_point = last_point;
+        Point memory initial_last_point = Point(last_point.bias, last_point.slope, last_point.ts, last_point.blk);
         uint256 block_slope = 0;
         // dblock / dt
 
