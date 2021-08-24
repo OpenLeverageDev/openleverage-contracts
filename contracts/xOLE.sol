@@ -240,8 +240,8 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
             else
                 d_slope = slope_changes[t_i];
 
-            last_point.bias -= last_point.slope * toInt128(t_i.sub(last_checkpoint));
-            last_point.slope += d_slope;
+            last_point.bias = last_point.bias.sub(last_point.slope.mul(toInt128(t_i.sub(last_checkpoint))));
+            last_point.slope = last_point.slope.add(d_slope);
 
             if (last_point.bias < 0) // This can happen
                 last_point.bias = 0;
@@ -251,8 +251,8 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
 
             last_checkpoint = t_i;
             last_point.ts = t_i;
-            last_point.blk = initial_last_point.blk + block_slope * (t_i - initial_last_point.ts) / MULTIPLIER;
-            vars._epoch += 1;
+            last_point.blk = initial_last_point.blk.add(block_slope.mul(t_i.sub(initial_last_point.ts)).div(MULTIPLIER));
+            vars._epoch = vars._epoch.add(1);
             if (t_i == block.timestamp) {
                 last_point.blk = block.number;
                 break;
@@ -268,7 +268,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
             // If last point was in this block, the slope change has been applied already
             // But in such case we have 0 slope(s)
             last_point.slope = last_point.slope.add(u_new.slope.sub(u_old.slope));
-            last_point.bias += (u_new.bias - u_old.bias);
+            last_point.bias = last_point.bias.add(u_new.bias.sub(u_old.bias));
             if (last_point.slope < 0)
                 last_point.slope = 0;
             if (last_point.bias < 0)
