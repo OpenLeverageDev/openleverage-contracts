@@ -183,7 +183,8 @@ exports.approxAssertPrint = (desc, expected, value) => {
     // m.log("valueNum", valueNum);
     // m.log("diff", diff);
     // m.log("diff/expectedNum", diff/expectedNum);
-    assert((diff / expectedNum) < 0.00001, "Diff is too big to approx equal");
+    assert((diff / expectedNum) < 0.00001, "Diff is too big. expectedNum=" + expectedNum + " valueNum=" + valueNum + " " +
+        "diff=" + diff + " diff/expectedNum=" + diff/expectedNum);
 }
 
 let currentStep;

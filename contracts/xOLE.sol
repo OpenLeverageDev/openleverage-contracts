@@ -4,6 +4,7 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./lib/SignedSafeMath128.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./Adminable.sol";
@@ -17,6 +18,7 @@ import "./DelegateInterface.sol";
 contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
+    using SignedSafeMath128 for int128;
 
     /* We cannot really do block numbers per se b/c slope is per time, not per block
     and per block could be fairly bad b/c Ethereum changes blocktimes.
@@ -409,7 +411,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     function increase_unlock_time(uint256 _unlock_time) external nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
         // Locktime is rounded down to weeks
-        uint256 unlock_time = (_unlock_time / WEEK) * WEEK;
+        uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
         require(_locked.end > block.timestamp, "Lock expired");
         require(_locked.amount > 0, "Nothing is locked");
         require(unlock_time > _locked.end, "Can only increase lock duration");
@@ -432,7 +434,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         _locked.amount = 0;
         locked[msg.sender] = _locked;
         uint256 supply_before = supply;
-        supply = supply_before - value;
+        supply = supply_before.sub(value);
 
         /*
         old_locked can have either expired <= timestamp or zero end
@@ -447,7 +449,6 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         emit RewardPaid(msg.sender, reward);
         emit Supply(supply_before, supply_before - value);
     }
-
 
     /*
     # The following ERC20/minime-compatible methods are not real balanceOf and supply!
@@ -471,11 +472,11 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         for (uint i = 0; i <= 128; i++) {
             if (_min >= _max)
                 break;
-            uint256 _mid = (_min + _max + 1) / 2;
+            uint256 _mid = _min.add(_max).add(1).div(2);
             if (point_history[_mid].blk <= _block)
                 _min = _mid;
             else
-                _max = _mid - 1;
+                _max = _mid.sub(1);
         }
         return _min;
     }
@@ -497,7 +498,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
             return 0;
         } else {
             Point memory last_point = user_point_history[addr][_epoch];
-            last_point.bias -= last_point.slope * int128(_t - last_point.ts);
+            last_point.bias = last_point.bias.sub(last_point.slope.mul(toInt128(_t.sub(last_point.ts))));
             if (last_point.bias < 0)
                 last_point.bias = 0;
             return uint256(last_point.bias);
@@ -525,11 +526,11 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         for (uint i = 0; i <= 128; i++) {
             if (_min >= _max)
                 break;
-            uint256 _mid = (_min + _max + 1) / 2;
+            uint256 _mid = _min.add(_max).add(1).div(2);
             if (user_point_history[addr][_mid].blk <= _block)
                 _min = _mid;
             else
-                _max = _mid - 1;
+                _max = _mid.sub(1);
         }
 
         Point memory upoint = user_point_history[addr][_min];
@@ -542,18 +543,19 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
 
         if (_epoch < max_epoch) {
             Point memory point_1 = point_history[_epoch + 1];
-            d_block = point_1.blk - point_0.blk;
-            d_t = point_1.ts - point_0.ts;
+            d_block = point_1.blk.sub(point_0.blk);
+            d_t = point_1.ts.sub(point_0.ts);
         }
         else {
-            d_block = block.number - point_0.blk;
-            d_t = block.timestamp - point_0.ts;
+            d_block = block.number.sub(point_0.blk);
+            d_t = block.timestamp.sub(point_0.ts);
         }
         uint256 block_time = point_0.ts;
         if (d_block != 0)
-            block_time += d_t * (_block - point_0.blk) / d_block;
+            block_time += d_t * (_block.sub(point_0.blk)) / d_block;
 
-        upoint.bias -= upoint.slope * int128(block_time - upoint.ts);
+        //upoint.bias -= upoint.slope * int128(block_time - upoint.ts);
+        upoint.bias = upoint.bias.sub(upoint.slope.mul(toInt128(block_time.sub(upoint.ts))));
         if (upoint.bias >= 0)
             return uint256(upoint.bias);
         else
@@ -567,7 +569,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @return Total voting power at that time*/
     function supply_at(Point memory point, uint256 t) internal view returns (uint256){
         Point memory last_point = point;
-        uint256 t_i = (last_point.ts / WEEK) * WEEK;
+        uint256 t_i = last_point.ts.div(WEEK).mul(WEEK);
         for (uint i = 0; i <= 255; i++) {
             t_i += WEEK;
             int128 d_slope = 0;
@@ -576,10 +578,10 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
             else
                 d_slope = slope_changes[t_i];
 
-            last_point.bias -= last_point.slope * int128(t_i - last_point.ts);
+            last_point.bias = last_point.bias.sub(last_point.slope.mul(toInt128(t_i.sub(last_point.ts))));
             if (t_i == t)
                 break;
-            last_point.slope += d_slope;
+            last_point.slope = last_point.slope.add(d_slope);
             last_point.ts = t_i;
         }
 
@@ -615,16 +617,23 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
         uint256 dt = 0;
 
         if (target_epoch < _epoch) {
-            Point memory point_next = point_history[target_epoch + 1];
+            Point memory point_next = point_history[target_epoch.add(1)];
             if (point.blk != point_next.blk)
-                dt = (_block - point.blk) * (point_next.ts - point.ts) / (point_next.blk - point.blk);
+                dt = _block.sub(point.blk).mul(point_next.ts.sub(point.ts)).div(point_next.blk.sub(point.blk));
+                //dt = (_block - point.blk) * (point_next.ts - point.ts) / (point_next.blk - point.blk);
         }
         else {
             if (point.blk != block.number)
-                dt = (_block - point.blk) * (block.timestamp - point.ts) / (block.number - point.blk);
+                dt = _block.sub(point.blk).mul(block.timestamp.sub(point.ts)).div(block.number.sub(point.blk));
+               //dt = (_block - point.blk) * (block.timestamp - point.ts) / (block.number - point.blk);
         }
         // Now dt contains info on how far are we beyond point
-        return supply_at(point, point.ts + dt);
+        return supply_at(point, point.ts.add(dt));
+    }
+
+    function toInt128(uint256 value) internal pure returns (int128) {
+        require(value < 2**127, "SafeCast: value doesn\'t fit in 128 bits");
+        return int128(value);
     }
 
 }
