@@ -4,10 +4,11 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "./lib/SignedSafeMath128.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./lib/SignedSafeMath128.sol";
 import "./Adminable.sol";
+import "./DelegateInterface.sol";
 import "./XOLEInterface.sol";
 import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
@@ -16,7 +17,7 @@ import "./lib/DexData.sol";
 // @title Voting Escrowed Token
 // @notice Lock OLE to get time and amount weighted xOLE
 // The weight in this implementation is linear, and lock cannot be more than maxtime (4 years)
-contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
+contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     using SignedSafeMath128 for int128;
@@ -26,8 +27,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     and per block could be fairly bad b/c Ethereum changes blocktimes.
     What we can do is to extrapolate ***At functions
     */
-    constructor(address payable _admin) {
-        admin = _admin;
+    constructor() {
     }
 
     function initialize(
@@ -170,7 +170,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param addr Address of the user wallet
     @return Value of the slope
     */
-    function get_last_user_slope(address addr) external view returns (int128) {
+    function get_last_user_slope(address addr) external view override returns (int128) {
         uint256 uepoch = user_point_epoch[addr];
         return user_point_history[addr][uepoch].slope;
     }
@@ -180,7 +180,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param _addr User wallet address
     @param _idx User epoch number
     @return Epoch time of the checkpoint*/
-    function user_point_history_ts(address _addr, uint256 _idx) external view returns (uint256){
+    function user_point_history_ts(address _addr, uint256 _idx) external view override returns (uint256){
         return user_point_history[_addr][_idx].ts;
     }
 
@@ -189,7 +189,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param _addr User wallet
     @return Epoch time of the lock end
     */
-    function locked__end(address _addr) external view returns (uint256) {
+    function locked__end(address _addr) external view override returns (uint256) {
         return locked[_addr].end;
     }
 
@@ -370,7 +370,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     }
 
     //@notice Record global data to checkpoint
-    function checkpoint() external {
+    function checkpoint() external override {
         LockedBalance memory lb;
         LockedBalance memory lb2;
         _checkpoint(ZERO_ADDRESS, lb, lb2);
@@ -384,7 +384,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param _value Amount to add to user's lock
     */
 
-    function deposit_for(address _addr, uint256 _value) external nonReentrant() {
+    function deposit_for(address _addr, uint256 _value) external override nonReentrant() {
         LockedBalance memory _locked = locked[_addr];
 
         require(_value > 0);
@@ -401,7 +401,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param _value Amount to deposit
     @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks
     */
-    function create_lock(uint256 _value, uint256 _unlock_time) external nonReentrant() {
+    function create_lock(uint256 _value, uint256 _unlock_time) external override nonReentrant() {
         // Locktime is rounded down to weeks
         uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
         LockedBalance memory _locked = locked[msg.sender];
@@ -419,7 +419,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     without modifying the unlock time
     @param _value Amount of tokens to deposit and add to the lock
     */
-    function increase_amount(uint256 _value) external nonReentrant() {
+    function increase_amount(uint256 _value) external override nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
         require(_value > 0, "need non - zero value");
         require(_locked.amount > 0, "No existing lock found");
@@ -432,7 +432,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param _unlock_time New epoch time for unlocking
     */
 
-    function increase_unlock_time(uint256 _unlock_time) external nonReentrant() {
+    function increase_unlock_time(uint256 _unlock_time) external override nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
         // Locktime is rounded down to weeks
         uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
@@ -448,7 +448,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @notice Withdraw all tokens for `msg.sender`
     @dev Only possible if the lock has expired
     */
-    function withdraw() external nonReentrant() updateReward(msg.sender) {
+    function withdraw() external override nonReentrant() updateReward(msg.sender) {
         LockedBalance memory _locked = locked[msg.sender];
         require(_locked.amount >= 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
@@ -513,7 +513,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @param _t Epoch time to return voting power at
     @return User voting power
     */
-    function balanceOf(address addr, uint256 _t) external view returns (uint256){
+    function balanceOf(address addr, uint256 _t) external view override returns (uint256){
         if (_t == 0)
             _t = block.timestamp;
 
@@ -537,7 +537,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @return Voting power
     */
 
-    function balanceOfAt(address addr, uint256 _block) external view returns (uint256){
+    function balanceOfAt(address addr, uint256 _block) external view override returns (uint256){
         // Copying and pasting totalSupply code because Vyper cannot pass by
         // reference yet
         require(_block <= block.number);
@@ -619,7 +619,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @dev Adheres to the ERC20 `totalSupply` interface for Aragon compatibility
     @return Total voting power
     */
-    function totalSupply(uint256 t) external view returns (uint256) {
+    function totalSupply(uint256 t) external view override returns (uint256) {
         if (t == 0)
             t = block.timestamp;
 
@@ -632,7 +632,7 @@ contract XOLE is XOLEInterface, XOLEStorage, Adminable, ReentrancyGuard {
     @notice Calculate total voting power at some point in the past
     @param _block Block to calculate the total voting power at
     @return Total voting power at `_block`*/
-    function totalSupplyAt(uint256 _block) external view returns (uint256) {
+    function totalSupplyAt(uint256 _block) external view override returns (uint256) {
         require(_block <= block.number);
         uint256 _epoch = epoch;
         uint256 target_epoch = find_block_epoch(_block, _epoch);

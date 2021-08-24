@@ -146,5 +146,33 @@ interface XOLEInterface {
 
     event ApplyOwnership (address admin);
 
+    // xOLE functions
+
+    function get_last_user_slope(address addr) external view returns (int128);
+
+    function user_point_history_ts(address _addr, uint256 _idx) external view returns (uint256);
+
+    function locked__end(address _addr) external view returns (uint256);
+
+    function checkpoint() external;
+
+    function deposit_for(address _addr, uint256 _value) external;
+
+    function create_lock(uint256 _value, uint256 _unlock_time) external;
+
+    function increase_amount(uint256 _value) external;
+
+    function increase_unlock_time(uint256 _unlock_time) external;
+
+    function withdraw() external;
+
+    function balanceOf(address addr, uint256 _t) external view returns (uint256);
+
+    function balanceOfAt(address addr, uint256 _block) external view returns (uint256);
+
+    function totalSupply(uint256 t) external view returns (uint256);
+
+    function totalSupplyAt(uint256 _block) external view returns (uint256);
+
 }
 

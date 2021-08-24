@@ -7,6 +7,7 @@ const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
 const WETH = artifacts.require("WETH");
 const xOLE = artifacts.require("xOLE");
+const xOLEDelegator = artifacts.require("xOLEDelegator");
 
 const MockUniswapV2Factory = artifacts.require("MockUniswapV2Factory");
 const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
@@ -66,28 +67,35 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
     await token1.mint(gotPair.address, toWei(100000));
     return gotPair;
 }
+
 exports.createDexAgg = async (_uniV2Factory, _uniV3Factory) => {
     let delegate = await DexAggregator.new();
     let dexAgg = await DexAggregatorDelegator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr, zeroAddr, delegate.address);
     return await DexAggregator.at(dexAgg.address);
 }
+
 exports.createToken = async (tokenSymbol) => {
     return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
 }
+
 exports.createWETH = async () => {
     return await WETH.new();
 }
+
 exports.createPriceOracle = async () => {
     return await MockPriceOracle.new();
 }
+
 exports.createUniswapV2Pool = async (factory, tokenA, tokenB) => {
     let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address, toWei(100000), toWei(100000));
     await factory.addPair(pair.address);
     return pair;
 }
+
 exports.tokenAt = async (address) => {
     return await TestToken.at(address);
 }
+
 exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) => {
     let delegate = await OpenLevDelegate.new();
     return await OpenLevDelegator.new(
@@ -101,9 +109,9 @@ exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) =
 }
 
 exports.createXOLE = async (ole, admin, dev, dexAgg) => {
-    let xole = await xOLE.new(admin);
-    await xole.initialize(ole, dexAgg, 5000, dev, {from: admin});
-    return xole;
+    let delegatee = await xOLE.new();
+    let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: admin});
+    return xOLE.at(xOLEInstance.address);
 }
 
 exports.createTimelock = async (admin) => {
