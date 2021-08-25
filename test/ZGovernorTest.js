@@ -1,8 +1,7 @@
 const {advanceMultipleBlocks} = require("./utils/EtheUtil");
-const {toWei} = require("./utils/OpenLevUtil");
+const {toWei,createXOLE} = require("./utils/OpenLevUtil");
 
 const OLEToken = artifacts.require("OLEToken");
-const xOLE = artifacts.require("xOLE");
 const Timelock = artifacts.require("Timelock");
 const GovernorAlpha = artifacts.require("GovernorAlpha");
 const MockTLAdmin = artifacts.require("MockTLAdmin");
@@ -26,8 +25,7 @@ contract("GovernorAlphaTest", async accounts => {
     let timelock = await Timelock.new(admin, 180 + '');
     tlAdmin = await MockTLAdmin.new(timelock.address);
 
-    xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, "0x0000000000000000000000000000000000000000", 5000, admin, {from: admin});
+    xole =await createXOLE(ole.address, admin, admin, "0x0000000000000000000000000000000000000000");
 
     gov = await GovernorAlpha.new(timelock.address, xole.address, admin);
     await timelock.setPendingAdmin(gov.address, {from: admin});

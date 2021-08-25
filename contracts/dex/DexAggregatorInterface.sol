@@ -22,7 +22,7 @@ interface DexAggregatorInterface {
     //cal current avg price and get history avg price
     function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp);
 
-    function updatePriceOracle(address desToken, address quoteToken, bytes memory data) external;
+    function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external returns(bool);
 
     function updateV3Observation(address desToken, address quoteToken, bytes memory data) external;
 }

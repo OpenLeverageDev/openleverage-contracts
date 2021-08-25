@@ -73,7 +73,7 @@ contract ControllerStorage {
     //pool=>bool=>distribution(true is borrow,false is supply)
     mapping(LPoolInterface => mapping(bool => mapping(address => LPoolRewardByAccount))) public lPoolRewardByAccounts;
 
-    event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint32 marginRatio, bytes dexData);
+    event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint16 marginLimit, bytes dexData);
 
     event Distribution2Pool(address pool, uint supplyAmount, uint borrowerAmount, uint64 startTime, uint64 duration);
 
@@ -84,7 +84,7 @@ contract ControllerStorage {
   */
 interface ControllerInterface {
 
-    function createLPoolPair(address tokenA, address tokenB, uint32 marginRatio, bytes memory dexData) external;
+    function createLPoolPair(address tokenA, address tokenB, uint16 marginLimit, bytes memory dexData) external;
 
     /*** Policy Hooks ***/
 
