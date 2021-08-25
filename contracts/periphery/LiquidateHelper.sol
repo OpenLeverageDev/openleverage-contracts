@@ -34,7 +34,7 @@ contract LiquidateHelper {
                 vars.sellPool = longTokens[i] ? market.pool0 : market.pool1;
                 vars.buyToken = IERC20(vars.buyPool.underlying());
                 vars.sellToken = IERC20(vars.sellPool.underlying());
-                vars.marginRatio = market.marginLimit;
+                vars.marginLimit = market.marginLimit;
             }
             uint borrowed = vars.sellPool.borrowBalanceCurrent(owners[i]);
             //Previous block price
@@ -45,9 +45,9 @@ contract LiquidateHelper {
             uint heldTokenPrice =previousTokenPrice < currentTokenPrice ? currentTokenPrice : previousTokenPrice;
             uint marketValueCurrent = trade.held.mul(heldTokenPrice).div(10 ** uint(previousTokenDecimals));
             if (marketValueCurrent >= borrowed) {
-                results[i] = Vars((uint128)(marketValueCurrent.sub(borrowed).mul(10000).div(borrowed)), vars.marginRatio);
+                results[i] = Vars((uint128)(marketValueCurrent.sub(borrowed).mul(10000).div(borrowed)), vars.marginLimit);
             } else {
-                Vars(0, vars.marginRatio);
+                Vars(0, vars.marginLimit);
             }
         }
         return results;

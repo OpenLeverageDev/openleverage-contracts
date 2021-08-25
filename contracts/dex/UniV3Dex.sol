@@ -18,8 +18,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
     IUniswapV3Factory public  uniV3Factory;
-    uint16 private constant observationSize = 3;
-    uint16 private constant maxSecondAgo = (observationSize - 1) * 14;
+    uint16 private constant observationSize = 5;
 
     struct SwapCallData {
         IUniswapV3Pool pool;

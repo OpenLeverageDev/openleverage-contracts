@@ -36,7 +36,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         dexAggregator = _dexAggregator;
     }
 
-    function createLPoolPair(address token0, address token1, uint32 marginRatio, bytes memory dexData) external override {
+    function createLPoolPair(address token0, address token1, uint16 marginLimit, bytes memory dexData) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
         string memory tokenName = "OpenLeverage LToken";
@@ -49,8 +49,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             tokenName, tokenSymbol, 18, admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), marginRatio, dexData);
-        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginRatio, dexData);
+        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), marginLimit, dexData);
+        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginLimit, dexData);
     }
 
 
@@ -90,6 +90,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         liquidateAmount;
+        dexData;
         // market no distribution
         if (marketLiqDistribution[marketId] == false) {
             return;
@@ -376,7 +377,7 @@ interface OPENLevInterface {
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
-        uint32 marginRatio,
+        uint16 marginLimit,
         bytes memory dexData
     ) external returns (uint16);
 }

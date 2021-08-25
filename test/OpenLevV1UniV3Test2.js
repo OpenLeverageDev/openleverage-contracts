@@ -48,7 +48,7 @@ contract("OpenLev UniV3", async accounts => {
 
     token0 = await TestToken.at(await gotPair.token0());
     token1 = await TestToken.at(await gotPair.token1());
-    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
+    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address,accounts[0]);
 
     xole = await xOLE.new(admin);
     await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
@@ -60,6 +60,7 @@ contract("OpenLev UniV3", async accounts => {
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
     await controller.createLPoolPair(token0.address, token1.address, 3000, Uni3DexData); // 30% margin ratio
+      await dexAgg.setOpenLev(openLev.address);
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));
@@ -383,5 +384,4 @@ contract("OpenLev UniV3", async accounts => {
     }
 
   })
-
 })
