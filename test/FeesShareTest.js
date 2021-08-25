@@ -13,7 +13,6 @@ const {
   resetStep
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
-const xOLE = artifacts.require("xOLE");
 const m = require('mocha-logger');
 const TestToken = artifacts.require("MockERC20");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
@@ -76,14 +75,12 @@ contract("XOLE", async accounts => {
     await uniswapFactory.addPair(oleUsdtPair.address);
     await uniswapFactory.addPair(oleDaiPair.address);
     m.log("Added pairs", last8(pair.address), last8(oleUsdtPair.address), last8(oleDaiPair.address));
-    let dexAgg = await utils.createDexAgg(uniswapFactory.address);
+    let dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
     // Making sure the pair has been added correctly in mock
     let gotPair = await MockUniswapV2Pair.at(await uniswapFactory.getPair(usdt.address, dai.address));
     assert.equal(await pair.token0(), await gotPair.token0());
     assert.equal(await pair.token1(), await gotPair.token1());
-
-    xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
+    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
 
     m.log("Created xOLE", last8(xole.address));
     await utils.mint(usdt, xole.address, 10000);

@@ -8,7 +8,6 @@ const {
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
-const xOLE = artifacts.require("XOLE");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const m = require('mocha-logger');
 const LPool = artifacts.require("LPool");
@@ -53,9 +52,7 @@ contract("OpenLev UniV2", async accounts => {
 
     dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", accounts[0]);
 
-    xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 1, dev, {from: admin});
-
+    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
     delegatee = await OpenLevV1.new();
     openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, accounts[0], delegatee.address);
     await controller.setOpenLev(openLev.address);
