@@ -96,7 +96,7 @@ abstract contract OpenLevStorage {
         uint16 feesDiscount,
         uint128 feesDiscountThreshold);
 
-    event NewMarketConfig(uint16 marketId, uint16 feesRate, uint32 marginLimit, uint32[] dexs);
+    event NewMarketConfig(uint16 marketId, uint16 feesRate, uint32 marginLimit, uint16 priceDiffientRatio, uint32[] dexs);
 
     event ChangeAllowedDepositTokens(address[] token, bool allowed);
 
@@ -122,11 +122,11 @@ interface OpenLevInterface {
 
     function liquidate(address owner, uint16 marketId, bool longToken, bytes memory dexData) external;
 
-    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint avg, uint32 limit);
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
-    function updatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external;
+    function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external;
 
-    function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external view returns (bool);
+    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
 
     function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
@@ -137,7 +137,7 @@ interface OpenLevInterface {
 
     function setAddressConfig(address controller, DexAggregatorInterface dexAggregator) external;
 
-    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint32[] memory dexs) external;
+    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint16 priceDiffientRatio, uint32[] memory dexs) external;
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 

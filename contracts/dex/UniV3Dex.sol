@@ -128,7 +128,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     function uniV3GetPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
         IUniswapV3Pool pool;
         (price, pool) = uniV3GetPrice(desToken, quoteToken, decimals, fee);
-        (cAvgPrice, hAvgPrice) = calcAvgPrices(pool, desToken, quoteToken, 1, secondsAgo, decimals);
+        (cAvgPrice, hAvgPrice) = calcAvgPrices(pool, desToken, quoteToken, secondsAgo / 2, secondsAgo, decimals);
         timestamp = block.timestamp.sub(secondsAgo);
     }
 

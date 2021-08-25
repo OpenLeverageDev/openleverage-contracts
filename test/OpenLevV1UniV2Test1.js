@@ -92,7 +92,7 @@ contract("OpenLev UniV2", async accounts => {
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
     m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");
     assert.equal(marginRatio.current.toString(), 9910);
-    assert.equal(marginRatio.avg.toString(), 9909);
+    assert.equal(marginRatio.hAvg.toString(), 9909);
     let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
     m.log("Trade.held:", tradeBefore.held);
     assert.equal(tradeBefore.held, "1990990060009101709");
@@ -133,9 +133,9 @@ contract("OpenLev UniV2", async accounts => {
     m.log("toBorrow from Pool 1: \t", borrow);
     try {
       await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
-      assert.fail("should thrown  Update price firstly error");
+      assert.fail("should thrown  Position not healthy error");
     } catch (error) {
-      assert.include(error.message, 'Update price firstly', 'throws exception with  Update price firstly');
+      assert.include(error.message, 'Position not healthy', 'throws exception with  Position not healthy');
     }
 
   })
@@ -160,7 +160,7 @@ contract("OpenLev UniV2", async accounts => {
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
     await advanceMultipleBlocksAndTime(2);
-    await openLev.updatePrice(pairId, true, Uni2DexData);
+    await openLev.updatePrice(pairId, false, Uni2DexData);
     let priceData2 = await dexAgg.uniV2PriceOracle(gotPair.address);
     m.log("PriceData2: \t", JSON.stringify(priceData2));
     let priceData3 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
@@ -169,7 +169,7 @@ contract("OpenLev UniV2", async accounts => {
     m.log("V2 Margin Trade Gas Used: ", marginTradeTx.receipt.gasUsed);
     let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     assert.equal(marginRatio.current.toString(), 8052);
-    assert.equal(marginRatio.avg.toString(), 7733);
+    assert.equal(marginRatio.hAvg.toString(), 7733);
     let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
     assert.equal(tradeBefore.held, "886675826237735294796");
     let closeTradeTx = await openLev.closeTrade(0, false, tradeBefore.held, 0, Uni2DexData, {from: trader});
@@ -198,35 +198,18 @@ contract("OpenLev UniV2", async accounts => {
     await pool1.mint(saverSupply, {from: saver});
     let borrow = utils.toWei(500);
     await advanceMultipleBlocksAndTime(2);
-    await openLev.updatePrice(pairId, true, Uni2DexData);
+    await openLev.updatePrice(pairId, false, Uni2DexData);
     await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
     //set price 1.2
     await gotPair.setPrice(token0.address, token1.address, 120);
 
-    let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, false, Uni2DexData);
-    assert.equal(shouldUpatePrice, true);
     let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
-    // should update price first
-    try {
-      await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
-      assert.fail("should thrown  Update price firstly error");
-    } catch (error) {
-      assert.include(error.message, 'Update price firstly', 'throws exception with  Update price firstly');
-    }
-    // update time <1s ,not succeed
-    await openLev.updatePrice(pairId, true, Uni2DexData);
-    try {
-      await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
-      assert.fail("should thrown  Update price firstly error");
-    } catch (error) {
-      assert.include(error.message, 'Update price firstly', 'throws exception with  Update price firstly');
-    }
 
     // add deposit needn't update price
     await openLev.marginTrade(pairId, false, true, deposit, 0, 0, Uni2DexData, {from: trader});
     await advanceMultipleBlocksAndTime(2);
-    await openLev.updatePrice(pairId, true, Uni2DexData);
+    await openLev.updatePrice(pairId, false, Uni2DexData);
     let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
 
@@ -270,19 +253,19 @@ contract("OpenLev UniV2", async accounts => {
     m.log("Margin Ratio0 avg:", marginRatio0.avg / 100, "%");
     assert.equal(marginRatio0.current.toString(), 0);
 
-    let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, false, Uni2DexData);
-    assert.equal(shouldUpatePrice, true);
+    // let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
+    // assert.equal(shouldUpatePrice, true);
     let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
     // should update price first
     try {
       await openLev.liquidate(trader, pairId, 0, Uni2DexData, {from: liquidator2});
-      assert.fail("should thrown  Update price firstly error");
+      assert.fail("should thrown  Position is Healthy error");
     } catch (error) {
-      assert.include(error.message, 'Update price firstly', 'throws exception with  Update price firstly');
+      assert.include(error.message, 'Position is Healthy', 'throws exception with Position is Healthy');
     }
     await advanceMultipleBlocksAndTime(3);
-    await openLev.updatePrice(pairId, true, Uni2DexData);
+    await openLev.updatePrice(pairId, false, Uni2DexData);
     let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
     //

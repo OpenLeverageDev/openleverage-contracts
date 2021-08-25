@@ -34,8 +34,9 @@ contract ControllerStorage {
 
     struct OLETokenDistribution {
         uint supplyBorrowBalance;
-        uint liquidatorBalance;
-        uint liquidatorMaxPer;
+        uint extraBalance;
+        uint128 updatePricePer;
+        uint128 liquidatorMaxPer;
         uint16 liquidatorOLERatio;//300=>300%
         uint16 xoleRaiseRatio;//150=>150%
         uint128 xoleRaiseMinAmount;
@@ -65,7 +66,7 @@ contract ControllerStorage {
     //token0=>token1=>pair
     mapping(address => mapping(address => LPoolPair)) public lpoolPairs;
     //marketId=>isDistribution
-    mapping(uint => bool) public marketLiqDistribution;
+    mapping(uint => bool) public marketExtraDistribution;
     //pool=>allowed
     mapping(address => bool) public lpoolUnAlloweds;
     //pool=>bool=>distribution(true is borrow,false is supply)
@@ -102,6 +103,8 @@ interface ControllerInterface {
 
     function marginTradeAllowed(uint marketId) external view returns (bool);
 
+    function updatePriceAllowed(uint marketId) external;
+
     /*** Admin Functions ***/
 
     function setLPoolImplementation(address _lpoolImplementation) external;
@@ -117,13 +120,13 @@ interface ControllerInterface {
     function setSuspend(bool suspend) external;
 
     // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
-    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreLiquidatorBalance, uint liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external;
+    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external;
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external;
 
     function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external;
 
-    function distributeLiqRewards2Market(uint marketId, bool isDistribution) external;
+    function distributeExtraRewards2Market(uint marketId, bool isDistribution) external;
 
     /***Distribution Functions ***/
 
