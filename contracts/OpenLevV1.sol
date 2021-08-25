@@ -309,7 +309,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData, bool record) internal {
         bool updateResult = addressConfig.dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
         if (record && updateResult) {
-            markets[marketId].priceUpdator = tx.origin;
+            markets[marketId].priceUpdater = tx.origin;
         }
     }
 
@@ -402,7 +402,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             newFees = defaultFees.sub(defaultFees.mul(config.feesDiscount).div(100));
         }
         // if trader update price, then should enjoy trading discount.
-        if (market.priceUpdator == msg.sender) {
+        if (market.priceUpdater == msg.sender) {
             newFees = newFees.sub(defaultFees.mul(config.updatePriceDiscount).div(100));
         }
         uint newInsurance = newFees.mul(config.insuranceRatio).div(100);

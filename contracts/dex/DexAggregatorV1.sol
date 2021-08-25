@@ -128,17 +128,31 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
         }
     }
 
-    function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
-        // Shh - currently unused
-        secondsAgo;
-        data;
+    /*
+    @notice get current and history price
+    @param desToken
+    @param quoteToken
+    @param secondsAgo TWAP length for UniV3
+    @param dexData dex parameters
+    Returns
+    @param price real-time price
+    @param cAvgPrice current TWAP price
+    @param hAvgPrice historical TWAP price
+    @param decimals token price decimal
+    @param timestamp last TWAP price update timestamp */
+    function getPriceCAvgPriceHAvgPrice(
+        address desToken,
+        address quoteToken,
+        uint32 secondsAgo,
+        bytes memory dexData
+    ) external view override returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
         decimals = priceDecimals;
-        if (data.toDex() == DexData.DEX_UNIV2) {
+        if (dexData.toDex() == DexData.DEX_UNIV2) {
             address pair = uniV2Factory.getPair(desToken, quoteToken);
             V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
             (price, cAvgPrice, hAvgPrice, timestamp) = uniV2GetPriceCAvgPriceHAvgPrice(pair, priceOracle, desToken, decimals);
-        } else if (data.toDex() == DexData.DEX_UNIV3) {
-            (price, cAvgPrice, hAvgPrice, timestamp) = uniV3GetPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
+        } else if (dexData.toDex() == DexData.DEX_UNIV3) {
+            (price, cAvgPrice, hAvgPrice, timestamp) = uniV3GetPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, decimals, dexData.toFee());
         }
         else {
             require(false, 'Unsupported dex');
@@ -149,8 +163,12 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
         require(msg.sender == openLev, "Only openLev can update price");
         if (data.toDex() == DexData.DEX_UNIV2) {
             address pair = uniV2Factory.getPair(desToken, quoteToken);
-            V2PriceOracle storage priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
-            return uniV2UpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
+            V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
+            (V2PriceOracle memory updatedPriceOracle, bool updated) = uniV2UpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
+            if (updated) {
+                uniV2PriceOracle[IUniswapV2Pair(pair)] = updatedPriceOracle;
+            }
+            return true;
         }
         return false;
     }

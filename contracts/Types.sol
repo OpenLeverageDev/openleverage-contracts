@@ -18,7 +18,7 @@ library Types {
         uint16 feesRate;            // feesRate 30=>0.3%
         uint16 priceDiffientRatio1;
         uint16 priceDiffientRatio2;
-        address priceUpdator;
+        address priceUpdater;
         uint pool0Insurance;        // Insurance balance for token 0
         uint pool1Insurance;        // Insurance balance for token 1
         uint32[] dexs;

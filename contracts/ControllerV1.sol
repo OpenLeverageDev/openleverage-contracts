@@ -305,7 +305,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function getSupplyRewards(LPoolInterface[] calldata lpools, address account) external override {
-        uint rewards = 0;
+        uint rewards;
         for (uint i = 0; i < lpools.length; i++) {
             if (updateReward(lpools[i], account, false)) {
                 rewards = rewards.add(earnedInternal(lpools[i], account, false));

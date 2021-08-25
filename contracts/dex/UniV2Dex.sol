@@ -129,10 +129,10 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2UpdatePriceOracle(address pair, V2PriceOracle storage priceOracle, uint32 timeWindow, uint8 decimals) internal returns (bool) {
+    function uniV2UpdatePriceOracle(address pair, V2PriceOracle memory priceOracle, uint32 timeWindow, uint8 decimals) internal returns (V2PriceOracle memory, bool updated) {
         uint32 currentBlockTime = toUint32(block.timestamp);
         if (currentBlockTime < (priceOracle.blockTimestampLast + timeWindow)) {
-            return false;
+            return (priceOracle, false);
         }
         (,,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
         if (uniBlockTimeLast != currentBlockTime) {
@@ -148,7 +148,7 @@ contract UniV2Dex {
         priceOracle.price0CumulativeLast = currentPrice0CumulativeLast;
         priceOracle.price1CumulativeLast = currentPrice1CumulativeLast;
         priceOracle.blockTimestampLast = currentBlockTime;
-        return true;
+        return (priceOracle, true);
     }
 
     function calTPrice(uint currentPriceCumulativeLast, uint historyPriceCumulativeLast, uint32 timeElapsed, uint8 decimals)
