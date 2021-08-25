@@ -13,10 +13,6 @@ abstract contract OpenLevStorage {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
-
-    // number of markets
-    uint16 public numPairs;
-
     // marketId => Pair
     mapping(uint16 => Types.Market) public markets;
 
@@ -33,7 +29,15 @@ abstract contract OpenLevStorage {
 
     address public xOLE;
 
-    // 0.3%
+    // number of markets
+    uint public feesDiscountThreshold = 30 * (10 ** 18); // minimal holding of xOLE to enjoy fees discount
+
+    uint public feesDiscount = 2500; // 25%
+
+    uint16 public numPairs;
+
+    uint32 public constant twapDuration = 25;//25s
+
     uint16 public defaultFeesRate = 30; // 0.003
 
     uint8 public insuranceRatio = 33; // 33%
@@ -42,9 +46,6 @@ abstract contract OpenLevStorage {
 
     uint16 public priceDiffientRatio = 10; //10=>10%
 
-    uint256 public feesDiscountThreshold = 30 * (10 ** 18); // minimal holding of xOLE to enjoy fees discount
-
-    uint public feesDiscount = 2500; // 25%
 
     event MarginTrade(
         address trader,
@@ -85,9 +86,11 @@ abstract contract OpenLevStorage {
         uint sellAmount,
         uint receiveAmount,
         uint32 dex
-    );    event NewDefalutFeesRate(uint16 oldFeesRate, uint16 newFeesRate);
+    );
 
-    event NewMarketFeesRate(uint16 marketId,uint16 oldFeesRate, uint16 newFeesRate);
+    event NewDefaultFeesRate(uint16 oldFeesRate, uint16 newFeesRate);
+
+    event NewMarketFeesRate(uint16 marketId, uint16 oldFeesRate, uint16 newFeesRate);
 
     event NewDefaultMarginLimit(uint32 oldRatio, uint32 newRatio);
 
@@ -158,8 +161,8 @@ interface OpenLevInterface {
 
     function setMarketDexs(uint16 marketId, uint32[] memory dexs) external;
 
-    function setFeesDiscountThreshold (uint newThreshold) external;
+    function setFeesDiscountThreshold(uint newThreshold) external;
 
-    function setFeesDiscount (uint newDiscount) external;
+    function setFeesDiscount(uint newDiscount) external;
 
 }

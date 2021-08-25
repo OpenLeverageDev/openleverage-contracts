@@ -60,8 +60,7 @@ contract("OpenLev UniV3", async accounts => {
     let price = await dexAgg.getPrice(token0.address, token1.address, Uni3DexData);
     m.log("DexAgg price: ", JSON.stringify(price));
 
-    xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
+    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address, {from: admin});
 
     openLev = await OpenLevV1.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegate.address);
     await controller.setOpenLev(openLev.address);
