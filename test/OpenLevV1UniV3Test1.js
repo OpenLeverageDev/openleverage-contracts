@@ -287,9 +287,9 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Liquidating trade ... ");
     try {
       await openLev.liquidate(trader, 0, 0, Uni3DexData, {from: liquidator2});
-      assert.fail("should thrown Update price firstly error");
+      assert.fail("should thrown Position is Healthy error");
     } catch (error) {
-      assert.include(error.message, 'Update price firstly', 'throws exception with Update price firstly');
+      assert.include(error.message, 'Position is Healthy', 'throws exception with Position is Healthy');
     }
     await gotPair.setPreviousPrice(token0.address, token1.address, 1);
     let priceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni3DexData);
@@ -400,15 +400,16 @@ contract("OpenLev UniV3", async accounts => {
 
   it("Admin setMarketConfig test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setMarketConfig(uint16,uint16,uint16,uint32[])',
-      web3.eth.abi.encodeParameters(['uint16', 'uint16', 'uint16', 'uint32[]'], [1, 2, 3, [1]]), 0);
+    await timeLock.executeTransaction(openLev.address, 0, 'setMarketConfig(uint16,uint16,uint16,uint16,uint32[])',
+      web3.eth.abi.encodeParameters(['uint16', 'uint16', 'uint16', 'uint16', 'uint32[]'], [1, 2, 3, 4, [1]]), 0);
     let market = await openLev.markets(1);
     assert.equal(2, market.feesRate);
     assert.equal(3, market.marginLimit);
+    assert.equal(4, market.priceDiffientRatio);
     let dexes = await openLev.getMarketSupportDexs(1);
     assert.equal(1, dexes[0]);
     try {
-      await openLev.setMarketConfig(1, 2, 3, [1]);
+      await openLev.setMarketConfig(1, 2, 3,4, [1]);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');

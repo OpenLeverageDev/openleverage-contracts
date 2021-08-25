@@ -59,7 +59,7 @@ contract("ControllerV1", async accounts => {
   it("Distribution by supply test", async () => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), 0,utils.toWei(4), 300, 0, 0);
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
@@ -101,7 +101,7 @@ contract("ControllerV1", async accounts => {
   it("Distribution by borrow test", async () => {
     let {controller, tokenA, tokenB, oleToken, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 0, 0);
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
@@ -134,8 +134,8 @@ contract("ControllerV1", async accounts => {
     let liquidator = accounts[1];
     let {controller, tokenA, tokenB, oleToken, pair, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(100), 300, 0, 0);
-    await controller.distributeLiqRewards2Market(0, true);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(100), 300, 0, 0);
+    await controller.distributeExtraRewards2Market(0, true);
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
@@ -173,13 +173,13 @@ contract("ControllerV1", async accounts => {
 
     let distribution = await controller.oleTokenDistribution();
     assert.equal("180", (await oleToken.balanceOf(liquidator)).div(toBN(10 ** 14)).toString());
-    assert.equal("199", distribution.liquidatorBalance.div(toBN(10 ** 18)).toString());
+    assert.equal("199", distribution.extraBalance.div(toBN(10 ** 18)).toString());
   });
 
   it("Distribution by add reward test", async () => {
     let {controller, tokenA, tokenB, oleToken, openLev} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 0, 0);
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
@@ -213,7 +213,7 @@ contract("ControllerV1", async accounts => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
     try {
-      await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 0, 0);
+      await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 0, 0);
       assert.fail("should thrown not enough balance error");
     } catch (error) {
       assert.include(error.message, 'not enough balance', 'throws exception with not enough balance');
@@ -223,7 +223,7 @@ contract("ControllerV1", async accounts => {
   it("Get all supply distribution test", async () => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(600), utils.toWei(0), utils.toWei(0), 300, 0, 0);
+    await controller.setOLETokenDistribution(utils.toWei(600), utils.toWei(0), 0,utils.toWei(0), 300, 0, 0);
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     let pool1 = transaction.logs[0].args.pool1;
@@ -282,7 +282,7 @@ contract("ControllerV1", async accounts => {
   it("Distribution by supply and transfer to other test", async () => {
     let {controller, tokenA, tokenB, oleToken} = await instanceController();
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(600), utils.toWei(0), utils.toWei(0), 300, 0, 0);
+    await controller.setOLETokenDistribution(utils.toWei(600), utils.toWei(0),0, utils.toWei(0), 300, 0, 0);
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
@@ -341,7 +341,7 @@ contract("ControllerV1", async accounts => {
     await oleToken.mint(controller.address, utils.toWei(700));
     await xole.mint(accounts[0], utils.toWei(310));
 
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 150, utils.toWei(300));
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
     //start after 10s【duration 30days】
@@ -383,7 +383,7 @@ contract("ControllerV1", async accounts => {
     let accountB = accounts[1];
     let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 150, utils.toWei(300));
     // await xole.mint(accounts[0], utils.toWei(310));
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
@@ -423,7 +423,7 @@ contract("ControllerV1", async accounts => {
     let accountB = accounts[1];
     let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 150, utils.toWei(300));
     // await xole.mint(accounts[0], utils.toWei(310));
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
@@ -469,7 +469,7 @@ contract("ControllerV1", async accounts => {
     let accountB = accounts[1];
     let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200),0, utils.toWei(4), 300, 150, utils.toWei(300));
     // await xole.mint(accounts[0], utils.toWei(310));
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
@@ -516,7 +516,7 @@ contract("ControllerV1", async accounts => {
     let accountB = accounts[1];
     let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
     await oleToken.mint(controller.address, utils.toWei(700));
-    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), 0,utils.toWei(4), 300, 150, utils.toWei(300));
     // await xole.mint(accounts[0], utils.toWei(310));
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
@@ -561,7 +561,7 @@ contract("ControllerV1", async accounts => {
     let accountB = accounts[1];
     let {controller, tokenA, tokenB, oleToken, xole} = await instanceController(undefined, true);
     await oleToken.mint(controller.address, utils.toWei(1700));
-    await controller.setOLETokenDistribution(utils.toWei(800), utils.toWei(200), utils.toWei(4), 300, 150, utils.toWei(300));
+    await controller.setOLETokenDistribution(utils.toWei(800), utils.toWei(200),0, utils.toWei(4), 300, 150, utils.toWei(300));
     // await xole.mint(accounts[0], utils.toWei(310));
     let transaction = await createMarket(controller, tokenA, tokenB);
     let pool0 = transaction.logs[0].args.pool0;
@@ -690,17 +690,18 @@ contract("ControllerV1", async accounts => {
   it("Admin setOLETokenDistribution test", async () => {
     let {controller, oleToken, timeLock} = await instanceSimpleController();
     await oleToken.mint(controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)',
-      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint16', 'uint16', 'uint128'], [1, 2, 3, 4, 5, 6]), 0)
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint128,uint128,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint128', 'uint128', 'uint16', 'uint16', 'uint128'], [1, 2, 9, 3, 4, 5, 6]), 0)
     assert.equal(1, (await controller.oleTokenDistribution()).supplyBorrowBalance);
-    assert.equal(2, (await controller.oleTokenDistribution()).liquidatorBalance);
+    assert.equal(2, (await controller.oleTokenDistribution()).extraBalance);
     assert.equal(3, (await controller.oleTokenDistribution()).liquidatorMaxPer);
     assert.equal(4, (await controller.oleTokenDistribution()).liquidatorOLERatio);
     assert.equal(5, (await controller.oleTokenDistribution()).xoleRaiseRatio);
     assert.equal(6, (await controller.oleTokenDistribution()).xoleRaiseMinAmount);
+    assert.equal(9, (await controller.oleTokenDistribution()).updatePricePer);
 
     try {
-      await controller.setOLETokenDistribution(1, 2, 3, 4, 5, 6);
+      await controller.setOLETokenDistribution(1, 2, 9, 3, 4, 5, 6);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
@@ -712,8 +713,8 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createPool(accounts[0], controller, admin)).pool.address;
 
     await mint(oleToken, controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)',
-      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint16', 'uint16', 'uint128'], [40, 10, 20, 30, 0, 0]), 0);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint128,uint128,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint128','uint128', 'uint16', 'uint16', 'uint128'], [40, 10,0, 20, 30, 0, 0]), 0);
 
     await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
       web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, 3797020800, 3897020800]), 0)
@@ -730,8 +731,8 @@ contract("ControllerV1", async accounts => {
     let address = (await utils.createPool(accounts[0], controller, admin)).pool.address;
 
     await mint(oleToken, controller.address, 100);
-    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)',
-      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint256', 'uint16', 'uint16', 'uint128'], [40, 10, 20, 30, 0, 0]), 0);
+    await timeLock.executeTransaction(controller.address, 0, 'setOLETokenDistribution(uint256,uint256,uint128,uint128,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint256', 'uint256', 'uint128','uint128', 'uint16', 'uint16', 'uint128'], [40, 10,0, 20, 30, 0, 0]), 0);
     await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
       web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, parseInt(await utils.lastBlockTime()) + 5, 3897020800]), 0)
     await timeMachine.advanceTime(10);
@@ -745,16 +746,16 @@ contract("ControllerV1", async accounts => {
     }
   });
 
-  it("Admin distributeLiqRewards2Market test", async () => {
+  it("Admin distributeExtraRewards2Market test", async () => {
     let {controller, timeLock} = await instanceSimpleController();
-    await timeLock.executeTransaction(controller.address, 0, 'distributeLiqRewards2Market(uint256,bool)',
+    await timeLock.executeTransaction(controller.address, 0, 'distributeExtraRewards2Market(uint256,bool)',
       web3.eth.abi.encodeParameters(['uint256', 'bool'], [1, true]), 0)
-    assert.equal(true, await controller.marketLiqDistribution(1));
+    assert.equal(true, await controller.marketExtraDistribution(1));
     try {
-      await controller.distributeLiqRewards2Market(1, true);
-      assert.fail("should thrown caller must be admin error");
+      await controller.distributeExtraRewards2Market(1, true, {from: accounts[3]});
+      assert.fail("should thrown caller must be admin or developer error");
     } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+      assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
     }
   });
 
@@ -804,7 +805,7 @@ contract("ControllerV1", async accounts => {
     await utils.createUniswapV2Pool(uniswapFactoryV2, weth, oleToken);
     gotPair = await utils.createUniswapV3Pool(uniswapFactoryV3, tokenA, tokenB, accounts[0]);
     await utils.createUniswapV3Pool(uniswapFactoryV3, weth, oleToken, accounts[0]);
-    let dexAgg = await utils.createDexAgg(uniswapFactoryV2.address, uniswapFactoryV3.address,accounts[0]);
+    let dexAgg = await utils.createDexAgg(uniswapFactoryV2.address, uniswapFactoryV3.address, accounts[0]);
 
     m.log("oleToken.address " + oleToken.address);
     let xOLE = await utils.createXOLE(oleToken.address, admin, accounts[9], dexAgg.address);
