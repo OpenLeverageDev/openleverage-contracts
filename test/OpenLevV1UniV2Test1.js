@@ -85,7 +85,8 @@ contract("OpenLev UniV2", async accounts => {
     let borrow = utils.toWei(1);
     m.log("toBorrow from Pool 1: \t", borrow);
     await advanceMultipleBlocksAndTime(2);
-    await openLev.updatePrice(pairId, true, Uni2DexData);
+    let updatePrice_tx = await openLev.updatePrice(pairId, true, Uni2DexData);
+    m.log("updatePrice gas consumed:", updatePrice_tx.receipt.gasUsed);
     await openLev.marginTrade(pairId, false, false, 0, borrow, 0, Uni2DexData, {from: trader, value: deposit});
     let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
