@@ -50,7 +50,7 @@ contract("OpenLev UniV3", async accounts => {
 
     token0 = await TestToken.at(await gotPair.token0());
     token1 = await TestToken.at(await gotPair.token1());
-    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
+    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
 
     xole = await xOLE.new(admin);
     await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
@@ -60,14 +60,12 @@ contract("OpenLev UniV3", async accounts => {
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
+    await dexAgg.setOpenLev(openLev.address);
 
     let createPoolTx = await controller.createLPoolPair(token0.address, token1.address, 3000, Uni3DexData); // 30% margin ratio by default
     // m.log("Create PoolPair Gas Used: ", createPoolTx.receipt.gasUsed);
 
     assert.equal(3000, (await openLev.markets(0)).marginLimit);
-
-    await openLev.setDefaultMarginLimit(1500, {from: admin});
-    assert.equal(1500, await openLev.defaultMarginLimit());
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));
@@ -139,7 +137,7 @@ contract("OpenLev UniV3", async accounts => {
     assert.equal(marginRatio_3.current.toString(), 12098); // TODO check
 
     // Close trade
-     await openLev.closeTrade(0, 0, "821147572990716389330", 0, Uni3DexData, {from: trader});
+    await openLev.closeTrade(0, 0, "821147572990716389330", 0, Uni3DexData, {from: trader});
 
     // Check contract held balance
     checkAmount("OpenLev Balance", 1089000000000000000, await token1.balanceOf(openLev.address), 18);
@@ -184,6 +182,8 @@ contract("OpenLev UniV3", async accounts => {
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
     assert.equal(marginRatio_1.current.toString(), 0);
+    let priceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 28, Uni3DexData);
+    m.log("priceData:", JSON.stringify(priceData));
 
     m.log("Liquidating trade ... ");
     await openLev.liquidate(trader, 0, 0, Uni3DexData, {from: liquidator2});
@@ -364,107 +364,58 @@ contract("OpenLev UniV3", async accounts => {
 
   /*** Admin Test ***/
 
-  it("Admin setDefaultMarginLimit test", async () => {
+  it("Admin setCalculateConfig test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setDefaultMarginLimit(uint32)',
-      web3.eth.abi.encodeParameters(['uint32'], [1]), 0)
-    assert.equal(1, await openLev.defaultMarginLimit());
+    await timeLock.executeTransaction(openLev.address, 0, 'setCalculateConfig(uint16,uint8,uint16,uint16,uint16,uint16,uint128)',
+      web3.eth.abi.encodeParameters(['uint16', 'uint8', 'uint16', 'uint16', 'uint16', 'uint16', 'uint128'], [1, 2, 3, 4, 7, 5, 6]), 0);
+    let calculateConfig = await openLev.calculateConfig();
+    assert.equal(1, calculateConfig.defaultFeesRate);
+    assert.equal(2, calculateConfig.insuranceRatio);
+    assert.equal(3, calculateConfig.defaultMarginLimit);
+    assert.equal(4, calculateConfig.priceDiffientRatio);
+    assert.equal(7, calculateConfig.updatePriceDiscount);
+    assert.equal(5, calculateConfig.feesDiscount);
+    assert.equal(6, calculateConfig.feesDiscountThreshold);
     try {
-      await openLev.setDefaultMarginLimit(1);
-      assert.fail("should thrown caller must be admin error");
-    } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-    }
-  })
-  it("Admin setMarketMarginLimit test", async () => {
-    let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setMarketMarginLimit(uint16,uint32)',
-      web3.eth.abi.encodeParameters(['uint16', 'uint32'], [1, 20]), 0)
-    assert.equal(20, (await openLev.markets(1)).marginLimit);
-    try {
-      await openLev.setMarketMarginLimit(1, 20);
-      assert.fail("should thrown caller must be admin error");
-    } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-    }
-  })
-  it("Admin setDefaultFeesRate test", async () => {
-    let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setDefaultFeesRate(uint16)',
-      web3.eth.abi.encodeParameters(['uint16'], [1]), 0)
-    assert.equal(1, await openLev.defaultFeesRate());
-    try {
-      await openLev.setDefaultFeesRate(1);
-      assert.fail("should thrown caller must be admin error");
-    } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-    }
-  })
-  it("Admin setMarketFeesRate test", async () => {
-    let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setMarketFeesRate(uint16,uint16)',
-      web3.eth.abi.encodeParameters(['uint16', 'uint16'], [1, 10]), 0)
-    assert.equal(10, (await openLev.markets(1)).feesRate);
-    try {
-      await openLev.setMarketFeesRate(1, 10);
-      assert.fail("should thrown caller must be admin error");
-    } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-    }
-  })
-  it("Admin setMarketDexs test", async () => {
-    let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setMarketDexs(uint16,uint32[])',
-      web3.eth.abi.encodeParameters(['uint16', 'uint8[]'], [0, [1]]), 0)
-    assert.equal(1, (await openLev.getMarketSupportDexs(0))[0]);
-    try {
-      await openLev.setMarketDexs(1, [1]);
+      await openLev.setCalculateConfig(1, 2, 3, 4, 7, 5, 6);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
     }
   })
 
-  it("Admin setInsuranceRatio test", async () => {
+  it("Admin setAddressConfig test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setInsuranceRatio(uint8)',
-      web3.eth.abi.encodeParameters(['uint8'], [1]), 0)
-    assert.equal(1, await openLev.insuranceRatio());
+    await timeLock.executeTransaction(openLev.address, 0, 'setAddressConfig(address,address)',
+      web3.eth.abi.encodeParameters(['address', 'address'], [accounts[0], accounts[1]]), 0);
+    let addressConfig = await openLev.addressConfig();
+    assert.equal(accounts[0], addressConfig.controller);
+    assert.equal(accounts[1], addressConfig.dexAggregator);
     try {
-      await openLev.setInsuranceRatio(1);
+      await openLev.setAddressConfig(accounts[0], accounts[1]);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
     }
   })
 
-  it("Admin setDexAggregator test", async () => {
+  it("Admin setMarketConfig test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
-    let newUniFactory = await utils.createUniswapV2Factory();
-    await timeLock.executeTransaction(openLev.address, 0, 'setDexAggregator(address)',
-      web3.eth.abi.encodeParameters(['address'], [newUniFactory.address]), 0)
-    assert.equal(newUniFactory.address, await openLev.dexAggregator());
+    await timeLock.executeTransaction(openLev.address, 0, 'setMarketConfig(uint16,uint16,uint16,uint32[])',
+      web3.eth.abi.encodeParameters(['uint16', 'uint16', 'uint16', 'uint32[]'], [1, 2, 3, [1]]), 0);
+    let market = await openLev.markets(1);
+    assert.equal(2, market.feesRate);
+    assert.equal(3, market.marginLimit);
+    let dexes = await openLev.getMarketSupportDexs(1);
+    assert.equal(1, dexes[0]);
     try {
-      await openLev.setDexAggregator(newUniFactory.address);
+      await openLev.setMarketConfig(1, 2, 3, [1]);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
     }
   })
 
-  it("Admin setController test", async () => {
-    let {timeLock, openLev} = await instanceSimpleOpenLev();
-    let newController = await utils.createController(accounts[0]);
-    await timeLock.executeTransaction(openLev.address, 0, 'setController(address)',
-      web3.eth.abi.encodeParameters(['address'], [newController.address]), 0)
-    assert.equal(newController.address, await openLev.controller());
-    try {
-      await openLev.setController(newController.address);
-      assert.fail("should thrown caller must be admin error");
-    } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-    }
-  })
 
   it("Admin setAllowedDepositTokens test", async () => {
     let {timeLock, openLev} = await instanceSimpleOpenLev();
@@ -478,18 +429,7 @@ contract("OpenLev UniV3", async accounts => {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
     }
   })
-  it("Admin setPriceDiffientRatio test", async () => {
-    let {timeLock, openLev} = await instanceSimpleOpenLev();
-    await timeLock.executeTransaction(openLev.address, 0, 'setPriceDiffientRatio(uint16)',
-      web3.eth.abi.encodeParameters(['uint16'], [99]), 0)
-    assert.equal(99, await openLev.priceDiffientRatio());
-    try {
-      await openLev.setPriceDiffientRatio(40);
-      assert.fail("should thrown caller must be admin error");
-    } catch (error) {
-      assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-    }
-  })
+
   it("Admin moveInsurance test", async () => {
     let pairId = 0;
     await printBlockNum();

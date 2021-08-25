@@ -12,8 +12,11 @@ library Types {
     struct Market {// Market info
         LPoolInterface pool0;       // Lending Pool 0
         LPoolInterface pool1;       // Lending Pool 1
-        uint32 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
-        uint16 feesRate;              // feesRate 30=>0.3%
+        uint16 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
+        uint16 feesRate;            // feesRate 30=>0.3%
+        uint16 priceDiffientRatio1;
+        uint16 priceDiffientRatio2;
+        address priceUpdator;
         uint pool0Insurance;        // Insurance balance for token 0
         uint pool1Insurance;        // Insurance balance for token 1
         uint32[] dexs;
@@ -33,7 +36,7 @@ library Types {
         IERC20 sellToken;           // Token to sell
         uint buyPoolInsurance;      // Insurance balance of token to buy
         uint sellPoolInsurance;     // Insurance balance of token to sell
-        uint32 marginRatio;         // Margin Ratio Limit for specific trading pair.
+        uint16 marginLimit;         // Margin Ratio Limit for specific trading pair.
         uint32[] dexs;
     }
 

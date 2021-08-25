@@ -16,6 +16,8 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     using SafeMath for uint;
     mapping(IUniswapV2Pair => V2PriceOracle)  public uniV2PriceOracle;
     IUniswapV2Factory public uniV2Factory;
+    address public openLev;
+
     uint8 private constant priceDecimals = 12;
 
     constructor ()
@@ -30,6 +32,10 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
         require(msg.sender == admin, "Not admin");
         uniV2Factory = _uniV2Factory;
         initializeUniV3(_uniV3Factory);
+    }
+
+    function setOpenLev(address _openLev) external onlyAdmin {
+        openLev = _openLev;
     }
 
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
@@ -139,12 +145,14 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
         }
     }
 
-    function updatePriceOracle(address desToken, address quoteToken, bytes memory data) external override {
+    function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external override returns (bool){
+        require(msg.sender == openLev, "Only openLev can update price");
         if (data.toDex() == DexData.DEX_UNIV2) {
             address pair = uniV2Factory.getPair(desToken, quoteToken);
             V2PriceOracle storage priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
-            uniV2UpdatePriceOracle(pair, priceOracle, priceDecimals);
+            return uniV2UpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
         }
+        return false;
     }
 
     function updateV3Observation(address desToken, address quoteToken, bytes memory data) external override {
