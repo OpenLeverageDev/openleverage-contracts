@@ -92,7 +92,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         liquidateAmount;
         dexData;
         // market no distribution
-        if (marketLiqDistribution[marketId] == false) {
+        if (marketExtraDistribution[marketId] == false) {
             return;
         }
         // rewards is zero or balance not enough
@@ -109,11 +109,11 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         if (calcLiquidatorRewards > oleTokenDistribution.liquidatorMaxPer) {
             calcLiquidatorRewards = oleTokenDistribution.liquidatorMaxPer;
         }
-        if (calcLiquidatorRewards > oleTokenDistribution.liquidatorBalance) {
+        if (calcLiquidatorRewards > oleTokenDistribution.extraBalance) {
             return;
         }
         if (transferOut(liquidator, calcLiquidatorRewards)) {
-            oleTokenDistribution.liquidatorBalance = oleTokenDistribution.liquidatorBalance.sub(calcLiquidatorRewards);
+            oleTokenDistribution.extraBalance = oleTokenDistribution.extraBalance.sub(calcLiquidatorRewards);
         }
     }
 
@@ -123,57 +123,23 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         return true;
     }
 
-
-    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreLiquidatorBalance, uint liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override onlyAdmin {
-        uint newSupplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.add(moreSupplyBorrowBalance);
-        uint newLiquidatorBalance = oleTokenDistribution.liquidatorBalance.add(moreLiquidatorBalance);
-        uint totalAll = newLiquidatorBalance.add(newSupplyBorrowBalance);
-        require(oleToken.balanceOf(address(this)) >= totalAll, 'not enough balance');
-        oleTokenDistribution.supplyBorrowBalance = newSupplyBorrowBalance;
-        oleTokenDistribution.liquidatorBalance = newLiquidatorBalance;
-        oleTokenDistribution.liquidatorMaxPer = liquidatorMaxPer;
-        oleTokenDistribution.liquidatorOLERatio = liquidatorOLERatio;
-        oleTokenDistribution.xoleRaiseRatio = xoleRaiseRatio;
-        oleTokenDistribution.xoleRaiseMinAmount = xoleRaiseMinAmount;
-
-    }
-
-    function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override onlyAdmin {
-        require(supplyAmount > 0 || borrowAmount > 0, 'amount is less than 0');
-        require(startTime > block.timestamp, 'startTime < blockTime');
-        if (supplyAmount > 0) {
-            require(lpoolDistributions[LPoolInterface(pool)][false].startTime == 0, 'Distribute only once');
-            lpoolDistributions[LPoolInterface(pool)][false] = initDistribution(supplyAmount, startTime, duration);
+    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator(msg.sender) {
+        // Shh - currently unused
+        marketId;
+        // market no distribution
+        if (marketExtraDistribution[marketId] == false) {
+            return;
         }
-        if (borrowAmount > 0) {
-            require(lpoolDistributions[LPoolInterface(pool)][true].startTime == 0, 'Distribute only once');
-            lpoolDistributions[LPoolInterface(pool)][true] = initDistribution(borrowAmount, startTime, duration);
+        uint reward = oleTokenDistribution.updatePricePer;
+        if (reward > oleTokenDistribution.extraBalance) {
+            return;
         }
-        uint subAmount = supplyAmount.add(borrowAmount);
-        oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
-        emit Distribution2Pool(pool, supplyAmount, borrowAmount, startTime, duration);
-    }
-
-    function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external override onlyAdmin {
-        require(supplyAmount > 0 || borrowAmount > 0, 'amount0 and amount1 is 0');
-        if (supplyAmount > 0) {
-            updateReward(LPoolInterface(pool), address(0), false);
-            updateDistribution(lpoolDistributions[LPoolInterface(pool)][false], supplyAmount);
+        if (transferOut(tx.origin, reward)) {
+            oleTokenDistribution.extraBalance = oleTokenDistribution.extraBalance.sub(reward);
         }
-        if (borrowAmount > 0) {
-            updateReward(LPoolInterface(pool), address(0), true);
-            updateDistribution(lpoolDistributions[LPoolInterface(pool)][true], borrowAmount);
-        }
-        uint subAmount = supplyAmount.add(borrowAmount);
-        oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
-    }
-
-    function distributeLiqRewards2Market(uint marketId, bool isDistribution) external override onlyAdmin {
-        marketLiqDistribution[marketId] = isDistribution;
     }
 
     /*** Distribution Functions ***/
-
 
     function initDistribution(uint totalAmount, uint64 startTime, uint64 duration) internal pure returns (ControllerStorage.LPoolDistribution memory distribution){
         distribution.startTime = startTime;
@@ -326,6 +292,54 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         return true;
     }
     /*** Admin Functions ***/
+
+    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override onlyAdmin {
+        uint newSupplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.add(moreSupplyBorrowBalance);
+        uint newExtraBalance = oleTokenDistribution.extraBalance.add(moreExtraBalance);
+        uint totalAll = newExtraBalance.add(newSupplyBorrowBalance);
+        require(oleToken.balanceOf(address(this)) >= totalAll, 'not enough balance');
+        oleTokenDistribution.supplyBorrowBalance = newSupplyBorrowBalance;
+        oleTokenDistribution.extraBalance = newExtraBalance;
+        oleTokenDistribution.updatePricePer = updatePricePer;
+        oleTokenDistribution.liquidatorMaxPer = liquidatorMaxPer;
+        oleTokenDistribution.liquidatorOLERatio = liquidatorOLERatio;
+        oleTokenDistribution.xoleRaiseRatio = xoleRaiseRatio;
+        oleTokenDistribution.xoleRaiseMinAmount = xoleRaiseMinAmount;
+    }
+
+    function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override onlyAdmin {
+        require(supplyAmount > 0 || borrowAmount > 0, 'amount is less than 0');
+        require(startTime > block.timestamp, 'startTime < blockTime');
+        if (supplyAmount > 0) {
+            require(lpoolDistributions[LPoolInterface(pool)][false].startTime == 0, 'Distribute only once');
+            lpoolDistributions[LPoolInterface(pool)][false] = initDistribution(supplyAmount, startTime, duration);
+        }
+        if (borrowAmount > 0) {
+            require(lpoolDistributions[LPoolInterface(pool)][true].startTime == 0, 'Distribute only once');
+            lpoolDistributions[LPoolInterface(pool)][true] = initDistribution(borrowAmount, startTime, duration);
+        }
+        uint subAmount = supplyAmount.add(borrowAmount);
+        oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
+        emit Distribution2Pool(pool, supplyAmount, borrowAmount, startTime, duration);
+    }
+
+    function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external override onlyAdmin {
+        require(supplyAmount > 0 || borrowAmount > 0, 'amount0 and amount1 is 0');
+        if (supplyAmount > 0) {
+            updateReward(LPoolInterface(pool), address(0), false);
+            updateDistribution(lpoolDistributions[LPoolInterface(pool)][false], supplyAmount);
+        }
+        if (borrowAmount > 0) {
+            updateReward(LPoolInterface(pool), address(0), true);
+            updateDistribution(lpoolDistributions[LPoolInterface(pool)][true], borrowAmount);
+        }
+        uint subAmount = supplyAmount.add(borrowAmount);
+        oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
+    }
+
+    function distributeExtraRewards2Market(uint marketId, bool isDistribution) external override onlyAdminOrDeveloper {
+        marketExtraDistribution[marketId] = isDistribution;
+    }
 
     function setLPoolImplementation(address _lpoolImplementation) external override onlyAdmin {
         lpoolImplementation = _lpoolImplementation;

@@ -76,6 +76,10 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         return abi.decode(data, (bool));
     }
 
+    function updatePriceAllowed(uint marketId) external override {
+        delegateToImplementation(abi.encodeWithSignature("updatePriceAllowed(uint256)", marketId));
+    }
+
     /*** Admin Functions ***/
 
     function setLPoolImplementation(address _lpoolImplementation) external override {
@@ -103,9 +107,9 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
     }
 
 
-    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreLiquidatorBalance, uint liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint256,uint16,uint16,uint128)",
-            moreSupplyBorrowBalance, moreLiquidatorBalance, liquidatorMaxPer, liquidatorOLERatio, xoleRaiseRatio, xoleRaiseMinAmount));
+    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override {
+        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint128,uint128,uint16,uint16,uint128)",
+            moreSupplyBorrowBalance, moreExtraBalance, updatePricePer, liquidatorMaxPer, liquidatorOLERatio, xoleRaiseRatio, xoleRaiseMinAmount));
     }
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override {
@@ -116,8 +120,8 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("distributeRewards2PoolMore(address,uint256,uint256)", pool, supplyAmount, borrowAmount));
     }
 
-    function distributeLiqRewards2Market(uint marketId, bool isDistribution) external override {
-        delegateToImplementation(abi.encodeWithSignature("distributeLiqRewards2Market(uint256,bool)", marketId, isDistribution));
+    function distributeExtraRewards2Market(uint marketId, bool isDistribution) external override {
+        delegateToImplementation(abi.encodeWithSignature("distributeExtraRewards2Market(uint256,bool)", marketId, isDistribution));
     }
     /***Distribution Functions ***/
 
