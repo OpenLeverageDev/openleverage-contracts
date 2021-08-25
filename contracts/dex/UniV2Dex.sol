@@ -23,7 +23,6 @@ contract UniV2Dex {
     }
 
     function uniV2Sell(address pair, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, address payer, address payee) internal returns (uint buyAmount){
-        require(pair != address(0), 'Invalid pair');
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
         if (isToken0) {
@@ -55,7 +54,6 @@ contract UniV2Dex {
     }
 
     function uniV2Buy(address pair, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount) internal returns (uint sellAmount){
-        require(pair != address(0), 'Invalid pair');
         address payer = msg.sender;
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
@@ -73,7 +71,6 @@ contract UniV2Dex {
     }
 
     function uniV2CalBuyAmount(address pair, address buyToken, uint sellAmount) internal view returns (uint) {
-        require(pair != address(0), 'Invalid pair');
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
         if (isToken0) {
@@ -84,9 +81,6 @@ contract UniV2Dex {
     }
 
     function uniV2GetPrice(address pair, address desToken, uint8 decimals) internal view returns (uint256){
-        if (address(pair) == address(0)) {
-            return (0);
-        }
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         return desToken == IUniswapV2Pair(pair).token0() ? token1Reserves.mul(10 ** decimals).div(token0Reserves) : token0Reserves.mul(10 ** decimals).div(token1Reserves);
     }
@@ -116,14 +110,10 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2UpdatePriceOracle(address pair, V2PriceOracle storage priceOracle, uint8 decimals) internal {
-        if (address(pair) == address(0)) {
-            return;
-        }
+    function uniV2UpdatePriceOracle(address pair, V2PriceOracle storage priceOracle, uint32 timeWindow, uint8 decimals) internal returns (bool) {
         uint32 currentBlockTime = toUint32(block.timestamp);
-        //min 2 blocks
-        if (currentBlockTime < (priceOracle.blockTimestampLast + 25)) {
-            return;
+        if (currentBlockTime < (priceOracle.blockTimestampLast + timeWindow)) {
+            return false;
         }
         (,,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
         if (uniBlockTimeLast != currentBlockTime) {
@@ -139,6 +129,7 @@ contract UniV2Dex {
         priceOracle.price0CumulativeLast = currentPrice0CumulativeLast;
         priceOracle.price1CumulativeLast = currentPrice1CumulativeLast;
         priceOracle.blockTimestampLast = currentBlockTime;
+        return true;
     }
 
     function calTPrice(uint currentPriceCumulativeLast, uint historyPriceCumulativeLast, uint32 timeElapsed, uint8 decimals) internal pure returns (uint112){

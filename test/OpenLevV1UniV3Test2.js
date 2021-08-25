@@ -10,29 +10,28 @@ const {
 const {toBN} = require("./utils/EtheUtil");
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
-const xOLE = artifacts.require("XOLE");
 const m = require('mocha-logger');
 const LPool = artifacts.require("LPool");
 const TestToken = artifacts.require("MockERC20");
 
 contract("OpenLev UniV3", async accounts => {
 
-    // components
-    let openLev;
-    let ole;
-    let xole;
-    let gotPair;
+  // components
+  let openLev;
+  let ole;
+  let xole;
+  let gotPair;
 
-    // roles
-    let admin = accounts[0];
-    let saver = accounts[1];
-    let trader = accounts[2];
-    let dev = accounts[3];
-    let token0;
-    let token1;
-    let dexAgg;
+  // roles
+  let admin = accounts[0];
+  let saver = accounts[1];
+  let trader = accounts[2];
+  let dev = accounts[3];
+  let token0;
+  let token1;
+  let dexAgg;
 
-    beforeEach(async () => {
+  beforeEach(async () => {
 
     // runs once before the first test in this block
     let controller = await utils.createController(admin);
@@ -48,17 +47,19 @@ contract("OpenLev UniV3", async accounts => {
 
     token0 = await TestToken.at(await gotPair.token0());
     token1 = await TestToken.at(await gotPair.token1());
-    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
+    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
 
-    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address, {from: admin});
+    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
+
 
     let delegate = await OpenLevDelegate.new();
 
-    openLev = await OpenLevV1.new(controller.address, dexAgg.address, [token0.address,token1.address],"0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegate.address);
+    openLev = await OpenLevV1.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegate.address);
     await controller.setOpenLev(openLev.address);
     await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
     await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
     await controller.createLPoolPair(token0.address, token1.address, 3000, Uni3DexData); // 30% margin ratio
+    await dexAgg.setOpenLev(openLev.address);
 
     assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
     m.log("Reset OpenLev instance: ", last8(openLev.address));
@@ -382,5 +383,4 @@ contract("OpenLev UniV3", async accounts => {
     }
 
   })
-
 })
