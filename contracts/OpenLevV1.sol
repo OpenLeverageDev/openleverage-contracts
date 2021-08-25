@@ -64,7 +64,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         require(msg.sender == address(addressConfig.controller), "Not controller");
         require(marginLimit >= config.defaultMarginLimit, "Limit is lower");
         require(marginLimit < 100000, "Limit is higher");
-        // todo fix the temporary approve
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         // Approve the max number for pools
