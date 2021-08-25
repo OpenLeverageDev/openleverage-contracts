@@ -13,6 +13,7 @@ import "./lib/DexData.sol";
 import "./ControllerInterface.sol";
 import "./IWETH.sol";
 import "./XOLE.sol";
+import "./Types.sol";
 
 /**
   * @title OpenLevV1
@@ -73,7 +74,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint16 marketId = numPairs;
         uint32[] memory dexs = new uint32[](16);
         dexs[0] = dexData.toDexDetail();
-        markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, config.priceDiffientRatio, address(0), 0, 0, dexs);
+        markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
         numPairs ++;
         // Init price oracle
         if (dexData.isUniV2Class()) {
@@ -135,7 +136,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         trade.deposited = trade.deposited.add(tv.depositAfterFees);
         trade.held = trade.held.add(tv.newHeld);
         //verify
-        verifyOpenAfter(marketId, longToken, address(vars.buyToken), address(vars.sellToken), dexData);
+        verifyOpenAfter(marketId, longToken, vars, dexData);
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.tradeSize, tv.receiveAmount, tv.dexDetail);
     }
 
@@ -211,10 +212,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
         //verify
-        verifyLiquidateBefore(marketId, trade, marketVars, dexData);
+        verifyLiquidateBefore(trade, marketVars, dexData);
         //controller
         (ControllerInterface(addressConfig.controller)).liquidateAllowed(marketId, msg.sender, trade.held, dexData);
-        require(!isPositionHealthy(owner, marketId, longToken, false, dexData), "Position is Healthy");
+        require(!isPositionHealthy(owner, marketId, longToken, false, marketVars, dexData), "Position is Healthy");
         Types.LiquidateVars memory liquidateVars;
         liquidateVars.dexDetail = dexData.toDexDetail();
         liquidateVars.marketId = marketId;
@@ -268,80 +269,89 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         delete activeTrades[owner][marketId][longToken];
     }
 
-    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint avg, uint32 limit) {
-        (current, avg, limit) = marginRatioInternal(owner, marketId, longToken, false, dexData);
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint cAvg, uint hAvg, uint32 limit) {
+        Types.MarketVars memory vars = toMarketVar(marketId, longToken, false);
+        limit = vars.marginLimit;
+        (current, cAvg, hAvg) = marginRatioInternal(owner, marketId, longToken, address(vars.sellToken), address(vars.buyToken), vars.buyPool, false, dexData);
     }
 
-    function marginRatioInternal(address owner, uint16 marketId, bool longToken, bool isOpen, bytes memory dexData)
-    internal view returns (uint, uint, uint32)
+    function marginRatioInternal(address owner, uint16 marketId, bool longToken, address heldToken, address sellToken, LPoolInterface borrowPool, bool isOpen, bytes memory dexData)
+    internal view returns (uint, uint, uint)
     {
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
-        Types.MarketVars memory vars = toMarketVar(marketId, longToken, true);
+        Types.MarginRatioVars memory ratioVars;
+        ratioVars.dexData = dexData;
+        ratioVars.heldToken = heldToken;
+        ratioVars.sellToken = sellToken;
+        ratioVars.owner = owner;
         uint16 multiplier = 10000;
-        uint borrowed = isOpen ? vars.sellPool.borrowBalanceStored(owner) : vars.sellPool.borrowBalanceCurrent(owner);
+        uint borrowed = isOpen ? borrowPool.borrowBalanceStored(ratioVars.owner) : borrowPool.borrowBalanceCurrent(ratioVars.owner);
         if (borrowed == 0) {
-            return (10000, 10000, vars.marginLimit);
+            return (multiplier, multiplier, multiplier);
         }
-        (uint price, uint avgPrice, uint8 decimals,) = addressConfig.dexAggregator.getPriceAndAvgPrice(address(vars.buyToken), address(vars.sellToken), twapDuration, dexData);
+        (uint price, uint cAvgPrice, uint hAvgPrice, uint8 decimals,) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, twapDuration, ratioVars.dexData);
         //marginRatio=(marketValue-borrowed)/borrowed
         uint marketValue = trade.held.mul(price).div(10 ** uint(decimals));
         uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
-        marketValue = trade.held.mul(avgPrice).div(10 ** uint(decimals));
-        uint avg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
-        return (current, avg, vars.marginLimit);
+        marketValue = trade.held.mul(cAvgPrice).div(10 ** uint(decimals));
+        uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        marketValue = trade.held.mul(hAvgPrice).div(10 ** uint(decimals));
+        uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        return (current, cAvg, hAvg);
     }
 
-    function updatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override {
+    function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external override {
         Types.Market memory market = markets[marketId];
-        require(!isOpen || shouldUpdatePriceInternal(marketId, market.token1, market.token0, isOpen, dexData), "Needn't update price");
-        updatePriceInternal(marketId, market.token0, market.token1, dexData, isOpen);
+        require(!rewards || shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData), "Needn't update price");
+        updatePriceInternal(marketId, market.token0, market.token1, dexData, rewards);
     }
 
-    function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override view returns (bool){
+    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external override view returns (bool){
         Types.Market memory market = markets[marketId];
-        return shouldUpdatePriceInternal(marketId, market.token1, market.token0, isOpen, dexData);
+        return shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData);
     }
 
     function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
         return markets[marketId].dexs;
     }
 
-    function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData, bool record) internal {
+    function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData, bool rewards) internal {
         bool updateResult = addressConfig.dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
-        if (record && updateResult) {
+        if (rewards && updateResult) {
             markets[marketId].priceUpdator = tx.origin;
+            (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId);
         }
     }
 
-    function shouldUpdatePriceInternal(uint16 marketId, address token0, address token1, bool isOpen, bytes memory dexData) internal view returns (bool){
-        // Shh - currently unused
-        isOpen;
-        (uint price, uint cAvgPrice, uint hAvgPrice,,) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, twapDuration, dexData);
+    function shouldUpdatePriceInternal(uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) internal view returns (bool){
+        if (!dexData.isUniV2Class()) {
+            return false;
+        }
+        (, uint cAvgPrice, uint hAvgPrice,,) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, twapDuration, dexData);
         //Not initialized yet
-        if (price == 0 || cAvgPrice == 0 || hAvgPrice == 0) {
+        if (cAvgPrice == 0 || hAvgPrice == 0) {
             return true;
         }
         //price difference
         uint one = 100;
-        uint cDifferencePriceRatio = cAvgPrice.mul(one).div(price);
-        uint hDifferencePriceRatio = hAvgPrice.mul(one).div(price);
-        Types.Market memory market = markets[marketId];
-        if (hDifferencePriceRatio >= (one.add(market.priceDiffientRatio1)) || hDifferencePriceRatio <= (one.sub(market.priceDiffientRatio1))) {
-            return true;
-        }
-        if (cDifferencePriceRatio >= (one.add(market.priceDiffientRatio2)) || cDifferencePriceRatio <= (one.sub(market.priceDiffientRatio2))) {
+        uint differencePriceRatio = cAvgPrice.mul(one).div(hAvgPrice);
+        if (differencePriceRatio >= (one.add(priceDiffientRatio)) || differencePriceRatio <= (one.sub(priceDiffientRatio))) {
             return true;
         }
         return false;
     }
 
-    function isPositionHealthy(address owner, uint16 marketId, bool longToken, bool isOpen, bytes memory dexData) internal view returns (bool)
+    function isPositionHealthy(address owner, uint16 marketId, bool longToken, bool isOpen, Types.MarketVars memory vars, bytes memory dexData) internal view returns (bool)
     {
-        (uint current, uint avg, uint32 limit) = marginRatioInternal(owner, marketId, longToken, isOpen, dexData);
+        (uint current, uint cAvg,uint hAvg) = marginRatioInternal(owner, marketId, longToken,
+            isOpen ? address(vars.buyToken) : address(vars.sellToken),
+            isOpen ? address(vars.sellToken) : address(vars.buyToken),
+            isOpen ? vars.sellPool : vars.buyPool,
+            isOpen, dexData);
         if (isOpen) {
-            return current >= limit && avg >= limit;
+            return current >= vars.marginLimit && cAvg >= vars.marginLimit && hAvg >= vars.marginLimit;
         } else {
-            return current >= limit || avg >= limit;
+            return current >= vars.marginLimit || cAvg >= vars.marginLimit || hAvg >= vars.marginLimit;
         }
     }
 
@@ -388,6 +398,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
         vars.marginLimit = market.marginLimit;
         vars.dexs = market.dexs;
+        vars.priceDiffientRatio = market.priceDiffientRatio;
         return vars;
     }
 
@@ -480,12 +491,13 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         emit NewAddressConfig(controller, address(dexAggregator));
     }
 
-    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint32[] memory dexs) external override onlyAdmin() {
+    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint16 priceDiffientRatio, uint32[] memory dexs) external override onlyAdmin() {
         Types.Market storage market = markets[marketId];
         market.feesRate = feesRate;
         market.marginLimit = marginLimit;
         market.dexs = dexs;
-        emit NewMarketConfig(marketId, feesRate, marginLimit, dexs);
+        market.priceDiffientRatio = priceDiffientRatio;
+        emit NewMarketConfig(marketId, feesRate, marginLimit, priceDiffientRatio, dexs);
     }
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
@@ -512,11 +524,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
 
     function verifyTrade(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {
-        //update price
-        if (borrow != 0) {
-            require(!shouldUpdatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), true, dexData), 'Update price firstly');
-        }
-
         //verify if deposit token allowed
         address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
         require(allowedDepositTokens[depositTokenAddr], "UnAllowed deposit token");
@@ -539,10 +546,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
     }
 
-    function verifyOpenAfter(uint16 marketId, bool longToken, address token0, address token1, bytes memory dexData) internal {
-        require(isPositionHealthy(msg.sender, marketId, longToken, true, dexData), "Position not healthy");
+    function verifyOpenAfter(uint16 marketId, bool longToken, Types.MarketVars memory vars, bytes memory dexData) internal {
+        require(isPositionHealthy(msg.sender, marketId, longToken, true, vars, dexData), "Position not healthy");
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData, false);
+            updatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), dexData, false);
         }
     }
 
@@ -559,11 +566,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
     }
 
-    function verifyLiquidateBefore(uint16 marketId, Types.Trade memory trade, Types.MarketVars memory vars, bytes memory dexData) internal view {
+    function verifyLiquidateBefore(Types.Trade memory trade, Types.MarketVars memory vars, bytes memory dexData) internal view {
         require(trade.held != 0, "Held is 0");
         require(trade.lastBlockNum != block.number, "Same block");
         require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
-        require(!shouldUpdatePriceInternal(marketId, address(vars.sellToken), address(vars.buyToken), false, dexData), 'Update price firstly');
     }
 
     function verifyLiquidateAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {

@@ -463,7 +463,7 @@ tickCumulatives[1] = 0;
 }
 else {
 tickCumulatives[0] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[2]));
-tickCumulatives[1] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[2]-1));
+tickCumulatives[1] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(secondsAgos[1]));
 }
 }
 }

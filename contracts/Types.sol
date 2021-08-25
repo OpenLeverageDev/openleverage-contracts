@@ -16,8 +16,7 @@ library Types {
         address token1;              // Lending Token 1
         uint16 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
         uint16 feesRate;            // feesRate 30=>0.3%
-        uint16 priceDiffientRatio1;
-        uint16 priceDiffientRatio2;
+        uint16 priceDiffientRatio;
         address priceUpdator;
         uint pool0Insurance;        // Insurance balance for token 0
         uint pool1Insurance;        // Insurance balance for token 1
@@ -39,6 +38,7 @@ library Types {
         uint buyPoolInsurance;      // Insurance balance of token to buy
         uint sellPoolInsurance;     // Insurance balance of token to sell
         uint16 marginLimit;         // Margin Ratio Limit for specific trading pair.
+        uint16 priceDiffientRatio;
         uint32[] dexs;
     }
 
@@ -83,4 +83,10 @@ library Types {
         uint32 dexDetail;
     }
 
+    struct MarginRatioVars {
+        address heldToken;
+        address sellToken;
+        address owner;
+        bytes dexData;
+    }
 }

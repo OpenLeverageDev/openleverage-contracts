@@ -77,19 +77,19 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
             owner, marketId, longToken, dexData));
     }
 
-    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override view returns (uint current, uint avg, uint32 limit){
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override view returns (uint current, uint cAvg, uint hAvg, uint32 limit){
         bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginRatio(address,uint16,bool,bytes)", owner, marketId, longToken, dexData));
-        return abi.decode(data, (uint, uint, uint32));
+        return abi.decode(data, (uint, uint, uint, uint32));
     }
 
-    function updatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override {
+    function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external override {
         delegateToImplementation(abi.encodeWithSignature("updatePrice(uint16,bool,bytes)",
-            marketId, isOpen, dexData));
+            marketId, rewards, dexData));
     }
 
 
-    function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override view returns (bool){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("shouldUpdatePrice(uint16,bool,bytes)", marketId, isOpen, dexData));
+    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external override view returns (bool){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("shouldUpdatePrice(uint16,bytes)", marketId, dexData));
         return abi.decode(data, (bool));
     }
 
@@ -114,8 +114,8 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         delegateToImplementation(abi.encodeWithSignature("setAddressConfig(address,address)", controller, address(dexAggregator)));
     }
 
-    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint32[] memory dexs) external override {
-        delegateToImplementation(abi.encodeWithSignature("setMarketConfig(uint16,uint16,uint16,uint32[])", marketId, feesRate, marginLimit, dexs));
+    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint16 priceDiffientRatio, uint32[] memory dexs) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketConfig(uint16,uint16,uint16,uint16,uint32[])", marketId, feesRate, marginLimit, priceDiffientRatio, dexs));
     }
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override {
