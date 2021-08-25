@@ -50,8 +50,7 @@ contract("OpenLev UniV3", async accounts => {
     token1 = await TestToken.at(await gotPair.token1());
     dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address);
 
-    xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
+    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address, {from: admin});
 
     let delegate = await OpenLevDelegate.new();
 

@@ -53,8 +53,7 @@ contract("OpenLev UniV2", async accounts => {
 
     dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000");
 
-    let xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 1, dev, {from: admin});
+    let xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address, {from: admin});
 
     delegatee = await OpenLevV1.new();
     openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, accounts[0], delegatee.address);
@@ -91,7 +90,8 @@ contract("OpenLev UniV2", async accounts => {
     m.log("toBorrow from Pool 1: \t", borrow);
     await advanceMultipleBlocksAndTime(2);
     await dexAgg.updatePriceOracle(weth.address, token1.address, Uni2DexData);
-    await openLev.marginTrade(pairId, false, false, 0, borrow, 0, Uni2DexData, {from: trader, value: deposit});
+    let tx_margintrade = await openLev.marginTrade(pairId, false, false, 0, borrow, 0, Uni2DexData, {from: trader, value: deposit});
+    m.log("Margin Trade Gas Used: ", tx_margintrade.receipt.gasUsed);
     let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
     m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");

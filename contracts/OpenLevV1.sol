@@ -23,8 +23,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     using SafeERC20 for IERC20;
     using DexData for bytes;
 
-    uint32 private constant twapDuration = 25;//25s
-
     constructor ()
     {
     }
@@ -55,7 +53,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         require(msg.sender == address(controller), "Not controller");
         require(marginLimit >= defaultMarginLimit, "Limit is lower");
         require(marginLimit < 100000, "Limit is higher");
-        // todo fix the temporary approve
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         // Approve the max number for pools
@@ -451,7 +448,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function setDefaultFeesRate(uint16 newRate) external override onlyAdmin() {
         uint16 oldFeesRate = defaultFeesRate;
         defaultFeesRate = newRate;
-        emit NewDefalutFeesRate(oldFeesRate, defaultFeesRate);
+        emit NewDefaultFeesRate(oldFeesRate, defaultFeesRate);
     }
 
     function setMarketFeesRate(uint16 marketId, uint16 newRate) external override onlyAdmin() {
