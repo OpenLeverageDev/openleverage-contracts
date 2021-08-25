@@ -67,232 +67,232 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
   await token1.mint(gotPair.address, toWei(100000));
   return gotPair;
 }
-exports.createDexAgg = async (_uniV2Factory, _uniV3Factory,admin) => {
+exports.createDexAgg = async (_uniV2Factory, _uniV3Factory, admin) => {
   let delegate = await DexAggregator.new();
   let dexAgg = await DexAggregatorDelegator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr, admin, delegate.address);
   return await DexAggregator.at(dexAgg.address);
 }
 exports.createToken = async (tokenSymbol) => {
-    return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+  return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
 }
 exports.createWETH = async () => {
-    return await WETH.new();
+  return await WETH.new();
 }
 exports.createPriceOracle = async () => {
-    return await MockPriceOracle.new();
+  return await MockPriceOracle.new();
 }
 exports.createUniswapV2Pool = async (factory, tokenA, tokenB) => {
-    let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address, toWei(100000), toWei(100000));
-    await factory.addPair(pair.address);
-    return pair;
+  let pair = await MockUniswapV2Pair.new(tokenA.address, tokenB.address, toWei(100000), toWei(100000));
+  await factory.addPair(pair.address);
+  return pair;
 }
 exports.tokenAt = async (address) => {
-    return await TestToken.at(address);
+  return await TestToken.at(address);
 }
 exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) => {
-    let delegate = await OpenLevDelegate.new();
-    return await OpenLevDelegator.new(
-        controller,
-        dexAgg ? dexAgg : zeroAddr,
-        depositTokens ? depositTokens : [],
-        zeroAddr,
-        xOLE,
-        admin,
-        delegate.address);
+  let delegate = await OpenLevDelegate.new();
+  return await OpenLevDelegator.new(
+    controller,
+    dexAgg ? dexAgg : zeroAddr,
+    depositTokens ? depositTokens : [],
+    zeroAddr,
+    xOLE,
+    admin,
+    delegate.address);
 }
 
 exports.createXOLE = async (ole, admin, dev, dexAgg) => {
-    let delegatee = await xOLE.new();
-    let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: admin});
-    return xOLE.at(xOLEInstance.address);
+  let delegatee = await xOLE.new();
+  let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: admin});
+  return xOLE.at(xOLEInstance.address);
 }
 
 exports.createTimelock = async (admin) => {
-    let timeLock = await Timelock.new(admin, 180 + '');
-    return timeLock;
+  let timeLock = await Timelock.new(admin, 180 + '');
+  return timeLock;
 }
 
 exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
-    let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
-    let erc20Delegate = await LPool.new();
-    let pool = await LPoolDelegator.new();
-    await pool.initialize(testToken.address, wethToken ? true : false,
-        controller.address,
-        toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
-        1e18 + '',
-        'TestPool',
-        'TestPool',
-        18,
-        admin,
-        erc20Delegate.address);
-    return {
-        'token': testToken,
-        'controller': controller,
-        'pool': await LPool.at(pool.address)
-    };
+  let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+  let erc20Delegate = await LPool.new();
+  let pool = await LPoolDelegator.new();
+  await pool.initialize(testToken.address, wethToken ? true : false,
+    controller.address,
+    toBN(5e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '',
+    1e18 + '',
+    'TestPool',
+    'TestPool',
+    18,
+    admin,
+    erc20Delegate.address);
+  return {
+    'token': testToken,
+    'controller': controller,
+    'pool': await LPool.at(pool.address)
+  };
 }
 
 exports.mint = async (token, to, amount) => {
-    await token.mint(to, toBN(amount).mul(toBN(1e18)).toString());
+  await token.mint(to, toBN(amount).mul(toBN(1e18)).toString());
 }
 
 exports.createUniPair_kovan = async (token0, token1, account, amount) => {
-    let router = await UniswapV2Router.at(uniRouterV2Address_kovan);
-    await token0.approve(uniRouterV2Address_kovan, maxUint());
-    await token1.approve(uniRouterV2Address_kovan, maxUint());
-    await router.addLiquidity(token0.address, token1.address, amount, amount,
-        amount.div(toBN(10)), amount.div(toBN(10)), account, maxUint());
-    return router;
+  let router = await UniswapV2Router.at(uniRouterV2Address_kovan);
+  await token0.approve(uniRouterV2Address_kovan, maxUint());
+  await token1.approve(uniRouterV2Address_kovan, maxUint());
+  await router.addLiquidity(token0.address, token1.address, amount, amount,
+    amount.div(toBN(10)), amount.div(toBN(10)), account, maxUint());
+  return router;
 }
 
 let toWei = exports.toWei = (amount) => {
-    return toBN(1e18).mul(toBN(amount));
+  return toBN(1e18).mul(toBN(amount));
 }
 exports.toETH = (amount) => {
-    return toBN(amount).div(toBN(1e18));
+  return toBN(amount).div(toBN(1e18));
 }
 
 exports.last8 = function (aString) {
-    if (aString != undefined && typeof aString == "string") {
-        return ".." + aString.substr(aString.length - 8);
-    } else {
-        return aString;
-    }
+  if (aString != undefined && typeof aString == "string") {
+    return ".." + aString.substr(aString.length - 8);
+  } else {
+    return aString;
+  }
 }
 exports.addressToBytes = function (address) {
-    return address.substr(2);
+  return address.substr(2);
 }
 exports.printBlockNum = async () => {
-    m.log("Block number:", await web3.eth.getBlockNumber());
+  m.log("Block number:", await web3.eth.getBlockNumber());
 }
 
 exports.checkAmount = (desc, expected, amountBN, decimal) => {
-    let actual = amountBN.div(toBN(10 ** decimal));
-    m.log(desc, ":", expected / 10 ** decimal);
-    assert.equal(expected, amountBN.toString());
+  let actual = amountBN.div(toBN(10 ** decimal));
+  m.log(desc, ":", expected / 10 ** decimal);
+  assert.equal(expected, amountBN.toString());
 }
 
 exports.assertPrint = (desc, expected, value) => {
-    m.log(desc, ":", value);
-    assert.equal(expected.toString(), value.toString());
+  m.log(desc, ":", value);
+  assert.equal(expected.toString(), value.toString());
 }
 
 exports.approxAssertPrint = (desc, expected, value) => {
-    m.log(desc, "approx equals to:", value);
-    let expectedNum = Number(expected);
-    let valueNum = Number(value);
-    let diff = expectedNum > valueNum ? expectedNum - valueNum : valueNum - expectedNum;
-    // m.log("expectedNum", expectedNum);
-    // m.log("valueNum", valueNum);
-    // m.log("diff", diff);
-    // m.log("diff/expectedNum", diff/expectedNum);
-    assert((diff / expectedNum) < 0.00001, "Diff is too big. expectedNum=" + expectedNum + " valueNum=" + valueNum + " " +
-        "diff=" + diff + " diff/expectedNum=" + diff/expectedNum);
+  m.log(desc, "approx equals to:", value);
+  let expectedNum = Number(expected);
+  let valueNum = Number(value);
+  let diff = expectedNum > valueNum ? expectedNum - valueNum : valueNum - expectedNum;
+  // m.log("expectedNum", expectedNum);
+  // m.log("valueNum", valueNum);
+  // m.log("diff", diff);
+  // m.log("diff/expectedNum", diff/expectedNum);
+  assert((diff / expectedNum) < 0.00001, "Diff is too big. expectedNum=" + expectedNum + " valueNum=" + valueNum + " " +
+    "diff=" + diff + " diff/expectedNum=" + diff / expectedNum);
 }
 
 let currentStep;
 
 exports.resetStep = () => {
-    currentStep = 0;
+  currentStep = 0;
 }
 exports.step = (desc) => {
-    currentStep++;
-    m.log("STEP " + currentStep + " - " + desc);
+  currentStep++;
+  m.log("STEP " + currentStep + " - " + desc);
 }
 
 function trunc(number, precision) {
-    var shift = Math.pow(10, precision)
-    return parseInt(number * shift) / shift
+  var shift = Math.pow(10, precision)
+  return parseInt(number * shift) / shift
 }
 
 exports.trunc = trunc;
 
 exports.prettyPrintBalance = function prettyPrintEther(ether) {
-    var str;
-    if (ether >= 1)
-        str = trunc(ether, 3) + "  ether";
-    else if (ether > 1e-5)
-        str = trunc(ether * 1000, 3) + " finney";
-    else if (ether > 1e-7)
-        str = trunc(ether * 1000, 6) + " finney";
-    else if (ether > 1e-12)
-        str = trunc(ether * 1e12, 3) + "   gwei";
-    else
-        str = parseInt(web3.toWei(ether)) + "    wei";
-    return str;
+  var str;
+  if (ether >= 1)
+    str = trunc(ether, 3) + "  ether";
+  else if (ether > 1e-5)
+    str = trunc(ether * 1000, 3) + " finney";
+  else if (ether > 1e-7)
+    str = trunc(ether * 1000, 6) + " finney";
+  else if (ether > 1e-12)
+    str = trunc(ether * 1e12, 3) + "   gwei";
+  else
+    str = parseInt(web3.toWei(ether)) + "    wei";
+  return str;
 }
 
 exports.now = function () {
-    return parseInt(new Date().getTime().toString().substr(0, 10));
+  return parseInt(new Date().getTime().toString().substr(0, 10));
 }
 exports.lastBlockTime = async () => {
-    let blockNum = await web3.eth.getBlockNumber();
-    return (await web3.eth.getBlock(blockNum)).timestamp;
+  let blockNum = await web3.eth.getBlockNumber();
+  return (await web3.eth.getBlock(blockNum)).timestamp;
 }
 exports.wait = async (second) => {
-    m.log("Wait for", second, "seconds");
-    await new Promise((resolve => {
-        setTimeout(resolve, second * 1000);
-    }))
+  m.log("Wait for", second, "seconds");
+  await new Promise((resolve => {
+    setTimeout(resolve, second * 1000);
+  }))
 }
 exports.createVoteBySigMessage = (govAddress, proposalId, support, chainId) => {
-    const types = {
-        EIP712Domain: [
-            {name: 'name', type: 'string'},
-            {name: 'chainId', type: 'uint256'},
-            {name: 'verifyingContract', type: 'address'},
-        ],
-        Ballot: [
-            {name: 'proposalId', type: 'uint256'},
-            {name: 'support', type: 'bool'}
-        ]
-    };
+  const types = {
+    EIP712Domain: [
+      {name: 'name', type: 'string'},
+      {name: 'chainId', type: 'uint256'},
+      {name: 'verifyingContract', type: 'address'},
+    ],
+    Ballot: [
+      {name: 'proposalId', type: 'uint256'},
+      {name: 'support', type: 'bool'}
+    ]
+  };
 
-    const primaryType = 'Ballot';
-    const domain = {name: 'OpenLev Governor Alpha', chainId, verifyingContract: govAddress};
-    support = !!support;
-    const message = {proposalId, support};
+  const primaryType = 'Ballot';
+  const domain = {name: 'OpenLev Governor Alpha', chainId, verifyingContract: govAddress};
+  support = !!support;
+  const message = {proposalId, support};
 
-    return JSON.stringify({types, primaryType, domain, message});
+  return JSON.stringify({types, primaryType, domain, message});
 };
 
 exports.initEnv = async (admin, dev) => {
-    let tokenA = await this.createToken("tokenA");
-    let tokenB = await this.createToken("tokenB");
-    let oleToken = await this.createToken("Lvr");
-    let usdt = await this.createToken("USDT");
-    let controller = await this.createController(admin, oleToken.address);
-    let uniswapFactory = await this.createUniswapV2Factory();
-    let pair = await this.createPair(tokenA.address, tokenB.address);
-    await uniswapFactory.addPair(pair.address);
-    let priceOracle = await this.createPriceOracle();
-    let openLev = await OpenLevDelegator.new(controller.address, uniswapFactory.address, priceOracle.address, admin);
+  let tokenA = await this.createToken("tokenA");
+  let tokenB = await this.createToken("tokenB");
+  let oleToken = await this.createToken("Lvr");
+  let usdt = await this.createToken("USDT");
+  let controller = await this.createController(admin, oleToken.address);
+  let uniswapFactory = await this.createUniswapV2Factory();
+  let pair = await this.createPair(tokenA.address, tokenB.address);
+  await uniswapFactory.addPair(pair.address);
+  let priceOracle = await this.createPriceOracle();
+  let openLev = await OpenLevDelegator.new(controller.address, uniswapFactory.address, priceOracle.address, admin);
 
-    await controller.setOpenLev(openLev.address);
-    await controller.setLPoolImplementation((await this.createLPoolImpl()).address);
-    await controller.setInterestParam(5e16 + '', 10e16 + '', 20e16 + '', 50e16 + '');
-    return {
-        controller: controller,
-        tokenA: tokenA,
-        tokenB: tokenB,
-        oleToken: oleToken,
-        priceOracle: priceOracle,
-        openLev: openLev,
-        uniswapFactory: uniswapFactory,
-    };
+  await controller.setOpenLev(openLev.address);
+  await controller.setLPoolImplementation((await this.createLPoolImpl()).address);
+  await controller.setInterestParam(5e16 + '', 10e16 + '', 20e16 + '', 50e16 + '');
+  return {
+    controller: controller,
+    tokenA: tokenA,
+    tokenB: tokenB,
+    oleToken: oleToken,
+    priceOracle: priceOracle,
+    openLev: openLev,
+    uniswapFactory: uniswapFactory,
+  };
 }
 
 
 exports.assertThrows = async (promise, reason) => {
-    try {
-        await promise;
-    } catch (error) {
-        assert(
-            error.message.search(reason) >= 0,
-            'Expected throw, got \'' + error + '\' instead',
-        );
-        m.log("Received expected error: ", error.message);
-        return;
-    }
-    assert.fail('Expected throw not received');
+  try {
+    await promise;
+  } catch (error) {
+    assert(
+      error.message.search(reason) >= 0,
+      'Expected throw, got \'' + error + '\' instead',
+    );
+    m.log("Received expected error: ", error.message);
+    return;
+  }
+  assert.fail('Expected throw not received');
 }

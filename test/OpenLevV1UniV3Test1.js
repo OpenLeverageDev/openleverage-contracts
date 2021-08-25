@@ -8,7 +8,6 @@ const {
   assertPrint,
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocks, toBN} = require("./utils/EtheUtil");
-const xOLE = artifacts.require("XOLE");
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 
@@ -52,8 +51,8 @@ contract("OpenLev UniV3", async accounts => {
     token1 = await TestToken.at(await gotPair.token1());
     dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
 
-    xole = await xOLE.new(admin);
-    await xole.initialize(ole.address, dexAgg.address, 5000, dev, {from: admin});
+    xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
+
 
     let delegatee = await OpenLevV1.new();
     openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegatee.address);
