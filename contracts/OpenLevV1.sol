@@ -74,7 +74,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint16 marketId = numPairs;
         uint32[] memory dexs = new uint32[](16);
         dexs[0] = dexData.toDexDetail();
-        markets[marketId] = Types.Market(pool0, pool1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, config.priceDiffientRatio, address(0), 0, 0, dexs);
+        markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, config.priceDiffientRatio, address(0), 0, 0, dexs);
         numPairs ++;
         // Init price oracle
         if (dexData.isUniV2Class()) {
@@ -274,45 +274,33 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     }
 
     function marginRatioInternal(address owner, uint16 marketId, bool longToken, bool isOpen, bytes memory dexData)
-    internal view returns (uint current, uint avg, uint32 limit)
+    internal view returns (uint, uint, uint32)
     {
-        // Shh - currently unused
-        isOpen;
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
-        uint256 multiplier = 10000;
         Types.MarketVars memory vars = toMarketVar(marketId, longToken, true);
-        limit = vars.marginLimit;
-        current = uint(- 1);
-        avg = uint(- 1);
-        uint borrowed = vars.sellPool.borrowBalanceCurrent(owner);
-        if (borrowed != 0) {
-            (uint price, uint avgPrice, uint8 decimals,) = addressConfig.dexAggregator.getPriceAndAvgPrice(address(vars.buyToken), address(vars.sellToken), twapDuration, dexData);
-            //marginRatio=(marketValue-borrowed)/borrowed
-            uint marketValueCurrent = trade.held.mul(price).div(10 ** uint(decimals));
-            if (marketValueCurrent >= borrowed) {
-                current = marketValueCurrent.sub(borrowed).mul(multiplier).div(borrowed);
-            } else {
-                current = 0;
-            }
-            uint marketValueAvg = trade.held.mul(avgPrice).div(10 ** uint(decimals));
-            if (marketValueAvg >= borrowed) {
-                avg = marketValueAvg.sub(borrowed).mul(multiplier).div(borrowed);
-            } else {
-                avg = 0;
-            }
+        uint16 multiplier = 10000;
+        uint borrowed = isOpen ? vars.sellPool.borrowBalanceStored(owner) : vars.sellPool.borrowBalanceCurrent(owner);
+        if (borrowed == 0) {
+            return (10000, 10000, vars.marginLimit);
         }
-
+        (uint price, uint avgPrice, uint8 decimals,) = addressConfig.dexAggregator.getPriceAndAvgPrice(address(vars.buyToken), address(vars.sellToken), twapDuration, dexData);
+        //marginRatio=(marketValue-borrowed)/borrowed
+        uint marketValue = trade.held.mul(price).div(10 ** uint(decimals));
+        uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        marketValue = trade.held.mul(avgPrice).div(10 ** uint(decimals));
+        uint avg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        return (current, avg, vars.marginLimit);
     }
 
-    function updatePrice(uint16 marketId, bytes memory dexData) external override {
+    function updatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override {
         Types.Market memory market = markets[marketId];
-        require(shouldUpdatePriceInternal(marketId, market.pool1.underlying(), market.pool0.underlying(), true, dexData), "Needn't update price");
-        updatePriceInternal(marketId, market.pool0.underlying(), market.pool1.underlying(), dexData, true);
+        require(!isOpen || shouldUpdatePriceInternal(marketId, market.token1, market.token0, isOpen, dexData), "Needn't update price");
+        updatePriceInternal(marketId, market.token0, market.token1, dexData, isOpen);
     }
 
     function shouldUpdatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override view returns (bool){
         Types.Market memory market = markets[marketId];
-        return shouldUpdatePriceInternal(marketId, market.pool1.underlying(), market.pool0.underlying(), isOpen, dexData);
+        return shouldUpdatePriceInternal(marketId, market.token1, market.token0, isOpen, dexData);
     }
 
     function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
@@ -383,19 +371,22 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function toMarketVar(uint16 marketId, bool longToken, bool open) internal view returns (Types.MarketVars memory) {
         Types.MarketVars memory vars;
         Types.Market memory market = markets[marketId];
+        if (open == longToken) {
+            vars.buyPool = market.pool1;
+            vars.buyToken = IERC20(market.token1);
+            vars.buyPoolInsurance = market.pool1Insurance;
+            vars.sellPool = market.pool0;
+            vars.sellToken = IERC20(market.token0);
+            vars.sellPoolInsurance = market.pool0Insurance;
 
-        if (open) {
-            vars.buyPool = longToken ? market.pool1 : market.pool0;
-            vars.sellPool = longToken ? market.pool0 : market.pool1;
         } else {
-            vars.buyPool = longToken ? market.pool0 : market.pool1;
-            vars.sellPool = longToken ? market.pool1 : market.pool0;
+            vars.buyPool = market.pool0;
+            vars.buyToken = IERC20(market.token0);
+            vars.buyPoolInsurance = market.pool0Insurance;
+            vars.sellPool = market.pool1;
+            vars.sellToken = IERC20(market.token1);
+            vars.sellPoolInsurance = market.pool1Insurance;
         }
-        vars.buyPoolInsurance = longToken ? market.pool0Insurance : market.pool1Insurance;
-        vars.sellPoolInsurance = longToken ? market.pool1Insurance : market.pool0Insurance;
-
-        vars.buyToken = IERC20(vars.buyPool.underlying());
-        vars.sellToken = IERC20(vars.sellPool.underlying());
         vars.marginLimit = market.marginLimit;
         vars.dexs = market.dexs;
         return vars;
@@ -418,7 +409,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint newInsurance = newFees.mul(config.insuranceRatio).div(100);
 
         IERC20(token).transfer(addressConfig.xOLE, newFees.sub(newInsurance));
-        if (token == market.pool1.underlying()) {
+        if (token == market.token1) {
             market.pool1Insurance = market.pool1Insurance.add(newInsurance);
         } else {
             market.pool0Insurance = market.pool0Insurance.add(newInsurance);
@@ -502,11 +493,11 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         Types.Market storage market = markets[marketId];
         if (poolIndex == 0) {
             market.pool0Insurance = market.pool0Insurance.sub(amount);
-            (IERC20(market.pool0.underlying())).safeTransfer(to, amount);
+            (IERC20(market.token0)).safeTransfer(to, amount);
             return;
         }
         market.pool1Insurance = market.pool1Insurance.sub(amount);
-        (IERC20(market.pool1.underlying())).safeTransfer(to, amount);
+        (IERC20(market.token1)).safeTransfer(to, amount);
     }
 
     function setAllowedDepositTokens(address[] memory tokens, bool allowed) external override onlyAdmin() {

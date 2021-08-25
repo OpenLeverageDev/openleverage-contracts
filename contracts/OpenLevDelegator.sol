@@ -82,9 +82,9 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
         return abi.decode(data, (uint, uint, uint32));
     }
 
-    function updatePrice(uint16 marketId, bytes memory dexData) external override {
-        delegateToImplementation(abi.encodeWithSignature("updatePrice(uint16,bytes)",
-            marketId, dexData));
+    function updatePrice(uint16 marketId, bool isOpen, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("updatePrice(uint16,bool,bytes)",
+            marketId, isOpen, dexData));
     }
 
 

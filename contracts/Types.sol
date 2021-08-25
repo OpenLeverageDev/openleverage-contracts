@@ -12,6 +12,8 @@ library Types {
     struct Market {// Market info
         LPoolInterface pool0;       // Lending Pool 0
         LPoolInterface pool1;       // Lending Pool 1
+        address token0;              // Lending Token 0
+        address token1;              // Lending Token 1
         uint16 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
         uint16 feesRate;            // feesRate 30=>0.3%
         uint16 priceDiffientRatio1;
