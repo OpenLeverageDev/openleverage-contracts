@@ -197,7 +197,7 @@ contract OLEToken is Adminable {
      * @return The number of votes the account had as of the given block
      */
     function getPriorVotes(address account, uint blockNumber) public view returns (uint) {
-        require(blockNumber < block.number, "getPriorVotes: not yet determined");
+        require(blockNumber < block.number, "getPriorVotes:not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
         if (nCheckpoints == 0) {
@@ -242,8 +242,8 @@ contract OLEToken is Adminable {
     }
 
     function _transferTokens(address src, address dst, uint amount) internal {
-        require(src != address(0), "_transferTokens: cannot transfer from the zero address");
-        require(dst != address(0), "_transferTokens: cannot transfer to the zero address");
+        require(src != address(0), "Zero src address");
+        require(dst != address(0), "Zero dst address");
 
         balances[src] = balances[src].sub(amount);
         balances[dst] = balances[dst].add(amount);
@@ -271,7 +271,7 @@ contract OLEToken is Adminable {
     }
 
     function _writeCheckpoint(address delegatee, uint32 nCheckpoints, uint oldVotes, uint newVotes) internal {
-        uint32 blockNumber = safe32(block.number, "_writeCheckpoint: block number exceeds 32 bits");
+        uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
 
         if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
             checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
