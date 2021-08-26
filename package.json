@@ -6,7 +6,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "docker run -d -p 8545:8545 --name testrpc wbuchwalter/testrpc  && truffle test",
+    "test": "truffle test",
     "merge-contracts": "sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/*.sol\" ./build && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/dex/*.sol\" ./build/dex && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/farming/*.sol\" ./build/farming && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/gov/*.sol\" ./build/gov && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/liquidity/*.sol\" ./build/liquidity && sol-merger --export-plugin SPDXLicenseRemovePlugin \"./contracts/test/*.sol\" ./build/test",
     "posttest": "docker stop testrpc"
   },
@@ -23,7 +23,6 @@
   },
   "bundleDependencies": false,
   "devDependencies": {
-    "truffle": "v5.4.6",
     "@truffle/hdwallet-provider": "^1.2.1",
     "eth-gas-reporter": "^0.2.20",
     "mocha-logger": "^1.0.7",
