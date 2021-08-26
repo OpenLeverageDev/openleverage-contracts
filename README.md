@@ -1,3 +1,5 @@
+[![Node.js CI](https://github.com/OpenLeverageDev/openleverage-contracts/actions/workflows/node.js.yml/badge.svg?branch=main)](https://github.com/OpenLeverageDev/openleverage-contracts/actions/workflows/node.js.yml)
+
 OpenLeverage Protocol
 =================
 
