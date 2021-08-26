@@ -1,40 +1,41 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
+
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./OpenLevInterface.sol";
 import "./Types.sol";
-import "./dex/PriceOracleInterface.sol";
 import "./Adminable.sol";
 import "./DelegatorInterface.sol";
-import "./dex/IUniswapV2Callee.sol";
+import "./dex/UniV2Dex.sol";
 
 
 /**
   * @title OpenLevDelegator
   * @author OpenLeverage
   */
-contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorage, Adminable, IUniswapV2Callee {
+contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorage, Adminable {
 
     constructor(
         ControllerInterface _controller,
-        IUniswapV2Factory _uniswapFactory,
-        address _treasury,
-        PriceOracleInterface _priceOracle,
-        ReferralInterface referral,
+        DexAggregatorInterface _dexAggregator,
+        address[] memory _depositTokens,
+        address _wETH,
+        address _xOLE,
         address payable _admin,
         address implementation_){
         admin = msg.sender;
         // Creator of the contract is admin during initialization
         // First delegate gets to initialize the delegator (i.e. storage contract)
-        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address,address,address)",
+        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address[],address,address)",
             _controller,
-            _treasury,
-            _priceOracle,
-            _uniswapFactory,
-            referral));
+            _dexAggregator,
+            _depositTokens,
+            _wETH,
+            _xOLE
+            ));
         implementation = implementation_;
 
         // Set the proper admin now that initialization is done
@@ -54,147 +55,76 @@ contract OpenLevDelegator is DelegatorInterface, OpenLevInterface, OpenLevStorag
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
-        uint32 marginRatio
+        uint16 marginLimit,
+        bytes memory dexData
     ) external override returns (uint16){
-        bytes memory data = delegateToImplementation(abi.encodeWithSignature("addMarket(address,address,uint32)", pool0, pool1, marginRatio));
+        bytes memory data = delegateToImplementation(abi.encodeWithSignature("addMarket(address,address,uint16,bytes)", pool0, pool1, marginLimit, dexData));
         return abi.decode(data, (uint16));
     }
 
-    function marginTrade(
-        uint16 marketId,
-        bool longToken,
-        bool depositToken,
-        uint deposit,
-        uint borrow,
-        uint minBuyAmount,
-        address referrer
-    ) external override {
-        delegateToImplementation(abi.encodeWithSignature("marginTrade(uint16,bool,bool,uint256,uint256,uint256,address)",
-            marketId, longToken, depositToken, deposit, borrow, minBuyAmount, referrer));
+    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable override {
+        delegateToImplementation(abi.encodeWithSignature("marginTrade(uint16,bool,bool,uint256,uint256,uint256,bytes)",
+            marketId, longToken, depositToken, deposit, borrow, minBuyAmount, dexData));
     }
 
-    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("closeTrade(uint16,bool,uint256,uint256)",
-            marketId, longToken, closeAmount, minBuyAmount));
+    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("closeTrade(uint16,bool,uint256,uint256,bytes)",
+            marketId, longToken, closeAmount, minBuyAmount, dexData));
+    }
+
+    function liquidate(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("liquidate(address,uint16,bool,bytes)",
+            owner, marketId, longToken, dexData));
+    }
+
+    function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override view returns (uint current, uint cAvg, uint hAvg, uint32 limit){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginRatio(address,uint16,bool,bytes)", owner, marketId, longToken, dexData));
+        return abi.decode(data, (uint, uint, uint, uint32));
+    }
+
+    function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external override {
+        delegateToImplementation(abi.encodeWithSignature("updatePrice(uint16,bool,bytes)",
+            marketId, rewards, dexData));
     }
 
 
-    function marginRatio(address owner, uint16 marketId, bool longToken) external override view returns (uint current, uint32 marketLimit){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginRatio(address,uint16,bool)", owner, marketId, longToken));
-        return abi.decode(data, (uint, uint32));
+    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external override view returns (bool){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("shouldUpdatePrice(uint16,bytes)", marketId, dexData));
+        return abi.decode(data, (bool));
     }
 
-    function liqMarker(address owner, uint16 marketId, bool longToken) external override {
-        delegateToImplementation(abi.encodeWithSignature("liqMarker(address,uint16,bool)",
-            owner, marketId, longToken));
+    function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
+        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("getMarketSupportDexs(uint16)", marketId));
+        return abi.decode(data, (uint32[]));
     }
-
-    function liqMarkerReset(address owner, uint16 marketId, bool longToken) external override {
-        delegateToImplementation(abi.encodeWithSignature("liqMarkerReset(address,uint16,bool)",
-            owner, marketId, longToken));
-    }
-
-    function liquidate(address owner, uint16 marketId, bool longToken) external override {
-        delegateToImplementation(abi.encodeWithSignature("liquidate(address,uint16,bool)",
-            owner, marketId, longToken));
-    }
-
-    /*** uniswap Functions ***/
-
-    function uniswapV2Call(address sender, uint amount0, uint amount1, bytes calldata data) external override {
-        delegateToImplementation(abi.encodeWithSignature("uniswapV2Call(address,uint256,uint256,bytes)",
-            sender, amount0, amount1, data));
-    }
-
-    //
-    //    function hswapV2Call(address sender, uint amount0, uint amount1, bytes calldata data) external override {
-    //        delegateToImplementation(abi.encodeWithSignature("hswapV2Call(address,uint256,uint256,bytes)",
-    //            sender, amount0, amount1, data));
-    //    }
-    //
-    //    function pancakeCall(address sender, uint amount0, uint amount1, bytes calldata data) external override {
-    //        delegateToImplementation(abi.encodeWithSignature("pancakeCall(address,uint256,uint256,bytes)",
-    //            sender, amount0, amount1, data));
-    //    }
-
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount) external override view returns (uint){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("calBuyAmount(address,address,uint256)", buyToken, sellToken, sellAmount));
-        return abi.decode(data, (uint));
-    }
-
     /*** Admin Functions ***/
 
-    function setDefaultMarginRatio(uint32 newRatio) external override {
-        delegateToImplementation(abi.encodeWithSignature("setDefaultMarginRatio(uint32)", newRatio));
+    function setCalculateConfig(uint16 defaultFeesRate,
+        uint8 insuranceRatio,
+        uint16 defaultMarginLimit,
+        uint16 priceDiffientRatio,
+        uint16 updatePriceDiscount,
+        uint16 feesDiscount,
+        uint128 feesDiscountThreshold) external override {
+        delegateToImplementation(abi.encodeWithSignature("setCalculateConfig(uint16,uint8,uint16,uint16,uint16,uint16,uint128)", defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount, feesDiscount, feesDiscountThreshold));
     }
 
-    function setMarketMarginLimit(uint16 marketId, uint32 newRatio) external override {
-        delegateToImplementation(abi.encodeWithSignature("setMarketMarginLimit(uint16,uint32)", marketId, newRatio));
+    function setAddressConfig(address controller,
+        DexAggregatorInterface dexAggregator) external override {
+        delegateToImplementation(abi.encodeWithSignature("setAddressConfig(address,address)", controller, address(dexAggregator)));
     }
 
-    function setFeesRate(uint newRate) external override {
-        delegateToImplementation(abi.encodeWithSignature("setFeesRate(uint256)", newRate));
-    }
-
-    function setInsuranceRatio(uint8 newRatio) external override {
-        delegateToImplementation(abi.encodeWithSignature("setInsuranceRatio(uint8)", newRatio));
-    }
-
-    function setController(address newController) external override {
-        delegateToImplementation(abi.encodeWithSignature("setController(address)", newController));
-    }
-
-    function setPriceOracle(PriceOracleInterface newPriceOracle) external override {
-        delegateToImplementation(abi.encodeWithSignature("setPriceOracle(address)", newPriceOracle));
-    }
-
-    function setUniswapFactory(IUniswapV2Factory _uniswapFactory) external override {
-        delegateToImplementation(abi.encodeWithSignature("setUniswapFactory(address)", _uniswapFactory));
-    }
-    function setReferral(ReferralInterface  _referral) external override {
-        delegateToImplementation(abi.encodeWithSignature("setReferral(address)", _referral));
+    function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint16 priceDiffientRatio, uint32[] memory dexs) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketConfig(uint16,uint16,uint16,uint16,uint32[])", marketId, feesRate, marginLimit, priceDiffientRatio, dexs));
     }
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override {
         delegateToImplementation(abi.encodeWithSignature("moveInsurance(uint16,uint8,address,uint256)", marketId, poolIndex, to, amount));
     }
 
-    function delegateTo(address callee, bytes memory data) internal returns (bytes memory) {
-        (bool success, bytes memory returnData) = callee.delegatecall(data);
-        assembly {
-            if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
-        }
-        return returnData;
+    function setAllowedDepositTokens(address[] memory tokens, bool allowed) external override {
+        delegateToImplementation(abi.encodeWithSignature("setAllowedDepositTokens(address[],bool)", tokens, allowed));
     }
 
-    function delegateToImplementation(bytes memory data) public returns (bytes memory) {
-        return delegateTo(implementation, data);
-    }
 
-    function delegateToViewImplementation(bytes memory data) public view returns (bytes memory) {
-        (bool success, bytes memory returnData) = address(this).staticcall(abi.encodeWithSignature("delegateToImplementation(bytes)", data));
-        assembly {
-            if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
-        }
-        return abi.decode(returnData, (bytes));
-    }
-
-    /**
-     * Delegates execution to an implementation contract
-     * @dev It returns to the external caller whatever the implementation returns or forwards reverts
-     */
-    receive() external payable {
-        require(msg.value == 0, "cannot send value to fallback");
-        // delegate all other functions to current implementation
-        (bool success,) = implementation.delegatecall(msg.data);
-
-        assembly {
-            let free_mem_ptr := mload(0x40)
-            returndatacopy(free_mem_ptr, 0, returndatasize())
-
-            switch success
-            case 0 {revert(free_mem_ptr, returndatasize())}
-            default {return (free_mem_ptr, returndatasize())}
-        }
-    }
 }

@@ -1,10 +1,6 @@
 const {toBN, maxUint} = require("../utils/EtheUtil");
 const utils = require("../utils/OpenLevUtil");
 const m = require('mocha-logger');
-
-
-const PriceOracle = artifacts.require("PriceOracleV2");
-const DexCaller = artifacts.require("MockDexCaller");
 const MockERC20 = artifacts.require("MockERC20");
 
 let networkId;

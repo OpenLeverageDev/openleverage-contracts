@@ -149,10 +149,21 @@ async function advanceMultipleBlocks(total) {
   }
 }
 
+async function advanceMultipleBlocksAndTime(total) {
+  let remain = total;
+  while (remain > 0) {
+    if (remain % 1000 == 0) m.log("Advancing", total - remain, "/", total, "blocks ...");
+    await timeMachine.advanceTimeAndBlock(15);
+    remain--;
+  }
+}
+
 async function advanceBlockAndSetTime(newTime) {
   await timeMachine.advanceBlockAndSetTime(newTime);
 }
-
+async function advanceTime(newTime) {
+  await timeMachine.advanceTime(newTime);
+}
 module.exports = {
   fromWei,
   address,
@@ -167,9 +178,10 @@ module.exports = {
   mergeInterface,
   unlockedAccounts,
   unlockedAccount,
-
+  advanceTime,
   advanceMultipleBlocks,
   advanceBlockAndSetTime,
+  advanceMultipleBlocksAndTime,
   advanceBlocks,
   blockNumber,
   freezeTime,

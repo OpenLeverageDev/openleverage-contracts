@@ -5,6 +5,7 @@ const {toBN, maxUint, advanceMultipleBlocks} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
 const LPool = artifacts.require('LPool');
+const LPoolDelegator = artifacts.require('LPoolDelegator');
 
 contract("LPoolDelegator", async accounts => {
 
@@ -14,7 +15,7 @@ contract("LPoolDelegator", async accounts => {
   before(async () => {
     // runs once before the first test in this block
   });
-  //
+
   it("Supply,borrow,repay,redeem test", async () => {
     let controller = await utils.createController(accounts[0]);
     let createPoolResult = await utils.createPool(accounts[0], controller, admin);
@@ -113,43 +114,108 @@ contract("LPoolDelegator", async accounts => {
       assert.equal(accountSnapshot[2], 1e18);
 
     }),
-
-    it("borrow out of range test", async () => {
+    it("repayBorrowEndByOpenLev test", async () => {
       let controller = await utils.createController(accounts[0]);
       let createPoolResult = await utils.createPool(accounts[0], controller, admin);
-      let testToken = createPoolResult.token;
       let erc20Pool = createPoolResult.pool;
+      let testToken = createPoolResult.token;
       await utils.mint(testToken, admin, 10000);
-      //deposit 10000
+      // deposit 10000
       await testToken.approve(erc20Pool.address, maxUint());
       await erc20Pool.mint(10000 * 1e10);
-      let maxBorrow = await erc20Pool.availableForBorrow();
-      m.log('maxBorrow', maxBorrow.toString());
-      //Maximum borrowing amount + 1
-      try {
-        await erc20Pool.borrowBehalf(accounts[0], maxBorrow.add(toBN('1')));
-        assert.fail("should thrown borrow out of range error");
-      } catch (error) {
-        assert.include(error.message, 'borrow out of range', 'throws exception with borrow out of range');
-      }
-    }),
+      //Borrow money 5000
+      await erc20Pool.borrowBehalf(accounts[2], 5000 * 1e10, {from: accounts[1]});
+      // advance 1000 blocks
+      await advanceMultipleBlocks(1000);
+      m.log("advance 1000 blocks...");
+      let exchangeRateStored1 = await erc20Pool.exchangeRateStored();
+      m.log("exchangeRateStored1", exchangeRateStored1);
+      assert.equal('1000000000000000000', exchangeRateStored1);
 
-    it("pool not allowed test", async () => {
+      await testToken.approve(erc20Pool.address, maxUint(), {from: accounts[1]});
+      await erc20Pool.repayBorrowEndByOpenLev(accounts[2], 1000 * 1e10, {from: accounts[1]});
+
+      let borrowsCurrent = await erc20Pool.borrowBalanceCurrent(accounts[1]);
+      assert.equal(0, borrowsCurrent);
+      let totalBorrowCurrent = await erc20Pool.totalBorrowsCurrent();
+      assert.equal(0, totalBorrowCurrent);
+      let exchangeRateStored2 = await erc20Pool.exchangeRateStored();
+      let getCash2 = await erc20Pool.getCash();
+      m.log("exchangeRateStored2", exchangeRateStored2);
+      m.log("getCash2", getCash2);
+      assert.equal('599995234018270000', exchangeRateStored2);
+      assert.equal('60000000000000', getCash2);
+      await erc20Pool.mint(1000 * 1e10);
+      //
+      await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+      //
+      let getCash3 = await erc20Pool.getCash();
+      let totalReserves = await erc20Pool.totalReserves();
+      //
+      assert.equal('476598174', getCash3);
+      assert.equal('476598173', totalReserves);
+      let exchangeRateStored3 = await erc20Pool.exchangeRateStored();
+      m.log("exchangeRateStored3", exchangeRateStored3);
+      assert.equal('1000000000000000000', exchangeRateStored3);
+    })
+  it("borrow out of range test", async () => {
+    let controller = await utils.createController(accounts[0]);
+    let createPoolResult = await utils.createPool(accounts[0], controller, admin);
+    let testToken = createPoolResult.token;
+    let erc20Pool = createPoolResult.pool;
+    await utils.mint(testToken, admin, 10000);
+    //deposit 10000
+    await testToken.approve(erc20Pool.address, maxUint());
+    await erc20Pool.mint(10000 * 1e10);
+    let maxBorrow = await erc20Pool.availableForBorrow();
+    m.log('maxBorrow', maxBorrow.toString());
+    //Maximum borrowing amount + 1
+    try {
+      await erc20Pool.borrowBehalf(accounts[0], maxBorrow.add(toBN('1')));
+      assert.fail("should thrown Borrow out of range error");
+    } catch (error) {
+      assert.include(error.message, 'Borrow out of range', 'throws exception with Borrow out of range');
+    }
+  }),
+
+    it("mint redeem eth test", async () => {
+      let weth = await utils.createWETH();
       let controller = await utils.createController(accounts[0]);
-      let createPoolResult = await utils.createPool(accounts[0], controller, admin);
-      let testToken = createPoolResult.token;
+      let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
       let erc20Pool = createPoolResult.pool;
-      await utils.mint(testToken, admin, 10000);
-      //deposit 10000
-      await testToken.approve(erc20Pool.address, maxUint());
-      controller.setLPoolUnAllowed(await erc20Pool.address, true);
-      try {
-        await erc20Pool.mint(10000 * 1e10);
-        assert.fail("should thrown mint paused error");
-      } catch (error) {
-        assert.include(error.message, 'mint paused', 'throws exception with  mint is paused');
-      }
-    }),
+      let mintAmount = toWei(1);
+      //deposit 1
+      let ethBegin = await web3.eth.getBalance(admin);
+      m.log("ethBegin=", ethBegin);
+      await erc20Pool.mintEth({value: mintAmount});
+      assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
+      assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
+      //redeem
+      let ethBefore = await web3.eth.getBalance(admin);
+      await erc20Pool.redeemUnderlying(mintAmount);
+      assert.equal(await erc20Pool.getCash(), 0);
+      assert.equal(await erc20Pool.totalSupply(), 0);
+      let ethAfter = await web3.eth.getBalance(admin);
+      m.log("ethBefore=", ethBefore);
+      m.log("ethAfter=", ethAfter);
+      assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
+    })
+  it("pool not allowed test", async () => {
+    let controller = await utils.createController(accounts[0]);
+    let createPoolResult = await utils.createPool(accounts[0], controller, admin);
+    let testToken = createPoolResult.token;
+    let erc20Pool = createPoolResult.pool;
+    await utils.mint(testToken, admin, 10000);
+    //deposit 10000
+    await testToken.approve(erc20Pool.address, maxUint());
+    controller.setLPoolUnAllowed(await erc20Pool.address, true);
+    try {
+      await erc20Pool.mint(10000 * 1e10);
+      assert.fail("should thrown LPool paused error");
+    } catch (error) {
+      assert.include(error.message, 'LPool paused', 'throws exception with LPool paused');
+    }
+  }),
     it("pool change admin test", async () => {
       let controller = await utils.createController(accounts[0]);
       let createPoolResult = await utils.createPool(accounts[0], controller, admin);
@@ -388,7 +454,7 @@ contract("LPoolDelegator", async accounts => {
       web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
     assert.equal(instance.address, await erc20Pool.implementation());
     try {
-      await erc20Pool.setImplementation(instance.address);
+      await (await LPoolDelegator.at(erc20Pool.address)).setImplementation(instance.address);
       assert.fail("should thrown caller must be admin error");
     } catch (error) {
       assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
