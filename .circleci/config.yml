@@ -12,6 +12,8 @@ jobs:
       - image: trufflesuite/ganache-cli
         command: ganache-cli
 
+    resource_class: large
+
     working_directory: ~/repo
 
     steps:
