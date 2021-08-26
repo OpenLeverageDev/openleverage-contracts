@@ -27,11 +27,10 @@ jobs:
       - run: npm install
 
       - run: npm install truffle
-      - run: ./node_modules/.bin/truffle init
 
       - save_cache:
           paths:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
 
-      - run: truffle test # triggers truffle test
+      - run: ./node_modules/.bin/truffle test # triggers truffle test
