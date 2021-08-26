@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
 
 
 abstract contract LPoolStorage {
@@ -41,7 +41,7 @@ abstract contract LPoolStorage {
     /**
     * Maximum fraction of borrower cap(80%)
     */
-    uint public  borrowCapFactorMantissa = 0.8e18;
+    uint public  borrowCapFactorMantissa;
     /**
      * Contract which oversees inter-lToken operations
      */
@@ -69,13 +69,15 @@ abstract contract LPoolStorage {
     /**
     * @notice Fraction of interest currently set aside for reserves 20%
     */
-    uint public reserveFactorMantissa = 0.2e18;
+    uint public reserveFactorMantissa;
 
 
     uint public totalReserves;
 
 
     address public underlying;
+
+    bool public isWethPool;
 
     /**
      * Container for borrow balance information
@@ -187,6 +189,8 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function mint(uint mintAmount) external virtual;
 
+    function mintEth() external payable virtual;
+
     function redeem(uint redeemTokens) external virtual;
 
     function redeemUnderlying(uint redeemAmount) external virtual;
@@ -194,6 +198,8 @@ abstract contract LPoolInterface is LPoolStorage {
     function borrowBehalf(address borrower, uint borrowAmount) external virtual;
 
     function repayBorrowBehalf(address borrower, uint repayAmount) external virtual;
+
+    function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external virtual;
 
     function availableForBorrow() external view virtual returns (uint);
 
