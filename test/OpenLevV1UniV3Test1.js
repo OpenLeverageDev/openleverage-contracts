@@ -140,7 +140,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Check contract held balance
     checkAmount("OpenLev Balance", 1089000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 9847747697366893321127, await token1.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9847747697367058126039, await token1.balanceOf(trader), 18);
     checkAmount("xole Balance", 2211000000000000000, await token1.balanceOf(xole.address), 18);
     checkAmount("xole Balance", 1650506621711339942, await token0.balanceOf(xole.address), 18);
     await printBlockNum();

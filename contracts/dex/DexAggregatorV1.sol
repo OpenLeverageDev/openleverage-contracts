@@ -168,7 +168,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             if (updated) {
                 uniV2PriceOracle[IUniswapV2Pair(pair)] = updatedPriceOracle;
             }
-            return true;
+            return updated;
         }
         return false;
     }
