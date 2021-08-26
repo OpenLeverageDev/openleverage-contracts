@@ -120,7 +120,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "Margin ratio limit not met");
         }
 
-        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
+        Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
         trade.lastBlockNum = uint128(block.number);
         trade.depositToken = depositToken;
         // Borrow
@@ -138,8 +138,9 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
         trade.deposited = trade.deposited.add(tv.depositAfterFees);
         trade.held = trade.held.add(tv.newHeld);
+        activeTrades[msg.sender][marketId][longToken] = trade;
         //verify
-        verifyOpenAfter(marketId, longToken, vars, dexData);
+        verifyOpenAfter(marketId, longToken, trade.held, vars, dexData);
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.tradeSize, tv.receiveAmount, tv.dexDetail);
     }
 
@@ -218,7 +219,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         verifyLiquidateBefore(trade, marketVars, dexData);
         //controller
         (ControllerInterface(addressConfig.controller)).liquidateAllowed(marketId, msg.sender, trade.held, dexData);
-        require(!isPositionHealthy(owner, marketId, longToken, false, marketVars, dexData), "Position is Healthy");
+        require(!isPositionHealthy(owner, marketId, longToken, false, trade.held, marketVars, dexData), "Position is Healthy");
         Types.LiquidateVars memory liquidateVars;
         liquidateVars.dexDetail = dexData.toDexDetail();
         liquidateVars.marketId = marketId;
@@ -274,15 +275,20 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint cAvg, uint hAvg, uint32 limit) {
         Types.MarketVars memory vars = toMarketVar(marketId, longToken, false);
-        limit = vars.marginLimit;
-        (current, cAvg, hAvg) = marginRatioInternal(owner, marketId, longToken, address(vars.sellToken), address(vars.buyToken), vars.buyPool, false, dexData);
-    }
-
-    function marginRatioInternal(address owner, uint16 marketId, bool longToken, address heldToken, address sellToken, LPoolInterface borrowPool, bool isOpen, bytes memory dexData)
-    internal view returns (uint, uint, uint)
-    {
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         Types.MarginRatioVars memory ratioVars;
+        ratioVars.held = trade.held;
+        ratioVars.dexData = dexData;
+        ratioVars.owner = owner;
+        limit = vars.marginLimit;
+        (current, cAvg, hAvg) = marginRatioInternal(ratioVars.owner, marketId, longToken, ratioVars.held, address(vars.sellToken), address(vars.buyToken), vars.buyPool, false, ratioVars.dexData);
+    }
+
+    function marginRatioInternal(address owner, uint16 marketId, bool longToken, uint held, address heldToken, address sellToken, LPoolInterface borrowPool, bool isOpen, bytes memory dexData)
+    internal view returns (uint, uint, uint)
+    {
+        Types.MarginRatioVars memory ratioVars;
+        ratioVars.held = held;
         ratioVars.dexData = dexData;
         ratioVars.heldToken = heldToken;
         ratioVars.sellToken = sellToken;
@@ -294,11 +300,11 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
         (uint price, uint cAvgPrice, uint hAvgPrice, uint8 decimals,) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, twapDuration, ratioVars.dexData);
         //marginRatio=(marketValue-borrowed)/borrowed
-        uint marketValue = trade.held.mul(price).div(10 ** uint(decimals));
+        uint marketValue = ratioVars.held.mul(price).div(10 ** uint(decimals));
         uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
-        marketValue = trade.held.mul(cAvgPrice).div(10 ** uint(decimals));
+        marketValue = ratioVars.held.mul(cAvgPrice).div(10 ** uint(decimals));
         uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
-        marketValue = trade.held.mul(hAvgPrice).div(10 ** uint(decimals));
+        marketValue = ratioVars.held.mul(hAvgPrice).div(10 ** uint(decimals));
         uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
         return (current, cAvg, hAvg);
     }
@@ -344,9 +350,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return false;
     }
 
-    function isPositionHealthy(address owner, uint16 marketId, bool longToken, bool isOpen, Types.MarketVars memory vars, bytes memory dexData) internal view returns (bool)
+    function isPositionHealthy(address owner, uint16 marketId, bool longToken, bool isOpen, uint held, Types.MarketVars memory vars, bytes memory dexData) internal view returns (bool)
     {
         (uint current, uint cAvg,uint hAvg) = marginRatioInternal(owner, marketId, longToken,
+            held,
             isOpen ? address(vars.buyToken) : address(vars.sellToken),
             isOpen ? address(vars.sellToken) : address(vars.buyToken),
             isOpen ? vars.sellPool : vars.buyPool,
@@ -549,8 +556,8 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
     }
 
-    function verifyOpenAfter(uint16 marketId, bool longToken, Types.MarketVars memory vars, bytes memory dexData) internal {
-        require(isPositionHealthy(msg.sender, marketId, longToken, true, vars, dexData), "Position not healthy");
+    function verifyOpenAfter(uint16 marketId, bool longToken, uint held, Types.MarketVars memory vars, bytes memory dexData) internal {
+        require(isPositionHealthy(msg.sender, marketId, longToken, true, held, vars, dexData), "Position not healthy");
         if (dexData.isUniV2Class()) {
             updatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), dexData, false);
         }

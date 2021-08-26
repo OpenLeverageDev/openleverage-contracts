@@ -87,6 +87,7 @@ library Types {
         address heldToken;
         address sellToken;
         address owner;
+        uint held;
         bytes dexData;
     }
 }

@@ -246,17 +246,23 @@ contract("OpenLev UniV2", async accounts => {
     await openLev.updatePrice(pairId, true, Uni2DexData);
 
     await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+    await advanceMultipleBlocksAndTime(300);
+    //set price 0.5
+    await gotPair.setPrice(token0.address, token1.address, 50);
+    await advanceMultipleBlocksAndTime(300);
     //set price 0.5
     await gotPair.setPrice(token0.address, token1.address, 50);
     let marginRatio0 = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     m.log("Margin Ratio0 current:", marginRatio0.current / 100, "%");
-    m.log("Margin Ratio0 avg:", marginRatio0.avg / 100, "%");
+    m.log("Margin Ratio0 cavg:", marginRatio0.cAvg / 100, "%");
+    m.log("Margin Ratio0 havg:", marginRatio0.hAvg / 100, "%");
     assert.equal(marginRatio0.current.toString(), 0);
-
-    // let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
-    // assert.equal(shouldUpatePrice, true);
-    let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
+
+    let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
+    assert.equal(shouldUpatePrice, true);
+
     // should update price first
     try {
       await openLev.liquidate(trader, pairId, 0, Uni2DexData, {from: liquidator2});
@@ -264,8 +270,11 @@ contract("OpenLev UniV2", async accounts => {
     } catch (error) {
       assert.include(error.message, 'Position is Healthy', 'throws exception with Position is Healthy');
     }
-    await advanceMultipleBlocksAndTime(3);
-    await openLev.updatePrice(pairId, false, Uni2DexData);
+    await advanceMultipleBlocksAndTime(300);
+    let updatePriceTx=await openLev.updatePrice(pairId, true, Uni2DexData, {from: accounts[2]});
+    m.log("V2 UpdatePrice Gas Used: ", updatePriceTx.receipt.gasUsed);
+
+    assert.equal((await openLev.markets(pairId)).priceUpdater, accounts[2]);
     let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
     //
