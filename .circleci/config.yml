@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  build:
+  truffle_test:
     docker:
       # specify the version you desire here
       - image: circleci/node:14.17.5
@@ -37,8 +37,8 @@ jobs:
           key: v1-dependencies-{{ checksum "package.json" }}
 
       - run:
-          name: Running Ganache-cli as background
+          name: Running Ganache-CLI as background
           command: export NODE_OPTIONS="--max_old_space_size=4096" && ./node_modules/.bin/ganache-cli
           background: true
 
-      - run: export FASTMODE=false && ./node_modules/.bin/truffle test # triggers truffle test
+      - run: export FASTMODE=slow && ./node_modules/.bin/truffle test # triggers truffle test
