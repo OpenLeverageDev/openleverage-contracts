@@ -234,11 +234,6 @@ contract("XOLE", async accounts => {
   })
   it("John and Tom stakes, Tom stakes more, shares fees", async () => {
 
-    if (fastMode) {
-      m.log("Test skipping on fast mode");
-      return;
-    }
-
     await ole.mint(john, toWei(10000));
     await ole.mint(tom, toWei(10000));
     await dai.mint(xole.address, toWei(1000));
