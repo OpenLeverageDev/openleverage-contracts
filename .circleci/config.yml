@@ -42,3 +42,5 @@ jobs:
           background: true
 
       - run: export FASTMODE=fast && ./node_modules/.bin/truffle test # triggers truffle test
+
+      - run: truffle run contract-size --ignoreMocks
