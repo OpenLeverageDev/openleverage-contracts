@@ -11,3 +11,5 @@ contracts/*/artifacts
 coverage.json
 /.coverage_artifacts/
 /.coverage_contracts/
+.debugger/generated-sources/#utility.yul
+yarn.lock

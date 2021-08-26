@@ -2,8 +2,6 @@ const Gov = artifacts.require("GovernorAlpha");
 const Timelock = artifacts.require("Timelock");
 const OLEToken = artifacts.require("OLEToken");
 const Reserve = artifacts.require("Reserve");
-const Treasury = artifacts.require("Treasury");
-const TreasuryDelegator = artifacts.require("TreasuryDelegator");
 
 //kovan
 const WETHToken = artifacts.require("WETHToken");
@@ -21,8 +19,6 @@ module.exports = async function (deployer, network, accounts) {
   const uniswap = utils.uniswapAddress(network);
   //dev ratio 50%
   let shareToken = network == 'kovan' ? "0xC58854ce3a7d507b1CA97Fa7B28A411956c07782" : utils.getTreasuryShareToken(network);
-  await deployer.deploy(Treasury, utils.deployOption(accounts));
-  await deployer.deploy(TreasuryDelegator, uniswap, OLEToken.address, shareToken, 50, accounts[0], accounts[0], Treasury.address, utils.deployOption(accounts));
 
 };
 

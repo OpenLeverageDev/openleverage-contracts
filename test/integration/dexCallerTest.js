@@ -1,5 +1,4 @@
 const {toBN, maxUint} = require("../utils/EtheUtil");
-const DexCaller = artifacts.require("MockDexCaller");
 const TestToken = artifacts.require("MockERC20");
 const utils = require("../utils/OpenLevUtil");
 const m = require('mocha-logger');
@@ -12,6 +11,7 @@ contract("DexCaller integration test ", async accounts => {
     networkId = await web3.eth.net.getId();
   });
   it("swapSell succeed test", async () => {
+    m.log("Network id", networkId);
     if (networkId != '42') {
       m.log("Ignore swap test because it should run on Kovan network")
       return;
