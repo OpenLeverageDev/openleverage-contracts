@@ -38,7 +38,7 @@ jobs:
 
       - run:
           name: Running Ganache-cli as background
-          command: ./node_modules/.bin/ganache-cli
+          command: export NODE_OPTIONS="--max_old_space_size=4096" && ./node_modules/.bin/ganache-cli
           background: true
 
-      - run: export FASTMODE=true && ./node_modules/.bin/truffle test # triggers truffle test
+      - run: export FASTMODE=false && ./node_modules/.bin/truffle test # triggers truffle test
