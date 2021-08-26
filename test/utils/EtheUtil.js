@@ -146,8 +146,8 @@ async function advanceMultipleBlocks(total) {
     if (remain % 1000 == 0) {
       m.log("Advancing", total - remain, "/", total, "blocks ...");
       if (process.env.FASTMODE === 'slow'){
-        m.log("Sleep for 10 secs for wait for NodeJS GC");
-        await sleep(10000);
+        m.log("Sleep for 15 secs for wait for NodeJS GC");
+        await sleep(15000);
       }
     }
     await timeMachine.advanceBlock();
@@ -161,8 +161,8 @@ async function advanceMultipleBlocksAndTime(total) {
     if (remain % 1000 == 0) {
       m.log("Advancing", total - remain, "/", total, "blocks ...");
       if (process.env.FASTMODE === 'slow'){
-        m.log("Sleep for 10 secs for wait for NodeJS GC");
-        await sleep(10000);
+        m.log("Sleep for 15 secs for wait for NodeJS GC");
+        await sleep(15000);
       }
     }
     await timeMachine.advanceTimeAndBlock(15);
