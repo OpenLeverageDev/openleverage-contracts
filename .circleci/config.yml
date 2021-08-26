@@ -9,8 +9,8 @@ jobs:
       # CircleCI maintains a library of pre-built images
       # documented at https://circleci.com/docs/2.0/circleci-images/
       # - image: circleci/mongo:3.4.4
-      - image: trufflesuite/ganache-cli
-        command: ganache-cli --mem
+#      - image: trufflesuite/ganache-cli
+#        command: ganache-cli --mem
 
     resource_class: large
 
@@ -36,4 +36,5 @@ jobs:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
 
-      - run: export FASTMODE=true && ./node_modules/.bin/truffle test # triggers truffle test
+      - run: nohup ganache-cli &
+      - run: export FASTMODE=true; ./node_modules/.bin/truffle test # triggers truffle test
