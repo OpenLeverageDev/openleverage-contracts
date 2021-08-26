@@ -143,7 +143,13 @@ function maxUint() {
 async function advanceMultipleBlocks(total) {
   let remain = total;
   while (remain > 0) {
-    if (remain % 1000 == 0) m.log("Advancing", total - remain, "/", total, "blocks ...");
+    if (remain % 1000 == 0) {
+      m.log("Advancing", total - remain, "/", total, "blocks ...");
+      if (process.env.FASTMODE === 'slow'){
+        m.log("Sleep for 10 secs for wait for NodeJS GC");
+        await sleep(10000);
+      }
+    }
     await timeMachine.advanceBlock();
     remain--;
   }
@@ -152,10 +158,22 @@ async function advanceMultipleBlocks(total) {
 async function advanceMultipleBlocksAndTime(total) {
   let remain = total;
   while (remain > 0) {
-    if (remain % 1000 == 0) m.log("Advancing", total - remain, "/", total, "blocks ...");
+    if (remain % 1000 == 0) {
+      m.log("Advancing", total - remain, "/", total, "blocks ...");
+      if (process.env.FASTMODE === 'slow'){
+        m.log("Sleep for 10 secs for wait for NodeJS GC");
+        await sleep(10000);
+      }
+    }
     await timeMachine.advanceTimeAndBlock(15);
     remain--;
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function advanceBlockAndSetTime(newTime) {
