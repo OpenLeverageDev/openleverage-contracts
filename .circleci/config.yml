@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  truffle_test:
+  build:
     docker:
       # specify the version you desire here
       - image: circleci/node:14.17.5
