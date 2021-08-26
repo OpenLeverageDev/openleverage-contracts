@@ -32,4 +32,5 @@ jobs:
     - run: npm install
     - run: nohup ganache-cli &
     - run: pwd
+    - run: ls -a
     - run: truffle test
