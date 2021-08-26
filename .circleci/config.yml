@@ -38,7 +38,7 @@ jobs:
 
       - run:
           name: Running Ganache-cli as background
-          command: ganache-cli
+          command: ./node_modules/.bin/ganache-cli
           background: true
 
       - run: export FASTMODE=true && ./node_modules/.bin/truffle test # triggers truffle test
