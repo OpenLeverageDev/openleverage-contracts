@@ -12,7 +12,7 @@ import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
 import "./ControllerInterface.sol";
 import "./IWETH.sol";
-import "./xOLE.sol";
+import "./XOLE.sol";
 import "./Types.sol";
 
 /**
