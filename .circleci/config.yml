@@ -41,6 +41,6 @@ jobs:
           command: export NODE_OPTIONS="--max_old_space_size=4096" && ./node_modules/.bin/ganache-cli
           background: true
 
-      - run: export FASTMODE=fast && ./node_modules/.bin/truffle test # triggers truffle test
+      - run: export FASTMODE=true && ./node_modules/.bin/truffle test # triggers truffle test
 
       - run: truffle run contract-size --ignoreMocks
