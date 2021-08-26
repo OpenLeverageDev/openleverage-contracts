@@ -16,6 +16,9 @@ jobs:
 
     working_directory: ~/repo
 
+    branches:
+      only: main
+
     steps:
       - checkout
 
@@ -33,4 +36,5 @@ jobs:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
 
+      - run: export FASTMODE=true
       - run: ./node_modules/.bin/truffle test # triggers truffle test
