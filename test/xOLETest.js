@@ -1,4 +1,4 @@
-const xOLE = artifacts.require("xOLE");
+const xOLE = artifacts.require("XOLE");
 const OLEToken = artifacts.require("OLEToken");
 const {assertPrint, approxAssertPrint, createDexAgg, createUniswapV2Factory, createXOLE} = require("./utils/OpenLevUtil");
 const m = require('mocha-logger');

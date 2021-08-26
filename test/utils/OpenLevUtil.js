@@ -6,7 +6,7 @@ const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
 const WETH = artifacts.require("WETH");
-const xOLE = artifacts.require("xOLE");
+const xOLE = artifacts.require("XOLE");
 const xOLEDelegator = artifacts.require("XOLEDelegator");
 
 const MockUniswapV2Factory = artifacts.require("MockUniswapV2Factory");
