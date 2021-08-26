@@ -1,5 +1,5 @@
 {
-  "name": "unilever",
+  "name": "openleverage",
   "version": "1.0.0",
   "description": "",
   "directories": {
@@ -17,8 +17,9 @@
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v3-periphery": "^1.1.0",
     "bignumber.js": "^1.5.0",
+    "solc": "^0.7.6",
     "ganache-time-traveler": "^1.0.15",
-    "solc": "^0.7.3",
+    "truffle": "^5.4.7",
     "truffle-contract-size": "^2.0.1"
   },
   "bundleDependencies": false,
