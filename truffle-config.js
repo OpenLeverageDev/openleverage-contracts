@@ -82,13 +82,13 @@ module.exports = {
   // Set default mocha options here, use special reporters etc.
   mocha: {
     timeout: 30 * 60 * 1000,
-    // reporter: 'eth-gas-reporter',
-    // reporterOptions: {
-    //   currency: 'USD',
-    //   gasPrice: 45, //in gwei
-    //   excludeContracts: ['Migrations'],
-    //   url:'https://kovan.infura.io/v3/603f6934a5aa4267b31bb9ef62b39dde'
-    // },
+    reporter: 'eth-gas-reporter',
+    reporterOptions: {
+      currency: 'USD'
+      // gasPrice: 45, //in gwei
+      // excludeContracts: ['Migrations'],
+      // url:'https://kovan.infura.io/v3/603f6934a5aa4267b31bb9ef62b39dde'
+    },
   },
   /**
    *  truffle run contract-size
