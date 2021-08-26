@@ -79,6 +79,11 @@ contract("xOLE", async accounts => {
 
 
     it("Lock to get voting powers, and withdraw", async () => {
+
+        if (process.env.FASTMODE === 'true'){
+            m.log("Skipping this test for FAST Mode");
+            return;
+        }
         /*
         Test voting power in the following scenario.
         Alice:

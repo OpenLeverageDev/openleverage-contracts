@@ -14,6 +14,11 @@ contract("Reserve", async accounts => {
 
   it("Vesting test", async () => {
 
+    if (process.env.FASTMODE === 'true'){
+      m.log("Skipping this test for FAST Mode");
+      return;
+    }
+
     let oleToken = await OLEToken.new(admin, "Open Leverage Token", "OLE");
     await oleToken.mint(admin, '1000000000000000000');
 
