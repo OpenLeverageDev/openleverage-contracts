@@ -50,7 +50,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         calculateConfig.updatePriceDiscount = 25;
         calculateConfig.feesDiscount = 25;
         calculateConfig.feesDiscountThreshold = 30 * (10 ** 18);
-
     }
 
     function addMarket(
@@ -72,7 +71,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         IERC20(token1).approve(address(pool1), uint256(- 1));
         //Create Market
         uint16 marketId = numPairs;
-        uint32[] memory dexs = new uint32[](16);
+        uint32[] memory dexs = new uint32[](1);
         dexs[0] = dexData.toDexDetail();
         markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
         numPairs ++;
