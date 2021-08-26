@@ -7,7 +7,7 @@ const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
 const WETH = artifacts.require("WETH");
 const xOLE = artifacts.require("xOLE");
-const xOLEDelegator = artifacts.require("xOLEDelegator");
+const xOLEDelegator = artifacts.require("XOLEDelegator");
 
 const MockUniswapV2Factory = artifacts.require("MockUniswapV2Factory");
 const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
@@ -103,7 +103,7 @@ exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) =
 
 exports.createXOLE = async (ole, admin, dev, dexAgg) => {
   let delegatee = await xOLE.new();
-  let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: admin});
+  let xOLEInstance = await XOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: admin});
   return xOLE.at(xOLEInstance.address);
 }
 
