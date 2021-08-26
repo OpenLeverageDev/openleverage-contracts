@@ -26,6 +26,8 @@ jobs:
 
       - run: npm install
 
+      - run: npm install truffle -g
+
       - save_cache:
           paths:
             - node_modules
