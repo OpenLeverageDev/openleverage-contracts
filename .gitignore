@@ -13,3 +13,4 @@ coverage.json
 /.coverage_contracts/
 .debugger/generated-sources/#utility.yul
 yarn.lock
+/eth-gas-report.md

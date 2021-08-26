@@ -84,9 +84,11 @@ module.exports = {
     timeout: 30 * 60 * 1000,
     reporter: 'eth-gas-reporter',
     reporterOptions: {
-      currency: 'USD'
+      currency: 'USD',
+      showTimeSpent: true,
+      excludeContracts: ['Migrations'],
+      //outputFile: './eth-gas-report.md',
       // gasPrice: 45, //in gwei
-      // excludeContracts: ['Migrations'],
       // url:'https://kovan.infura.io/v3/603f6934a5aa4267b31bb9ef62b39dde'
     },
   },
