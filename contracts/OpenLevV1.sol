@@ -108,8 +108,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             tv.tradeSize = tv.depositAfterFees.add(borrow);
             require(borrow == 0 || deposit.mul(10000).div(borrow) > vars.marginLimit, "Margin ratio limit not met");
         } else {
-            (uint currentPrice, uint8 priceDecimals) = addressConfig.dexAggregator.getPrice(address(vars.sellToken), address(vars.buyToken), dexData);
-            tv.borrowValue = borrow.mul(currentPrice).div(10 ** uint(priceDecimals));
+            if (borrow > 0) {
+                (uint currentPrice, uint8 priceDecimals) = addressConfig.dexAggregator.getPrice(address(vars.sellToken), address(vars.buyToken), dexData);
+                tv.borrowValue = borrow.mul(currentPrice).div(10 ** uint(priceDecimals));
+            }
             tv.depositErc20 = vars.buyToken;
             deposit = transferIn(msg.sender, tv.depositErc20, deposit);
             tv.fees = feesAndInsurance(deposit.add(tv.borrowValue), address(tv.depositErc20), marketId);
@@ -118,11 +120,13 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "Margin ratio limit not met");
         }
 
-        Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
+        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         trade.lastBlockNum = uint128(block.number);
         trade.depositToken = depositToken;
         // Borrow
-        vars.sellPool.borrowBehalf(msg.sender, borrow);
+        if (borrow > 0) {
+            vars.sellPool.borrowBehalf(msg.sender, borrow);
+        }
         // Trade in exchange
         if (tv.tradeSize > 0) {
             tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData);
@@ -134,7 +138,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
         trade.deposited = trade.deposited.add(tv.depositAfterFees);
         trade.held = trade.held.add(tv.newHeld);
-        activeTrades[msg.sender][marketId][longToken] = trade;
         //verify
         verifyOpenAfter(marketId, longToken, vars, dexData);
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.tradeSize, tv.receiveAmount, tv.dexDetail);
