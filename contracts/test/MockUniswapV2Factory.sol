@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-pragma solidity 0.7.3;
+pragma solidity 0.7.6;
+
+import "./MockUniswapV2Pair.sol";
 pragma experimental ABIEncoderV2;
 
-import "../DexCaller.sol";
-import "./MockUniswapV2Pair.sol";
 
-contract MockUniswapFactory is IUniswapV2Factory {
+contract MockUniswapV2Factory {
 
-    mapping(address => mapping(address => IUniswapV2Pair)) pairs;
+    mapping(address => mapping(address => MockUniswapV2Pair)) pairs;
 
     function addPair(MockUniswapV2Pair pair) external {
-        mapping(address => IUniswapV2Pair) storage _pairs = pairs[pair.token0()];
-        _pairs[pair.token1()] = pair;
+        pairs[pair.token0()][pair.token1()] = pair;
+        pairs[pair.token1()][pair.token0()] = pair;
     }
 
     function getPair(
         address tokenA,
         address tokenB)
-    external view override returns (address)
+    external view returns (address)
     {
-        IUniswapV2Pair pair;
+        MockUniswapV2Pair pair;
 
         if (tokenA < tokenB) {
             pair = pairs[tokenA][tokenB];
@@ -29,5 +29,6 @@ contract MockUniswapFactory is IUniswapV2Factory {
         }
         return address(pair);
     }
+
 
 }

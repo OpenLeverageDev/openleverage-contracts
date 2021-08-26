@@ -5,7 +5,7 @@ const m = require('mocha-logger');
 
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const LPool = artifacts.require("LPoolDelegator");
-const Treasury = artifacts.require("TreasuryDelegator");
+const xOLE = artifacts.require("XOLE");
 const OLEToken = artifacts.require("OLEToken");
 const MockERC20 = artifacts.require("MockERC20");
 const Controller = artifacts.require("ControllerDelegator");
