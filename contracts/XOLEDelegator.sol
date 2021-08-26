@@ -6,13 +6,13 @@ pragma experimental ABIEncoderV2;
 import "./Types.sol";
 import "./Adminable.sol";
 import "./DelegatorInterface.sol";
-import "./xOLEInterface.sol";
+import "./XOLEInterface.sol";
 
 /**
   * @title OpenLevDelegator
   * @author OpenLeverage
   */
-contract xOLEDelegator is DelegatorInterface, Adminable {
+contract XOLEDelegator is DelegatorInterface, Adminable {
 
     constructor(
         address _oleToken,
