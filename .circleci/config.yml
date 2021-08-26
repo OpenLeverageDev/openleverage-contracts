@@ -36,5 +36,9 @@ jobs:
             - node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
 
-      - run: nohup ganache-cli &
+      - run:
+          name: Running Ganache-cli as background
+          command: ganache-cli
+          background: true
+
       - run: export FASTMODE=true && ./node_modules/.bin/truffle test # triggers truffle test
