@@ -20,7 +20,8 @@
     "solc": "^0.7.6",
     "ganache-time-traveler": "^1.0.15",
     "truffle": "^5.4.7",
-    "truffle-contract-size": "^2.0.1"
+    "truffle-contract-size": "^2.0.1",
+    "ganache-cli": "6.12.2"
   },
   "bundleDependencies": false,
   "devDependencies": {
