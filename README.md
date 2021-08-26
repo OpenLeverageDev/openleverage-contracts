@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/OpenLeverageDev/openleverage-contracts.svg?style=shield&circle-token=e3199a81fde3f99da28d03517a4adbbe0a04f3a2)](https://app.circleci.com/pipelines/github/OpenLeverageDev/openleverage-contracts)
+[![CircleCI](https://circleci.com/gh/OpenLeverageDev/openleverage-contracts.svg?style=svg&circle-token=e3199a81fde3f99da28d03517a4adbbe0a04f3a2)](https://circleci.com/gh/OpenLeverageDev/openleverage-contracts/tree/main)
 
 
 OpenLeverage Protocol
