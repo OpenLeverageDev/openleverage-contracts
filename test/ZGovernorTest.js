@@ -94,6 +94,10 @@ contract("GovernorAlphaTest", async accounts => {
 
   it(' negative vote is greater than the affirmative vote', async () => {
 
+    if (process.env.FASTMODE === 'true'){
+      m.log("Skipping this test for FAST Mode");
+      return;
+    }
 
     await ole.mint(proposeAccount, toWei(10000));
     await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
@@ -115,6 +119,12 @@ contract("GovernorAlphaTest", async accounts => {
 
 
   it('Proposal expired', async () => {
+
+    if (process.env.FASTMODE === 'true'){
+      m.log("Skipping this test for FAST Mode");
+      return;
+    }
+
     await ole.mint(proposeAccount, toWei(10000));
     await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
     let lastbk = await web3.eth.getBlock('latest');
@@ -136,6 +146,12 @@ contract("GovernorAlphaTest", async accounts => {
   });
 
   it('Proposal executed succeed', async () => {
+
+    if (process.env.FASTMODE === 'true'){
+      m.log("Skipping this test for FAST Mode");
+      return;
+    }
+
     await ole.mint(proposeAccount, toWei(10000));
     await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
     let lastbk = await web3.eth.getBlock('latest');
