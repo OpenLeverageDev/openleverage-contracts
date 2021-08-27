@@ -90,7 +90,8 @@ contract("OpenLev UniV2", async accounts => {
     await openLev.marginTrade(pairId, false, false, 0, borrow, 0, Uni2DexData, {from: trader, value: deposit});
     let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     m.log("Margin Ratio current:", marginRatio.current / 100, "%");
-    m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");
+    m.log("Margin Ratio cAvg:", marginRatio.cAvg / 100, "%");
+    m.log("Margin Ratio hAvg:", marginRatio.hAvg / 100, "%");
     assert.equal(marginRatio.current.toString(), 9910);
     assert.equal(marginRatio.hAvg.toString(), 9909);
     let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
@@ -127,7 +128,7 @@ contract("OpenLev UniV2", async accounts => {
     let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
     await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
     await pool1.mint(saverSupply, {from: saver});
-    let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
     let borrow = utils.toWei(500);
     m.log("toBorrow from Pool 1: \t", borrow);
@@ -163,10 +164,12 @@ contract("OpenLev UniV2", async accounts => {
     await openLev.updatePrice(pairId, false, Uni2DexData);
     let priceData2 = await dexAgg.uniV2PriceOracle(gotPair.address);
     m.log("PriceData2: \t", JSON.stringify(priceData2));
-    let priceData3 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData3 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData3: \t", JSON.stringify(priceData3));
     let marginTradeTx = await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
     m.log("V2 Margin Trade Gas Used: ", marginTradeTx.receipt.gasUsed);
+    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    m.log("PriceData0: \t", JSON.stringify(priceData0));
     let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
     assert.equal(marginRatio.current.toString(), 8052);
     assert.equal(marginRatio.hAvg.toString(), 7733);
@@ -203,18 +206,18 @@ contract("OpenLev UniV2", async accounts => {
     //set price 1.2
     await gotPair.setPrice(token0.address, token1.address, 120);
 
-    let priceData0 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("PriceData0: \t", JSON.stringify(priceData0));
 
     // add deposit needn't update price
     await openLev.marginTrade(pairId, false, true, deposit, 0, 0, Uni2DexData, {from: trader});
     await advanceMultipleBlocksAndTime(2);
     await openLev.updatePrice(pairId, false, Uni2DexData);
-    let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
 
     await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
-    let priceData2 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData2 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData2: \t", JSON.stringify(priceData2));
 
     //
@@ -275,7 +278,7 @@ contract("OpenLev UniV2", async accounts => {
     m.log("V2 UpdatePrice Gas Used: ", updatePriceTx.receipt.gasUsed);
 
     assert.equal((await openLev.markets(pairId)).priceUpdater, accounts[2]);
-    let priceData1 = await dexAgg.getPriceAndAvgPrice(token0.address, token1.address, 25, Uni2DexData);
+    let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni2DexData);
     m.log("priceData1: \t", JSON.stringify(priceData1));
     //
     let marginRatio1 = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);

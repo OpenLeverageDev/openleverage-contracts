@@ -119,12 +119,6 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         timestamp = block.timestamp.sub(secondsAgo);
     }
 
-    function uniV3GetPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp, IUniswapV3Pool pool){
-        (currentPrice, pool) = uniV3GetPrice(desToken, quoteToken, decimals, fee);
-        avgPrice = calcAvgPrice(pool, desToken, quoteToken, secondsAgo, decimals);
-        timestamp = block.timestamp.sub(secondsAgo);
-    }
-
     function uniV3GetPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, uint8 decimals, uint24 fee) internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
         IUniswapV3Pool pool;
         (price, pool) = uniV3GetPrice(desToken, quoteToken, decimals, fee);
@@ -202,7 +196,11 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         address tokenB,
         uint24 fee
     ) internal view returns (IUniswapV3Pool) {
-        return IUniswapV3Pool(uniV3Factory.getPool(tokenA, tokenB, fee));
+        if (address(uniV3Factory) == 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f) {
+            return IUniswapV3Pool(PoolAddress.computeAddress(address(uniV3Factory) , PoolAddress.getPoolKey(tokenA, tokenB, fee)));
+        } else {
+            return IUniswapV3Pool(uniV3Factory.getPool(tokenA, tokenB, fee));
+        }
     }
 
     function isPoolObservationsEnough(IUniswapV3Pool pool) internal view returns (bool){

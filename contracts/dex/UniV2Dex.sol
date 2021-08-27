@@ -22,7 +22,7 @@ contract UniV2Dex {
         uint price1CumulativeLast; // Cumulative TWAP for token1
     }
 
-    function uniV2Sell(address pair,
+    function uniV2Sell(IUniswapV2Factory factory,
         address buyToken,
         address sellToken,
         uint sellAmount,
@@ -30,8 +30,9 @@ contract UniV2Dex {
         address payer,
         address payee
     ) internal returns (uint buyAmount){
+        address pair = getUniV2ClassPair(buyToken, sellToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
+        bool isToken0 = buyToken < sellToken;
         if (isToken0) {
             buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves);
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
@@ -53,7 +54,7 @@ contract UniV2Dex {
             bool isLast = i == tokens.length - 1;
             address payer = i == 1 ? msg.sender : address(this);
             address payee = isLast ? msg.sender : address(this);
-            buyAmount = uniV2Sell(factory.getPair(sellToken, buyToken), buyToken, sellToken, sellAmount, 0, payer, payee);
+            buyAmount = uniV2Sell(factory, buyToken, sellToken, sellAmount, 0, payer, payee);
             if (!isLast) {
                 sellAmount = buyAmount;
             }
@@ -61,11 +62,12 @@ contract UniV2Dex {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-    function uniV2Buy(address pair, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount)
+    function uniV2Buy(IUniswapV2Factory factory, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount)
     internal returns (uint sellAmount){
         address payer = msg.sender;
+        address pair = getUniV2ClassPair(buyToken, sellToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
+        bool isToken0 = buyToken < sellToken;
         if (isToken0) {
             sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
@@ -79,9 +81,10 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2CalBuyAmount(address pair, address buyToken, uint sellAmount) internal view returns (uint) {
+    function uniV2CalBuyAmount(IUniswapV2Factory factory, address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
+        address pair = getUniV2ClassPair(buyToken, sellToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = IUniswapV2Pair(pair).token0() == buyToken ? true : false;
+        bool isToken0 = buyToken < sellToken;
         if (isToken0) {
             return getAmountOut(sellAmount, token1Reserves, token0Reserves);
         } else {
@@ -89,28 +92,23 @@ contract UniV2Dex {
         }
     }
 
-    function uniV2GetPrice(address pair, address desToken, uint8 decimals) internal view returns (uint256){
+    function uniV2GetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
+        address pair = getUniV2ClassPair(desToken, quoteToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         return desToken == IUniswapV2Pair(pair).token0() ?
         token1Reserves.mul(10 ** decimals).div(token0Reserves) :
         token0Reserves.mul(10 ** decimals).div(token1Reserves);
     }
 
-    function uniV2GetAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken)
-    internal view returns (uint256 price, uint256 timestamp){
+    function uniV2GetAvgPrice(address desToken, address quoteToken, V2PriceOracle memory priceOracle) internal pure returns (uint256 price, uint256 timestamp){
         timestamp = priceOracle.blockTimestampLast;
-        price = IUniswapV2Pair(pair).token0() == desToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
+        price = desToken < quoteToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
     }
 
-    function uniV2GetPriceAndAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals)
-    internal view returns (uint256 currentPrice, uint256 avgPrice, uint256 timestamp){
-        currentPrice = uniV2GetPrice(pair, desToken, decimals);
-        (avgPrice, timestamp) = uniV2GetAvgPrice(pair, priceOracle, desToken);
-    }
 
-    function uniV2GetPriceCAvgPriceHAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, uint8 decimals)
+    function uniV2GetPriceCAvgPriceHAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, address quoteToken, uint8 decimals)
     internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
-        bool isToken0 = IUniswapV2Pair(pair).token0() == desToken;
+        bool isToken0 = desToken < quoteToken;
         (uint256 token0Reserves, uint256 token1Reserves,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
         price = isToken0 ?
         token1Reserves.mul(10 ** decimals).div(token0Reserves) :
@@ -191,4 +189,17 @@ contract UniV2Dex {
 
     }
 
+    function getUniV2ClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        if (address(factory) == 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f) {
+            return address(uint(keccak256(abi.encodePacked(
+                    hex'ff',
+                    address(factory),
+                    keccak256(abi.encodePacked(token0, token1)),
+                    hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f'
+                ))));
+        } else {
+            return factory.getPair(tokenA, tokenB);
+        }
+    }
 }
