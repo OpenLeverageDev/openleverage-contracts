@@ -120,7 +120,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "Margin ratio limit not met");
         }
 
-        Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
+        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         trade.lastBlockNum = uint128(block.number);
         trade.depositToken = depositToken;
         // Borrow
@@ -138,7 +138,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
         trade.deposited = trade.deposited.add(tv.depositAfterFees);
         trade.held = trade.held.add(tv.newHeld);
-        activeTrades[msg.sender][marketId][longToken] = trade;
+        //        activeTrades[msg.sender][marketId][longToken] = trade;
         //verify
         verifyOpenAfter(marketId, trade.held, vars, dexData);
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.tradeSize, tv.receiveAmount, tv.dexDetail);
