@@ -44,9 +44,10 @@ contract MockUniswapV2Pair {
         require(tokenA != tokenB);
         require(reserve0 != 0);
         require(reserve1 != 0);
+        (_token0, _token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
 
-        _token0 = tokenA;
-        _token1 = tokenB;
+//        _token0 = tokenA;
+//        _token1 = tokenB;
         _reserve0 = reserve0;
         _reserve1 = reserve1;
 
