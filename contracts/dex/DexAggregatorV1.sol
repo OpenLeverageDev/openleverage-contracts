@@ -41,7 +41,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
         if (data.toDex() == DexData.DEX_UNIV2) {
-            buyAmount = uniV2Sell(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
+            buyAmount = uniV2Sell(uniV2Factory, buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
             buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
@@ -64,7 +64,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
 
     function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_UNIV2) {
-            sellAmount = uniV2Buy(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellToken, buyAmount, maxSellAmount);
+            sellAmount = uniV2Buy(uniV2Factory, buyToken, sellToken, buyAmount, maxSellAmount);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
             sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true);
@@ -77,7 +77,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
 
     function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) external view override returns (uint buyAmount) {
         if (data.toDex() == DexData.DEX_UNIV2) {
-            buyAmount = uniV2CalBuyAmount(uniV2Factory.getPair(buyToken, sellToken), buyToken, sellAmount);
+            buyAmount = uniV2CalBuyAmount(uniV2Factory, buyToken, sellToken, sellAmount);
         }
         else {
             require(false, 'Unsupported dex');
@@ -88,7 +88,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     function getPrice(address desToken, address quoteToken, bytes memory data) external view override returns (uint256 price, uint8 decimals){
         decimals = priceDecimals;
         if (data.toDex() == DexData.DEX_UNIV2) {
-            price = uniV2GetPrice(uniV2Factory.getPair(desToken, quoteToken), desToken, decimals);
+            price = uniV2GetPrice(uniV2Factory, desToken, quoteToken, decimals);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
             (price,) = uniV3GetPrice(desToken, quoteToken, decimals, data.toFee());
@@ -101,27 +101,12 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint256 price, uint8 decimals, uint256 timestamp){
         decimals = priceDecimals;
         if (data.toDex() == DexData.DEX_UNIV2) {
-            address pair = uniV2Factory.getPair(desToken, quoteToken);
+            address pair = getUniV2ClassPair(desToken, quoteToken, uniV2Factory);
             V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
-            (price, timestamp) = uniV2GetAvgPrice(pair, priceOracle, desToken);
+            (price, timestamp) = uniV2GetAvgPrice(desToken, quoteToken, priceOracle);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
             (price, timestamp,) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
-        }
-        else {
-            require(false, 'Unsupported dex');
-        }
-    }
-
-    function getPriceAndAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint currentPrice, uint256 avgPrice, uint8 decimals, uint256 timestamp){
-        decimals = priceDecimals;
-        if (data.toDex() == DexData.DEX_UNIV2) {
-            address pair = uniV2Factory.getPair(desToken, quoteToken);
-            V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
-            (currentPrice, avgPrice, timestamp) = uniV2GetPriceAndAvgPrice(pair, priceOracle, desToken, decimals);
-        }
-        else if (data.toDex() == DexData.DEX_UNIV3) {
-            (currentPrice, avgPrice, timestamp,) = uniV3GetPriceAndAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
             require(false, 'Unsupported dex');
@@ -148,9 +133,9 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     ) external view override returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
         decimals = priceDecimals;
         if (dexData.toDex() == DexData.DEX_UNIV2) {
-            address pair = uniV2Factory.getPair(desToken, quoteToken);
+            address pair = getUniV2ClassPair(desToken, quoteToken, uniV2Factory);
             V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
-            (price, cAvgPrice, hAvgPrice, timestamp) = uniV2GetPriceCAvgPriceHAvgPrice(pair, priceOracle, desToken, decimals);
+            (price, cAvgPrice, hAvgPrice, timestamp) = uniV2GetPriceCAvgPriceHAvgPrice(pair, priceOracle, desToken, quoteToken, decimals);
         } else if (dexData.toDex() == DexData.DEX_UNIV3) {
             (price, cAvgPrice, hAvgPrice, timestamp) = uniV3GetPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, decimals, dexData.toFee());
         }
@@ -162,7 +147,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external override returns (bool){
         require(msg.sender == openLev, "Only openLev can update price");
         if (data.toDex() == DexData.DEX_UNIV2) {
-            address pair = uniV2Factory.getPair(desToken, quoteToken);
+            address pair = getUniV2ClassPair(desToken, quoteToken, uniV2Factory);
             V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
             (V2PriceOracle memory updatedPriceOracle, bool updated) = uniV2UpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
             if (updated) {
@@ -178,4 +163,6 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             increaseV3Observation(desToken, quoteToken, data.toFee());
         }
     }
+
+
 }
