@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
   * @title Controller
@@ -36,21 +37,29 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         dexAggregator = _dexAggregator;
     }
 
+    struct LPoolPairVar {
+        address token0;
+        address token1;
+        uint16 marginLimit;
+        bytes dexData;
+        string tokenName;
+        string tokenSymbol;
+    }
+
     function createLPoolPair(address token0, address token1, uint16 marginLimit, bytes memory dexData) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
-        string memory tokenName = "OpenLeverage LToken";
-        string memory tokenSymbol = "LToken";
+        LPoolPairVar memory pairVar = LPoolPairVar(token0, token1, marginLimit, dexData, "OpenLeverage LToken", "LToken");
         LPoolDelegator pool0 = new LPoolDelegator();
-        pool0.initialize(token0, token0 == wETH ? true : false, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
-            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
+        pool0.initialize(pairVar.token0, pairVar.token0 == wETH ? true : false, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
+            pairVar.tokenName, pairVar.tokenSymbol, ERC20(pairVar.token0).decimals(), admin, lpoolImplementation);
         LPoolDelegator pool1 = new LPoolDelegator();
-        pool1.initialize(token1, token1 == wETH ? true : false, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
-            tokenName, tokenSymbol, 18, admin, lpoolImplementation);
+        pool1.initialize(pairVar.token1, pairVar.token1 == wETH ? true : false, address(this), baseRatePerBlock, multiplierPerBlock, jumpMultiplierPerBlock, kink, 1e18,
+            pairVar.tokenName, pairVar.tokenSymbol, ERC20(pairVar.token1).decimals(), admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), marginLimit, dexData);
-        emit LPoolPairCreated(token0, address(pool0), token1, address(pool1), marketId, marginLimit, dexData);
+        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
+        emit LPoolPairCreated(pairVar.token0, address(pool0), pairVar.token1, address(pool1), marketId, pairVar.marginLimit, pairVar.dexData);
     }
 
 
