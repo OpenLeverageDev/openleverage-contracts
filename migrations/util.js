@@ -10,12 +10,12 @@ exports.isSkip = function (network) {
 exports.deployOption = function (accounts) {
   return {from: accounts[0], overwrite: false}
 }
+exports.getAdmin = function (accounts) {
+  return accounts[0];
+}
 exports.uniswapAddress = function (network) {
   if (network == 'kovan' || network == 'integrationTest') {
     return '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
-  }
-  if (network == 'huobiMainest') {
-    return '0xb0b670fc1F7724119963018DB0BfA86aDb22d941';
   }
   return zeroAddress;
 }
@@ -27,24 +27,14 @@ exports.tokenName = function (network) {
   return "Open Leverage";
 }
 exports.tokenSymbol = function (network) {
-  // if (network == 'huobiMainest') {
-  //   return 'HOLE';
-  // }
   return "OLE";
 }
 
-
-exports.getTreasuryShareToken = function (network) {
-  if (network == 'huobiMainest') {
-    return '0xa71edc38d189767582c38a3145b5873052c3e47a';
-  }
-  //kovan WETH
-  return "0xC58854ce3a7d507b1CA97Fa7B28A411956c07782";
-}
 exports.getWChainToken = function (network) {
-  //WETH
-  return "0xC58854ce3a7d507b1CA97Fa7B28A411956c07782";
+  //WETH9
+  return "0xd0A1E359811322d97991E03f863a0C30C2cF029C";
 }
+
 exports.getLpoolStartTime = function () {
   //now+120s
   return parseInt((new Date().getTime() + 120 * 1000).toString().substr(0, 10));
