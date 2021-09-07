@@ -18,7 +18,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     IUniswapV2Factory public uniV2Factory;
     address public openLev;
 
-    uint8 private constant priceDecimals = 12;
+    uint8 private constant priceDecimals = 18;
 
     constructor ()
     {
