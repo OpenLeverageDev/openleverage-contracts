@@ -16,8 +16,8 @@ contract UniV2Dex {
 
     struct V2PriceOracle {
         uint32 blockTimestampLast;  // Last block timestamp when price updated
-        uint112 price0; // recorded price for token0
-        uint112 price1; // recorded price for token1
+        uint price0; // recorded price for token0
+        uint price1; // recorded price for token1
         uint price0CumulativeLast; // Cumulative TWAP for token0
         uint price1CumulativeLast; // Cumulative TWAP for token1
     }
@@ -150,12 +150,8 @@ contract UniV2Dex {
     }
 
     function calTPrice(uint currentPriceCumulativeLast, uint historyPriceCumulativeLast, uint32 timeElapsed, uint8 decimals)
-    internal pure returns (uint112){
-        return toUint112(((currentPriceCumulativeLast.sub(historyPriceCumulativeLast).mul(10 ** decimals)) >> 112).div(timeElapsed));
-    }
-
-    function toUint112(uint256 y) internal pure returns (uint112 z) {
-        require((z = uint112(y)) == y);
+    internal pure returns (uint){
+        return ((currentPriceCumulativeLast.sub(historyPriceCumulativeLast).mul(10 ** decimals)) >> 112).div(timeElapsed);
     }
 
     function toUint32(uint256 y) internal pure returns (uint32 z) {
