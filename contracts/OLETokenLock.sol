@@ -28,8 +28,6 @@ contract OLETokenLock {
             address beneficiary = beneficiaries[i];
             releaseVars[beneficiary] = ReleaseVar(beneficiary, 0, amounts[i], startTimes[i], endTimes[i]);
         }
-        token.delegate(delegateTo);
-
     }
 
 
