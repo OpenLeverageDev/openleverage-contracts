@@ -10,7 +10,7 @@ contract("OLEToken", async accounts => {
     let oleToken = await OLEToken.new(accounts[0], "Open Leverage Token", "OLE");
     //mint
     await oleToken.mint(accounts[0], "1000000000000000000");
-    await oleToken.delegate(accounts[1]);
+    // await oleToken.delegate(accounts[1]);
     let balanceOfAcc0 = await oleToken.balanceOf(accounts[0]);
     let totalSupply = await oleToken.totalSupply();
     m.log("balanceOfAcc0 ", balanceOfAcc0.toString());
@@ -18,10 +18,10 @@ contract("OLEToken", async accounts => {
     let blockNum = await web3.eth.getBlockNumber();
     //approve
     await oleToken.approve(accounts[1], 1);
-    m.log("acc1 getPriorVotes  ", await oleToken.getPriorVotes(accounts[1], blockNum));
+    // m.log("acc1 getPriorVotes  ", await oleToken.getPriorVotes(accounts[1], blockNum));
     assert.equal("10000001000000000000000000", balanceOfAcc0.toString());
     assert.equal("10000001000000000000000000", totalSupply.toString());
-    assert.equal("10000001000000000000000000", (await oleToken.getPriorVotes(accounts[1], blockNum)).toString());
+    // assert.equal("10000001000000000000000000", (await oleToken.getPriorVotes(accounts[1], blockNum)).toString());
     //burn
     await oleToken.burn("1000000000000000000");
     blockNum = await web3.eth.getBlockNumber();
@@ -30,8 +30,8 @@ contract("OLEToken", async accounts => {
     totalSupply = await oleToken.totalSupply();
     assert.equal("10000000000000000000000000", balanceOfAcc0.toString());
     assert.equal("10000000000000000000000000", totalSupply.toString());
-    m.log("acc1 getPriorVotes  ", await oleToken.getPriorVotes(accounts[1], blockNum));
-    assert.equal("10000000000000000000000000", (await oleToken.getPriorVotes(accounts[1], blockNum)).toString());
+    // m.log("acc1 getPriorVotes  ", await oleToken.getPriorVotes(accounts[1], blockNum));
+    // assert.equal("10000000000000000000000000", (await oleToken.getPriorVotes(accounts[1], blockNum)).toString());
     //transfer
     await oleToken.mint(accounts[0], "1");
     await oleToken.transferFrom(accounts[0], accounts[1], 1, {
