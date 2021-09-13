@@ -171,23 +171,23 @@ contract("OLETokenLock", async accounts => {
   });
 
 
-  it("delegate test: ", async () => {
-    let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)], accounts[2]);
-    let votesBefore = await oleToken.getCurrentVotes(accounts[2]);
-    assert.equal("0", votesBefore);
-    await oleToken.transfer(timeLock.address, toWei(100000));
-    let votesAfter = await oleToken.getCurrentVotes(accounts[2]);
-    assert.equal(toWei(100000).toString(), votesAfter.toString());
-    await timeLock.release(accounts[1]);
-    let votesAfterRelease = await oleToken.getCurrentVotes(accounts[2]);
-    assert.equal("0", votesAfterRelease);
-    await oleToken.delegate(accounts[1], {from: accounts[1]});
-    let votesAfterReleaseAcc1 = await oleToken.getCurrentVotes(accounts[1]);
-
-    assert.equal(toWei(100000).toString(), votesAfterReleaseAcc1.toString());
-
-  });
+  // it("delegate test: ", async () => {
+  //   let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
+  //   let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)], accounts[2]);
+  //   let votesBefore = await oleToken.getCurrentVotes(accounts[2]);
+  //   assert.equal("0", votesBefore);
+  //   await oleToken.transfer(timeLock.address, toWei(100000));
+  //   let votesAfter = await oleToken.getCurrentVotes(accounts[2]);
+  //   assert.equal(toWei(100000).toString(), votesAfter.toString());
+  //   await timeLock.release(accounts[1]);
+  //   let votesAfterRelease = await oleToken.getCurrentVotes(accounts[2]);
+  //   assert.equal("0", votesAfterRelease);
+  //   await oleToken.delegate(accounts[1], {from: accounts[1]});
+  //   let votesAfterReleaseAcc1 = await oleToken.getCurrentVotes(accounts[1]);
+  //
+  //   assert.equal(toWei(100000).toString(), votesAfterReleaseAcc1.toString());
+  //
+  // });
 })
 
 
