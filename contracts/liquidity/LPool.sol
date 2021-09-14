@@ -68,7 +68,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         //80%
         borrowCapFactorMantissa = 0.8e18;
         //20%
-        reserveFactorMantissa= 0.2e18;
+        reserveFactorMantissa = 0.2e18;
 
 
         name = name_;
@@ -287,9 +287,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferIn(address from, uint amount) internal returns (uint) {
+    function doTransferIn(address from, uint amount, bool convertWeth) internal returns (uint) {
         uint balanceBefore = IERC20(underlying).balanceOf(address(this));
-        if (isWethPool) {
+        if (isWethPool && convertWeth) {
             IWETH(underlying).deposit{value : msg.value}();
         } else {
             IERC20(underlying).transferFrom(from, address(this), amount);
@@ -309,7 +309,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferOut(address payable to, uint amount) internal {
+    function doTransferOut(address payable to, uint amount, bool convertWeth) internal {
         if (isWethPool) {
             IWETH(underlying).withdraw(amount);
             to.transfer(amount);
@@ -712,7 +712,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  in case of a fee. On success, the cToken holds an additional `actualMintAmount`
          *  of cash.
          */
-        vars.actualMintAmount = doTransferIn(minter, mintAmount);
+        vars.actualMintAmount = doTransferIn(minter, mintAmount, true);
 
         /*
          * We get the current exchange rate and calculate the number of lTokens to be minted:
@@ -818,7 +818,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  On success, the cToken has redeemAmount less of cash.
          *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
          */
-        doTransferOut(redeemer, vars.redeemAmount);
+        doTransferOut(redeemer, vars.redeemAmount, true);
         /* We write previously calculated values into storage */
         totalSupply = vars.totalSupplyNew;
         accountTokens[redeemer] = vars.accountTokensNew;
@@ -870,7 +870,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  On success, the cToken borrowAmount less of cash.
          *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
          */
-        doTransferOut(payee, borrowAmount);
+        doTransferOut(payee, borrowAmount, false);
 
         /* We write the previously calculated values into storage */
         accountBorrows[borrower].principal = vars.accountBorrowsNew;
@@ -926,7 +926,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
          *   it returns the amount actually transferred, in case of a fee.
          */
-        vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount);
+        vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount, false);
 
         if (isEnd) {
             vars.actualRepayAmount = vars.accountBorrows;
@@ -1000,7 +1000,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         accrueInterest();
         uint totalReservesNew;
         uint actualAddAmount;
-        actualAddAmount = doTransferIn(msg.sender, addAmount);
+        actualAddAmount = doTransferIn(msg.sender, addAmount, true);
         totalReservesNew = totalReserves.add(actualAddAmount);
         totalReserves = totalReservesNew;
         emit ReservesAdded(msg.sender, actualAddAmount, totalReservesNew);
@@ -1011,7 +1011,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint totalReservesNew;
         totalReservesNew = totalReserves.sub(reduceAmount);
         totalReserves = totalReservesNew;
-        doTransferOut(to, reduceAmount);
+        doTransferOut(to, reduceAmount, true);
         emit ReservesReduced(to, reduceAmount, totalReservesNew);
     }
 
