@@ -310,7 +310,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferOut(address payable to, uint amount, bool convertWeth) internal {
-        if (isWethPool) {
+        if (isWethPool && convertWeth) {
             IWETH(underlying).withdraw(amount);
             to.transfer(amount);
         } else {
