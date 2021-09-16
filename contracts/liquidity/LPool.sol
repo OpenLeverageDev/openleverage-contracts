@@ -891,6 +891,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint accountBorrowsNew;
         uint totalBorrowsNew;
         uint actualRepayAmount;
+        uint subBorrowsAmount;
+
     }
 
     /**
@@ -927,23 +929,20 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *   it returns the amount actually transferred, in case of a fee.
          */
         vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount, false);
-
-        if (isEnd) {
-            vars.actualRepayAmount = vars.accountBorrows;
-        }
+        vars.subBorrowsAmount = isEnd ? vars.accountBorrows : vars.actualRepayAmount;
         /*
          * We calculate the new borrower and total borrow balances, failing on underflow:
          *  accountBorrowsNew = accountBorrows - actualRepayAmount
          *  totalBorrowsNew = totalBorrows - actualRepayAmount
          */
-        (vars.mathErr, vars.accountBorrowsNew) = subUInt(vars.accountBorrows, vars.actualRepayAmount);
+        (vars.mathErr, vars.accountBorrowsNew) = subUInt(vars.accountBorrows, vars.subBorrowsAmount);
 
         require(vars.mathErr == MathError.NO_ERROR, "calc acc borrows error");
         //Avoid mantissa errors
-        if (vars.actualRepayAmount > totalBorrows) {
+        if (vars.subBorrowsAmount > totalBorrows) {
             vars.totalBorrowsNew = 0;
         } else {
-            vars.totalBorrowsNew = totalBorrows - vars.actualRepayAmount;
+            vars.totalBorrowsNew = totalBorrows - vars.subBorrowsAmount;
         }
 
         /* We write the previously calculated values into storage */

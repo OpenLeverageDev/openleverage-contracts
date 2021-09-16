@@ -50,13 +50,14 @@ library Types {
         uint tradeSize;             // Trade amount to be swap on DEX
         uint newHeld;               // Latest held position
         uint borrowValue;
-        uint receiveAmount;
+        uint token0Price;
         uint32 dexDetail;
     }
 
     struct CloseTradeVars {// A variables holder for close trade info
         uint16 marketId;
         bool longToken;
+        bool depositToken;
         uint closeRatio;          // Close ratio
         bool isPartialClose;        // Is partial close
         uint closeAmountAfterFees;  // Close amount sub Fees value
@@ -65,7 +66,9 @@ library Types {
         uint depositReturn;         // Deposit actual returns
         uint sellAmount;
         uint receiveAmount;
+        uint token0Price;
         uint fees;                  // Fees value
+        uint32 dexDetail;
     }
 
 
@@ -74,11 +77,14 @@ library Types {
         bool longToken;
         uint borrowed;              // Total borrowed balance of trade
         uint fees;                  // Fees for liquidation process
+        uint penalty;               // Penalty
+        uint remainHeldAfterFees;   // Held-fees-penalty
         bool isSellAllHeld;         // Is need sell all held
         uint depositDecrease;       // Deposit decrease
         uint depositReturn;         // Deposit actual returns
         uint sellAmount;
         uint receiveAmount;
+        uint token0Price;
         uint outstandingAmount;
         uint32 dexDetail;
     }

@@ -8,6 +8,7 @@ import "./Types.sol";
 import "./liquidity/LPoolInterface.sol";
 import "./ControllerInterface.sol";
 import "./dex/DexAggregatorInterface.sol";
+import "./OpenLevInterface.sol";
 
 abstract contract OpenLevStorage {
     using SafeMath for uint;
@@ -21,6 +22,9 @@ abstract contract OpenLevStorage {
         uint16 updatePriceDiscount;//25=>25%
         uint16 feesDiscount; // 25=>25%
         uint128 feesDiscountThreshold; //  30 * (10 ** 18) minimal holding of xOLE to enjoy fees discount
+        uint16 penaltyRatio;//100=>1%
+        uint8 maxLiquidationPriceDiffientRatio;//30=>30%
+        uint16 twapDuration;//28=>28s
     }
 
     struct AddressConfig {
@@ -41,7 +45,7 @@ abstract contract OpenLevStorage {
 
     mapping(address => bool) public allowedDepositTokens;
 
-    CalculateConfig public calculateConfig;
+    CalculateConfig internal calculateConfig;
     AddressConfig public addressConfig;
 
     event MarginTrade(
@@ -53,8 +57,7 @@ abstract contract OpenLevStorage {
         uint borrowed,
         uint held,
         uint fees,
-        uint sellAmount,
-        uint receiveAmount,
+        uint token0Price,
         uint32 dex
     );
 
@@ -62,12 +65,12 @@ abstract contract OpenLevStorage {
         address owner,
         uint16 marketId,
         bool longToken,
+        bool depositToken,
         uint closeAmount,
         uint depositDecrease,
         uint depositReturn,
         uint fees,
-        uint sellAmount,
-        uint receiveAmount,
+        uint token0Price,
         uint32 dex
     );
 
@@ -75,13 +78,15 @@ abstract contract OpenLevStorage {
         address owner,
         uint16 marketId,
         bool longToken,
+        bool depositToken,
         uint liquidationAmount,
         uint outstandingAmount,
         address liquidator,
         uint depositDecrease,
         uint depositReturn,
-        uint sellAmount,
-        uint receiveAmount,
+        uint fees,
+        uint token0Price,
+        uint penalty,
         uint32 dex
     );
 
@@ -94,7 +99,10 @@ abstract contract OpenLevStorage {
         uint16 priceDiffientRatio,
         uint16 updatePriceDiscount,
         uint16 feesDiscount,
-        uint128 feesDiscountThreshold);
+        uint128 feesDiscountThreshold,
+        uint16 penaltyRatio,
+        uint8 maxLiquidationPriceDiffientRatio,
+        uint16 twapDuration);
 
     event NewMarketConfig(uint16 marketId, uint16 feesRate, uint32 marginLimit, uint16 priceDiffientRatio, uint32[] dexs);
 
@@ -118,9 +126,9 @@ interface OpenLevInterface {
 
     function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable;
 
-    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minBuyAmount, bytes memory dexData) external;
+    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external;
 
-    function liquidate(address owner, uint16 marketId, bool longToken, bytes memory dexData) external;
+    function liquidate(address owner, uint16 marketId, bool longToken, uint minOrMaxAmount, bytes memory dexData) external;
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
@@ -130,10 +138,11 @@ interface OpenLevInterface {
 
     function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
+    function getCalculateConfig() external view returns (OpenLevStorage.CalculateConfig memory);
 
     /*** Admin Functions ***/
-
-    function setCalculateConfig(uint16 defaultFeesRate, uint8 insuranceRatio, uint16 defaultMarginLimit, uint16 priceDiffientRatio, uint16 updatePriceDiscount, uint16 feesDiscount, uint128 feesDiscountThreshold) external;
+    function setCalculateConfig(uint16 defaultFeesRate, uint8 insuranceRatio, uint16 defaultMarginLimit, uint16 priceDiffientRatio,
+        uint16 updatePriceDiscount, uint16 feesDiscount, uint128 feesDiscountThreshold, uint16 penaltyRatio, uint8 maxLiquidationPriceDiffientRatio, uint16 twapDuration) external;
 
     function setAddressConfig(address controller, DexAggregatorInterface dexAggregator) external;
 
