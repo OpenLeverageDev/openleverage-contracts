@@ -342,8 +342,10 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             updateReward(LPoolInterface(pool), address(0), true);
             updateDistribution(lpoolDistributions[LPoolInterface(pool)][true], borrowAmount);
         }
+        bool isBorrowMore = borrowAmount > 0 ? true : false;
         uint subAmount = supplyAmount.add(borrowAmount);
         oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
+        emit Distribution2Pool(pool, supplyAmount, borrowAmount, lpoolDistributions[LPoolInterface(pool)][isBorrowMore].startTime, lpoolDistributions[LPoolInterface(pool)][isBorrowMore].duration);
     }
 
     function distributeExtraRewards2Market(uint marketId, bool isDistribution) external override onlyAdminOrDeveloper {

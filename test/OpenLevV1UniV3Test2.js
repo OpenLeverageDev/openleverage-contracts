@@ -130,13 +130,13 @@ contract("OpenLev UniV3", async accounts => {
 
     // Partial Close trade
     m.log("Partial Close Trade", 400);
-    let tx_close = await openLev.closeTrade(0, 0, "400000000000000000000", 0, Uni3DexData, {from: trader});
+    let tx_close = await openLev.closeTrade(0, 0, "400000000000000000000",  utils.maxUint(), Uni3DexData, {from: trader});
 
     // Check contract held balance
     checkAmount("OpenLev USDT Balance", 0, await usdt.balanceOf(openLev.address), 18);
     checkAmount("OpenLev BTC Balance", 494614303890107812554, await btc.balanceOf(openLev.address), 18);
     checkAmount("Trader USDT Balance", 0, await usdt.balanceOf(trader), 18);
-    checkAmount("Trader BTC Balance", 9772732325037808086095, await btc.balanceOf(trader), 18);
+    checkAmount("Trader BTC Balance", 9773740152470129338679, await btc.balanceOf(trader), 18);
     checkAmount("Treasury USDT Balance", 0, await usdt.balanceOf(xole.address), 18);
     checkAmount("Treasury BTC Balance", 2613000000000000000, await btc.balanceOf(xole.address), 18);
     // await printBlockNum();
@@ -147,15 +147,15 @@ contract("OpenLev UniV3", async accounts => {
 
     let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Ratio, current:", ratio.current, "limit", ratio.marketLimit);
-    assert.equal(7784, ratio.current.toString());
+    assert.equal(7786, ratio.current.toString());
 
     // Partial Close trade
-    let tx_full_close = await openLev.closeTrade(0, 0, "472129737581559270371", 0, Uni3DexData, {from: trader});
+    let tx_full_close = await openLev.closeTrade(0, 0, "472129737581559270371",  utils.maxUint(), Uni3DexData, {from: trader});
 
     checkAmount("OpenLev USDT Balance", 0, await usdt.balanceOf(openLev.address), 18);
     checkAmount("OpenLev BTC Balance", 22951974748754285860, await btc.balanceOf(openLev.address), 18);
     checkAmount("Trader USDT Balance", 0, await usdt.balanceOf(trader), 18);
-    checkAmount("Trader BTC Balance", 9975254557692714773001, await btc.balanceOf(trader), 18);
+    checkAmount("Trader BTC Balance", 9977506702876168020454, await btc.balanceOf(trader), 18);
     checkAmount("Treasury USDT Balance", 0, await usdt.balanceOf(xole.address), 18);
     checkAmount("Treasury BTC Balance", 3561980772538934134, await btc.balanceOf(xole.address), 18);
 
@@ -212,14 +212,14 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Partial Close Trade", 400);
     let tx_partial_close = await openLev.closeTrade(0, 0, "400000000000000000000", 0, Uni3DexData, {from: trader});
     m.log("Partial Close Tx ", JSON.stringify(tx_partial_close.logs[0]));
-    assert.equal("179222030000000000000", tx_partial_close.logs[0].args.depositDecrease);
+    assert.equal("179231231186616798657", tx_partial_close.logs[0].args.depositDecrease.toString());
     //Check borrows
-    assert.equal("274450124014221841253", (await pool1.borrowBalanceCurrent(trader)).toString());
+    assert.equal("274438544363108716943", (await pool1.borrowBalanceCurrent(trader)).toString());
 
     // Check contract held balance
     checkAmount("OpenLev BTC Balance", 487071826237735294796, await btc.balanceOf(openLev.address), 18);
     checkAmount("OpenLev USDT Balance", 891000000000000000, await usdt.balanceOf(openLev.address), 18);
-    checkAmount("Trader USDT Balance", 177582099726710766016, await usdt.balanceOf(trader), 18);
+    checkAmount("Trader USDT Balance", 177570520075597641706, await usdt.balanceOf(trader), 18);
     checkAmount("Trader BTC Balance", 0, await btc.balanceOf(trader), 18);
     checkAmount("Treasury USDT Balance", 1809000000000000000, await usdt.balanceOf(xole.address), 18);
     checkAmount("Treasury BTC Balance", 804000000000000000, await btc.balanceOf(xole.address), 18);
@@ -231,12 +231,12 @@ contract("OpenLev UniV3", async accounts => {
 
     let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Ratio, current:", ratio.current, "limit", ratio.limit);
-    assert.equal(7906, ratio.current.toString());
+    assert.equal(7907, ratio.current.toString());
     //
     // Partial Close trade
     let tx_full_close = await openLev.closeTrade(0, 0, "486675826237735294796", 0, Uni3DexData, {from: trader});
     m.log("Full Close Tx ", JSON.stringify(tx_full_close.logs[0]));
-    assert.equal("218077970000000000000", tx_full_close.logs[0].args.depositDecrease);
+    assert.equal("218068768813383201343", tx_full_close.logs[0].args.depositDecrease.toString());
 
     trade = await openLev.activeTrades(trader, 0, 0);
 
@@ -245,7 +245,7 @@ contract("OpenLev UniV3", async accounts => {
 
     checkAmount("OpenLev BTC Balance", 877809067975357941, await btc.balanceOf(openLev.address), 18);
     checkAmount("OpenLev USDT Balance", 891000000000000000, await usdt.balanceOf(openLev.address), 18);
-    checkAmount("Trader USDT Balance", 389295395926437775451, await usdt.balanceOf(trader), 18);
+    checkAmount("Trader USDT Balance", 389295395931697135986, await usdt.balanceOf(trader), 18);
     checkAmount("Trader BTC Balance", 0, await btc.balanceOf(trader), 18);
     checkAmount("Treasury USDT Balance", 1809000000000000000, await usdt.balanceOf(xole.address), 18);
     checkAmount("Treasury BTC Balance", 1782218410737847943, await btc.balanceOf(xole.address), 18);
@@ -321,12 +321,12 @@ contract("OpenLev UniV3", async accounts => {
 
     trade = await openLev.activeTrades(trader, 0, 0);
     //Check trade
-    assertPrint("trade.deposited:", '323481660000000000000', trade.deposited);
+    assertPrint("trade.deposited:", '323429355699799058500', trade.deposited);
     assertPrint("trade.held:", '715470820586644596907', trade.held);
 
     // Check contract held balance  9504186992243861070926
     checkAmount("OpenLev Balance", 1782000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 9669353866501493535819, await token1.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9669288041750866918925, await token1.balanceOf(trader), 18);
     checkAmount("Treasury Balance", 3618000000000000000, await token1.balanceOf(xole.address), 18);
     checkAmount("Treasury Balance", 2095013243422679885, await token0.balanceOf(xole.address), 18);
 
@@ -339,7 +339,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Check contract held balance   9701623951262107661984
     checkAmount("OpenLev Balance", 1782000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 9978683244953093342067, await token1.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9978683244982546246627, await token1.balanceOf(trader), 18);
     checkAmount("Treasury Balance", 3618000000000000000, await token1.balanceOf(xole.address), 18);
     checkAmount("Treasury Balance", 3533109592801835525, await token0.balanceOf(xole.address), 18);
     await printBlockNum();
@@ -377,9 +377,9 @@ contract("OpenLev UniV3", async accounts => {
     m.log("trade.deposit=", trade.deposited);
     try {
       await openLev.closeTrade(0, 0, trade.held, 0, Uni3DexData, {from: trader});
-      assert.fail("should thrown Liquidate Only error");
+      assert.fail("should thrown ERC20: transfer amount exceeds balance error");
     } catch (error) {
-      assert.include(error.message, 'Liquidate Only', 'throws exception with Liquidate Only');
+      assert.include(error.message, 'ERC20: transfer amount exceeds balance', 'throws exception with ERC20: transfer amount exceeds balance');
     }
 
   })
