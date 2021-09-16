@@ -84,6 +84,15 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
         }
     }
 
+    function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            sellAmount = uniV2CalSellAmount(uniV2Factory, buyToken, sellToken, buyAmount);
+        }
+        else {
+            require(false, 'Unsupported dex');
+        }
+    }
+
 
     function getPrice(address desToken, address quoteToken, bytes memory data) external view override returns (uint256 price, uint8 decimals){
         decimals = priceDecimals;

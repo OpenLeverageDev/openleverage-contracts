@@ -92,6 +92,17 @@ contract UniV2Dex {
         }
     }
 
+    function uniV2CalSellAmount(IUniswapV2Factory factory, address buyToken, address sellToken, uint buyAmount) internal view returns (uint) {
+        address pair = getUniV2ClassPair(buyToken, sellToken, factory);
+        (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
+        bool isToken0 = buyToken < sellToken;
+        if (isToken0) {
+            return getAmountIn(buyAmount, token1Reserves, token0Reserves);
+        } else {
+            return getAmountIn(buyAmount, token0Reserves, token1Reserves);
+        }
+    }
+
     function uniV2GetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
         address pair = getUniV2ClassPair(desToken, quoteToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
