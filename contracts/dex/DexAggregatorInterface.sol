@@ -13,6 +13,8 @@ interface DexAggregatorInterface {
 
     function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) external view returns (uint);
 
+    function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view returns (uint);
+
     function getPrice(address desToken, address quoteToken, bytes memory data) external view returns (uint256 price, uint8 decimals);
 
     function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view returns (uint256 price, uint8 decimals, uint256 timestamp);
