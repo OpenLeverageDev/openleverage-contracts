@@ -95,5 +95,6 @@ library Types {
         address owner;
         uint held;
         bytes dexData;
+        uint16 multiplier;
     }
 }

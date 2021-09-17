@@ -49,7 +49,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         calculateConfig.feesDiscount = 25;
         calculateConfig.feesDiscountThreshold = 30 * (10 ** 18);
         calculateConfig.penaltyRatio = 300;
-        calculateConfig.twapDuration = 28;
+        calculateConfig.twapDuration = 60;
         calculateConfig.maxLiquidationPriceDiffientRatio = 30;
     }
 
@@ -286,19 +286,23 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         ratioVars.heldToken = heldToken;
         ratioVars.sellToken = sellToken;
         ratioVars.owner = owner;
-        uint16 multiplier = 10000;
+        ratioVars.multiplier = 10000;
         uint borrowed = isOpen ? borrowPool.borrowBalanceStored(ratioVars.owner) : borrowPool.borrowBalanceCurrent(ratioVars.owner);
         if (borrowed == 0) {
-            return (multiplier, multiplier, multiplier, multiplier, multiplier);
+            return (ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier);
         }
-        (uint price, uint cAvgPrice, uint hAvgPrice, uint8 decimals,) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, calculateConfig.twapDuration, ratioVars.dexData);
+        (uint price, uint cAvgPrice, uint hAvgPrice, uint8 decimals,uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, calculateConfig.twapDuration, ratioVars.dexData);
+        //Ignore hAvgPrice
+        if (block.timestamp > lastUpdateTime.add(calculateConfig.twapDuration)) {
+            hAvgPrice = cAvgPrice;
+        }
         //marginRatio=(marketValue-borrowed)/borrowed
         uint marketValue = ratioVars.held.mul(price).div(10 ** uint(decimals));
-        uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
         marketValue = ratioVars.held.mul(cAvgPrice).div(10 ** uint(decimals));
-        uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
         marketValue = ratioVars.held.mul(hAvgPrice).div(10 ** uint(decimals));
-        uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(multiplier).div(borrowed) : 0;
+        uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
         return (current, cAvg, hAvg, price, cAvgPrice);
     }
 
@@ -333,7 +337,11 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         if (!dexData.isUniV2Class()) {
             return false;
         }
-        (, uint cAvgPrice, uint hAvgPrice,,) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, calculateConfig.twapDuration, dexData);
+        (, uint cAvgPrice, uint hAvgPrice,,uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, calculateConfig.twapDuration, dexData);
+        if (block.timestamp < lastUpdateTime.add(calculateConfig.twapDuration))
+        {
+            return false;
+        }
         //Not initialized yet
         if (cAvgPrice == 0 || hAvgPrice == 0) {
             return true;

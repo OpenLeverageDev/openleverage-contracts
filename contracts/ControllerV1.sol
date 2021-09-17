@@ -97,6 +97,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator(msg.sender) {
+        require(!marketSuspend[marketId], 'Market suspended');
         // Shh - currently unused
         liquidateAmount;
         dexData;
@@ -127,8 +128,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function marginTradeAllowed(uint marketId) external view override onlyNotSuspended() returns (bool){
-        // Shh - currently unused
-        marketId;
+        require(!marketSuspend[marketId], 'Market suspended');
         return true;
     }
 
@@ -379,6 +379,9 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         suspend = _uspend;
     }
 
+    function setMarketSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
+        marketSuspend[marketId] = suspend;
+    }
     modifier onlyLPoolSender(address lPool) {
         require(msg.sender == lPool, "Sender not lPool");
         _;

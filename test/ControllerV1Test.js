@@ -686,7 +686,17 @@ contract("ControllerV1", async accounts => {
             assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
         }
     });
-
+    it("Admin setMarketSuspend test", async () => {
+        let {controller, timeLock} = await instanceSimpleController();
+        await timeLock.executeTransaction(controller.address, 0, 'setMarketSuspend(uint256,bool)', web3.eth.abi.encodeParameters(['uint256', 'bool'], [1, true]), 0);
+        assert.equal(true, (await controller.marketSuspend(1)), {from: accounts[2]});
+        try {
+            await controller.setMarketSuspend(1, true);
+            assert.fail("should thrown caller must be admin or developer error");
+        } catch (error) {
+            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
+        }
+    });
     it("Admin setOLETokenDistribution test", async () => {
         let {controller, oleToken, timeLock} = await instanceSimpleController();
         await oleToken.mint(controller.address, 100);
