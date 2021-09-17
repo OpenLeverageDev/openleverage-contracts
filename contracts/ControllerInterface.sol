@@ -67,6 +67,8 @@ contract ControllerStorage {
     mapping(address => mapping(address => LPoolPair)) public lpoolPairs;
     //marketId=>isDistribution
     mapping(uint => bool) public marketExtraDistribution;
+    //marketId=>isDistribution
+    mapping(uint => bool) public marketSuspend;
     //pool=>allowed
     mapping(address => bool) public lpoolUnAlloweds;
     //pool=>bool=>distribution(true is borrow,false is supply)
@@ -118,6 +120,8 @@ interface ControllerInterface {
     function setLPoolUnAllowed(address lpool, bool unAllowed) external;
 
     function setSuspend(bool suspend) external;
+
+    function setMarketSuspend(uint marketId, bool suspend) external;
 
     // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
     function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external;

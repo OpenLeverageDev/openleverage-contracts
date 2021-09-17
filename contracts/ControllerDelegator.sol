@@ -106,6 +106,9 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         delegateToImplementation(abi.encodeWithSignature("setSuspend(bool)", suspend));
     }
 
+    function setMarketSuspend(uint marketId, bool suspend) external override {
+        delegateToImplementation(abi.encodeWithSignature("setMarketSuspend(uint256,bool)", marketId, suspend));
+    }
 
     function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override {
         delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint128,uint128,uint16,uint16,uint128)",
