@@ -67,8 +67,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         borrowIndex = 1e25;
         //80%
         borrowCapFactorMantissa = 0.8e18;
-        //20%
-        reserveFactorMantissa = 0.2e18;
+        //10%
+        reserveFactorMantissa = 0.1e18;
 
 
         name = name_;
@@ -80,6 +80,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         // Set underlying and sanity check it
         underlying = underlying_;
         IERC20(underlying).totalSupply();
+        emit Transfer(address(0), msg.sender, 0);
     }
 
     /**
@@ -292,7 +293,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         if (isWethPool && convertWeth) {
             IWETH(underlying).deposit{value : msg.value}();
         } else {
-            IERC20(underlying).transferFrom(from, address(this), amount);
+            IERC20(underlying).safeTransferFrom(from, address(this), amount);
         }
         // Calculate the amount that was *actually* transferred
         uint balanceAfter = IERC20(underlying).balanceOf(address(this));
@@ -812,6 +813,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         require(vars.mathErr == MathError.NO_ERROR, 'calc token new error');
         require(getCashPrior() >= vars.redeemAmount, 'cash < redeem');
 
+        /* We write previously calculated values into storage */
+        totalSupply = vars.totalSupplyNew;
+        accountTokens[redeemer] = vars.accountTokensNew;
         /*
          * We invoke doTransferOut for the redeemer and the redeemAmount.
          *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
@@ -819,9 +823,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
          */
         doTransferOut(redeemer, vars.redeemAmount, true);
-        /* We write previously calculated values into storage */
-        totalSupply = vars.totalSupplyNew;
-        accountTokens[redeemer] = vars.accountTokensNew;
+
 
         /* We emit a Transfer event, and a Redeem event */
         emit Transfer(redeemer, address(this), vars.redeemTokens);
@@ -864,6 +866,11 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         (vars.mathErr, vars.totalBorrowsNew) = addUInt(totalBorrows, borrowAmount);
         require(vars.mathErr == MathError.NO_ERROR, 'calc total borrows error');
 
+        /* We write the previously calculated values into storage */
+        accountBorrows[borrower].principal = vars.accountBorrowsNew;
+        accountBorrows[borrower].interestIndex = borrowIndex;
+        totalBorrows = vars.totalBorrowsNew;
+
         /*
          * We invoke doTransferOut for the borrower and the borrowAmount.
          *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
@@ -871,11 +878,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
          */
         doTransferOut(payee, borrowAmount, false);
-
-        /* We write the previously calculated values into storage */
-        accountBorrows[borrower].principal = vars.accountBorrowsNew;
-        accountBorrows[borrower].interestIndex = borrowIndex;
-        totalBorrows = vars.totalBorrowsNew;
 
         /* We emit a Borrow event */
         emit Borrow(borrower, payee, borrowAmount, vars.accountBorrowsNew, vars.totalBorrowsNew);
@@ -892,7 +894,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint totalBorrowsNew;
         uint actualRepayAmount;
         uint subBorrowsAmount;
-
+        uint outstandingAmount;
+        uint badDebtsAmount;
     }
 
     /**
@@ -921,19 +924,15 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
             vars.repayAmount = repayAmount;
         }
 
-        /*
-         * We call doTransferIn for the payer and the repayAmount
-         *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the cToken holds an additional repayAmount of cash.
-         *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
-         *   it returns the amount actually transferred, in case of a fee.
-         */
-        vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount, false);
-        vars.subBorrowsAmount = isEnd ? vars.accountBorrows : vars.actualRepayAmount;
+        vars.subBorrowsAmount = isEnd ? vars.accountBorrows : vars.repayAmount;
+        // If trader's position is liquidated, may be can't repay all borrows
+        (vars.mathErr, vars.outstandingAmount) = subUInt(vars.accountBorrows, vars.repayAmount);
+        require(vars.mathErr == MathError.NO_ERROR, 'calc osamount error');
+        vars.badDebtsAmount = isEnd ? vars.outstandingAmount : 0;
         /*
          * We calculate the new borrower and total borrow balances, failing on underflow:
-         *  accountBorrowsNew = accountBorrows - actualRepayAmount
-         *  totalBorrowsNew = totalBorrows - actualRepayAmount
+         *  accountBorrowsNew = accountBorrows - repayAmount
+         *  totalBorrowsNew = totalBorrows - repayAmount
          */
         (vars.mathErr, vars.accountBorrowsNew) = subUInt(vars.accountBorrows, vars.subBorrowsAmount);
 
@@ -950,12 +949,23 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         accountBorrows[borrower].interestIndex = borrowIndex;
         totalBorrows = vars.totalBorrowsNew;
 
+        /*
+         * We call doTransferIn for the payer and the repayAmount
+         *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
+         *  On success, the cToken holds an additional repayAmount of cash.
+         *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
+         *   it returns the amount actually transferred, in case of a fee.
+         */
+        vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount, false);
+        require(vars.actualRepayAmount == vars.repayAmount, 'repay amount incorrect');
+
+
         /* We emit a RepayBorrow event */
-        emit RepayBorrow(payer, borrower, vars.actualRepayAmount, vars.accountBorrowsNew, vars.totalBorrowsNew);
+        emit RepayBorrow(payer, borrower, vars.repayAmount, vars.badDebtsAmount, vars.accountBorrowsNew, vars.totalBorrowsNew);
 
         /* We call the defense hook */
 
-        return vars.actualRepayAmount;
+        return vars.repayAmount;
     }
 
     /*** Admin Functions ***/
@@ -973,7 +983,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     }
 
     function setBorrowCapFactorMantissa(uint newBorrowCapFactorMantissa) external override onlyAdmin {
+        require(newBorrowCapFactorMantissa <= 1e18, 'Factor too large');
+        uint oldBorrowCapFactorMantissa = borrowCapFactorMantissa;
         borrowCapFactorMantissa = newBorrowCapFactorMantissa;
+        emit NewBorrowCapFactorMantissa(oldBorrowCapFactorMantissa, borrowCapFactorMantissa);
     }
 
     function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) external override onlyAdmin {
@@ -981,31 +994,36 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         if (baseRatePerBlock != 0) {
             accrueInterest();
         }
+        // total rate perYear < 2000%
+        require(baseRatePerBlock_ < 1e13, 'Base rate too large');
         baseRatePerBlock = baseRatePerBlock_;
+        require(multiplierPerBlock_ < 1e13, 'Mul rate too large');
         multiplierPerBlock = multiplierPerBlock_;
+        require(multiplierPerBlock_ < 1e13, 'Jump rate too large');
         jumpMultiplierPerBlock = jumpMultiplierPerBlock_;
+        require(kink_ <= 1e18, 'Kline too large');
         kink = kink_;
         emit NewInterestParam(baseRatePerBlock_, multiplierPerBlock_, jumpMultiplierPerBlock_, kink_);
     }
 
     function setReserveFactor(uint newReserveFactorMantissa) external override onlyAdmin {
+        require(newReserveFactorMantissa <= 1e18, 'Factor too large');
         accrueInterest();
         uint oldReserveFactorMantissa = reserveFactorMantissa;
         reserveFactorMantissa = newReserveFactorMantissa;
         emit NewReserveFactor(oldReserveFactorMantissa, newReserveFactorMantissa);
     }
 
-    function addReserves(uint addAmount) external override {
+    function addReserves(uint addAmount) external override nonReentrant {
         accrueInterest();
         uint totalReservesNew;
-        uint actualAddAmount;
-        actualAddAmount = doTransferIn(msg.sender, addAmount, true);
+        uint actualAddAmount = doTransferIn(msg.sender, addAmount, true);
         totalReservesNew = totalReserves.add(actualAddAmount);
         totalReserves = totalReservesNew;
         emit ReservesAdded(msg.sender, actualAddAmount, totalReservesNew);
     }
 
-    function reduceReserves(address payable to, uint reduceAmount) external override onlyAdmin {
+    function reduceReserves(address payable to, uint reduceAmount) external override nonReentrant onlyAdmin {
         accrueInterest();
         uint totalReservesNew;
         totalReservesNew = totalReserves.sub(reduceAmount);

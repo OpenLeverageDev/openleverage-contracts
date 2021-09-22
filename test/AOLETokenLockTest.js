@@ -16,7 +16,7 @@ contract("OLETokenLock", async accounts => {
 
   it("Take out all at one time, the time has expired: ", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     await timeLock.release(accounts[1]);
     assert.equal((await timeLock.releaseVars(accounts[1])).released, toBN(100000).mul(toBN(1e18)).toString());
@@ -27,7 +27,7 @@ contract("OLETokenLock", async accounts => {
 
   it("The withdrawal address is non beneficiary: ", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     try {
       await timeLock.release(accounts[2]);
@@ -40,7 +40,7 @@ contract("OLETokenLock", async accounts => {
 
   it("Cash withdrawal before start time:", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], [(new Date().getTime() + 30000).toString().substr(0, 10)], [(new Date().getTime() + 60000).toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], [(new Date().getTime() + 30000).toString().substr(0, 10)], [(new Date().getTime() + 60000).toString().substr(0, 10)]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     try {
       await timeLock.release(accounts[1]);
@@ -54,7 +54,7 @@ contract("OLETokenLock", async accounts => {
 
   it("Withdraw twice, is the amount correct each time: ", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [(parseInt(await lastBlockTime()) + 30000) + ""], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [(parseInt(await lastBlockTime()) + 30000) + ""]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     await timeLock.release(accounts[1]);
     assert.equal((await timeLock.releaseVars(accounts[1])).released, (await oleToken.balanceOf(accounts[1])).toString());
@@ -74,7 +74,7 @@ contract("OLETokenLock", async accounts => {
 
   it("At Endtime, is the one-time withdrawal result correct: ", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     await timeLock.release(accounts[1]);
     assert.equal((await timeLock.releaseVars(accounts[1])).released, toBN(100000).mul(toBN(1e18)).toString());
@@ -87,7 +87,7 @@ contract("OLETokenLock", async accounts => {
   it("After one withdrawal, is the result correct at end time", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
 
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [(parseInt(await lastBlockTime()) + 30000) + ""], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [(parseInt(await lastBlockTime()) + 30000) + ""]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     await timeLock.release(accounts[1]);
     // comparison of results
@@ -112,7 +112,7 @@ contract("OLETokenLock", async accounts => {
   it("If the withdrawal is completed, is it wrong to withdraw again: ", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
     // 2020-09-06 14:05:11  2021-01-01 14:05:11
-    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+    let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [new Date().getTime().toString().substr(0, 10)]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     await timeLock.release(accounts[1]);
     assert.equal((await timeLock.releaseVars(accounts[1])).released, toBN(100000).mul(toBN(1e18)).toString());
@@ -133,7 +133,7 @@ contract("OLETokenLock", async accounts => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
     // 2020-09-06 14:05:11  2021-01-01 14:05:11
     let timeLock = await TimeLock.new(oleToken.address, [accounts[1], accounts[3]], [toWei(100000), toWei(100000)],
-      ['1599372311', '1599372311'], [(new Date().getTime() + 20000).toString().substr(0, 10), (new Date().getTime() + 20000).toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+      ['1599372311', '1599372311'], [(new Date().getTime() + 20000).toString().substr(0, 10), (new Date().getTime() + 20000).toString().substr(0, 10)]);
 
     await oleToken.transfer(timeLock.address, toWei(100000));
 
@@ -153,7 +153,7 @@ contract("OLETokenLock", async accounts => {
   it("Two accounts, two addresses, all withdrawals: ", async () => {
     let oleToken = await OLEToken.new(accounts[0], 'TEST', 'TEST');
     let timeLock = await TimeLock.new(oleToken.address, [accounts[1], accounts[3]], [toWei(100000), toWei(100000)], ['1599372311', '1599372311'],
-      [(new Date().getTime()).toString().substr(0, 10), (new Date().getTime()).toString().substr(0, 10)], "0x0000000000000000000000000000000000000000");
+      [(new Date().getTime()).toString().substr(0, 10), (new Date().getTime()).toString().substr(0, 10)]);
     await oleToken.transfer(timeLock.address, toWei(100000));
     await timeLock.release(accounts[1]);
 

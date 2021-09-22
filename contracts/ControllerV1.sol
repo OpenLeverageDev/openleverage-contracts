@@ -89,7 +89,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         payer;
         repayAmount;
         if (isEnd) {
-            require(openLev == payer || openLev == address(0), "Operator not openLev");
+            require(openLev == payer, "Operator not openLev");
         }
         if (updateReward(LPoolInterface(lpool), borrower, true)) {
             getRewardInternal(LPoolInterface(lpool), borrower, true);
@@ -263,7 +263,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function getRewardInternal(LPoolInterface lpool, address account, bool isBorrow) internal {
-        uint256 reward = earnedInternal(lpool, account, isBorrow);
+        uint256 reward = lPoolRewardByAccounts[lpool][isBorrow][account].rewards;
         if (reward > 0) {
             bool succeed = transferOut(account, reward);
             if (succeed) {

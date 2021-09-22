@@ -238,7 +238,21 @@ contract GovernorAlpha {
             return ProposalState.Queued;
         }
     }
+    function cancel(uint proposalId) external {
+        ProposalState proposalState = state(proposalId);
+        require(proposalState != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
+        Proposal storage proposal = proposals[proposalId];
+        uint previousBlockNumber = sub256(block.number, 1);
+        require(msg.sender == guardian || xole.balanceOfAt(proposal.proposer, previousBlockNumber) < proposalThreshold(previousBlockNumber), "GovernorAlpha::cancel: proposer above threshold");
+
+        proposal.canceled = true;
+        for (uint i = 0; i < proposal.targets.length; i++) {
+            timelock.cancelTransaction(proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i], proposal.eta);
+        }
+
+        emit ProposalCanceled(proposalId);
+    }
     function castVote(uint proposalId, bool support) external {
         return _castVote(msg.sender, proposalId, support);
     }
