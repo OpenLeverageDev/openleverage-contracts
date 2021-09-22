@@ -65,7 +65,7 @@ contract("GovernorAlphaTest", async accounts => {
       await gov.castVote(1, false, {from: proposeAccount});
       assert.equal("message", 'voter success');
     } catch (error) {
-      assert.include(error.message, 'GovernorAlpha::_castVote: voter already voted.');
+      assert.include(error.message, 'Voter already voted');
     }
 
   });
