@@ -566,8 +566,8 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         } else {
             // For new trade, these checks are not needed
             require(depositToken == trade.depositToken, "Deposit token not same");
-            require(trade.lastBlockNum != uint128(block.number), 'Same block');
-            require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
+            require(trade.lastBlockNum != uint128(block.number), "Same block");
+            require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "Dex not support");
         }
     }
 
@@ -582,7 +582,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         require(trade.lastBlockNum != block.number, "Same block");
         require(trade.held != 0, "Held is 0");
         require(closeAmount <= trade.held, "Close > held");
-        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
+        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "Dex not support");
     }
 
     function verifyCloseAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
@@ -594,7 +594,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function verifyLiquidateBefore(Types.Trade memory trade, Types.MarketVars memory vars, bytes memory dexData) internal view {
         require(trade.held != 0, "Held is 0");
         require(trade.lastBlockNum != block.number, "Same block");
-        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), 'Dex not support');
+        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "Dex not support");
     }
 
     function verifyLiquidateAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {

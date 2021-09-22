@@ -120,7 +120,6 @@ contract("OLETokenLock", async accounts => {
     // comparison of results
     assert.equal((await timeLock.releaseVars(accounts[1])).released, (await oleToken.balanceOf(accounts[1])).toString());
 
-
     try {
       await timeLock.release(accounts[1]);
       assert.equal("message", 'not time to unlock');

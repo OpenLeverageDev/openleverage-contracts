@@ -112,7 +112,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         //get wETH quote ole price
         (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), DexData.UNIV2);
         // oleRewards=wETHValue*liquidatorOLERatio
-        uint calcLiquidatorRewards = uint(600000)
+        uint calcLiquidatorRewards = uint(600000)  // needs approximately 600k gas for liquidation
         .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))
         .mul(oleTokenDistribution.liquidatorOLERatio).div(100);
         // check compare max

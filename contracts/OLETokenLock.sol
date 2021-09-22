@@ -10,9 +10,7 @@ contract OLETokenLock {
     IOLEToken public token;
     mapping(address => ReleaseVar) public releaseVars;
 
-
     struct ReleaseVar {
-        address beneficiary;
         uint256 released;
         uint256 amount;
         uint128 startTime;
@@ -22,14 +20,13 @@ contract OLETokenLock {
     constructor(IOLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes) {
         require(beneficiaries.length == amounts.length
         && beneficiaries.length == startTimes.length
-            && beneficiaries.length == endTimes.length, "array length must be same");
+            && beneficiaries.length == endTimes.length, "Array length must be same");
         token = token_;
         for (uint i = 0; i < beneficiaries.length; i++) {
             address beneficiary = beneficiaries[i];
-            releaseVars[beneficiary] = ReleaseVar(beneficiary, 0, amounts[i], startTimes[i], endTimes[i]);
+            releaseVars[beneficiary] = ReleaseVar(0, amounts[i], startTimes[i], endTimes[i]);
         }
     }
-
 
     function release(address beneficiary) external {
         require(beneficiary != address(0), "beneficiary address cannot be 0");
@@ -41,7 +38,6 @@ contract OLETokenLock {
         releaseVars[beneficiary].released = releaseVars[beneficiary].released.add(currentTransfer);
         token.transfer(beneficiary, currentTransfer);
     }
-
 
     function transferableAmount(address beneficiary) public view returns (uint256){
         require(block.timestamp >= releaseVars[beneficiary].startTime, "not time to unlock");
@@ -64,8 +60,6 @@ contract OLETokenLock {
 
 interface IOLEToken {
     function balanceOf(address account) external view returns (uint256);
-
     function transfer(address recipient, uint256 amount) external returns (bool);
-
     function delegate(address delegatee) external;
 }

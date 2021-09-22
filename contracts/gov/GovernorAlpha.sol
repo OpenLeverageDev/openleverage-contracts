@@ -268,12 +268,12 @@ contract GovernorAlpha {
 
     function _castVote(address voter, uint proposalId, bool support) internal {
 
-        require(state(proposalId) == ProposalState.Active, "GovernorAlpha::_castVote: voting is closed");
+        require(state(proposalId) == ProposalState.Active, "Voting is closed");
 
         Proposal storage proposal = proposals[proposalId];
 
         Receipt storage receipt = receipts[proposalId][voter];
-        require(!receipt.hasVoted, "GovernorAlpha::_castVote: voter already voted");
+        require(!receipt.hasVoted, "Voter already voted");
         uint votes = xole.balanceOfAt(voter, proposal.startBlock);
 
         if (support) {
@@ -290,12 +290,12 @@ contract GovernorAlpha {
     }
 
     function __acceptAdmin() external {
-        require(msg.sender == guardian, "GovernorAlpha::__acceptAdmin: sender must be gov guardian");
+        require(msg.sender == guardian, "Sender must be gov guardian");
         timelock.acceptAdmin();
     }
 
     function __abdicate() external {
-        require(msg.sender == guardian, "GovernorAlpha::__abdicate: sender must be gov guardian");
+        require(msg.sender == guardian, "Sender must be gov guardian");
         guardian = address(0);
     }
 
