@@ -136,7 +136,7 @@ abstract contract LPoolStorage {
     /**
      * Event emitted when a borrow is repaid
      */
-    event RepayBorrow(address payer, address borrower, uint repayAmount, uint accountBorrows, uint totalBorrows);
+    event RepayBorrow(address payer, address borrower, uint repayAmount, uint badDebtsAmount, uint accountBorrows, uint totalBorrows);
 
     /*** Admin Events ***/
 
@@ -165,6 +165,7 @@ abstract contract LPoolStorage {
      */
     event ReservesReduced(address to, uint reduceAmount, uint newTotalReserves);
 
+    event NewBorrowCapFactorMantissa(uint oldBorrowCapFactorMantissa, uint newBorrowCapFactorMantissa);
 
 }
 
