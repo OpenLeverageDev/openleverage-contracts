@@ -155,7 +155,7 @@ contract("OpenLev UniV3", async accounts => {
     checkAmount("OpenLev USDT Balance", 0, await usdt.balanceOf(openLev.address), 18);
     checkAmount("OpenLev BTC Balance", 22951974748754285860, await btc.balanceOf(openLev.address), 18);
     checkAmount("Trader USDT Balance", 0, await usdt.balanceOf(trader), 18);
-    checkAmount("Trader BTC Balance", 9977506702876168020454, await btc.balanceOf(trader), 18);
+    checkAmount("Trader BTC Balance", 9977506702876168179173, await btc.balanceOf(trader), 18);
     checkAmount("Treasury USDT Balance", 0, await usdt.balanceOf(xole.address), 18);
     checkAmount("Treasury BTC Balance", 3561980772538934134, await btc.balanceOf(xole.address), 18);
 
@@ -245,7 +245,7 @@ contract("OpenLev UniV3", async accounts => {
 
     checkAmount("OpenLev BTC Balance", 877809067975357941, await btc.balanceOf(openLev.address), 18);
     checkAmount("OpenLev USDT Balance", 891000000000000000, await usdt.balanceOf(openLev.address), 18);
-    checkAmount("Trader USDT Balance", 389295395931697135986, await usdt.balanceOf(trader), 18);
+    checkAmount("Trader USDT Balance", 389295395931697216945, await usdt.balanceOf(trader), 18);
     checkAmount("Trader BTC Balance", 0, await btc.balanceOf(trader), 18);
     checkAmount("Treasury USDT Balance", 1809000000000000000, await usdt.balanceOf(xole.address), 18);
     checkAmount("Treasury BTC Balance", 1782218410737847943, await btc.balanceOf(xole.address), 18);
@@ -339,7 +339,7 @@ contract("OpenLev UniV3", async accounts => {
 
     // Check contract held balance   9701623951262107661984
     checkAmount("OpenLev Balance", 1782000000000000000, await token1.balanceOf(openLev.address), 18);
-    checkAmount("Trader Balance", 9978683244982546246627, await token1.balanceOf(trader), 18);
+    checkAmount("Trader Balance", 9978683244982547469060, await token1.balanceOf(trader), 18);
     checkAmount("Treasury Balance", 3618000000000000000, await token1.balanceOf(xole.address), 18);
     checkAmount("Treasury Balance", 3533109592801835525, await token0.balanceOf(xole.address), 18);
     await printBlockNum();

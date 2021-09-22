@@ -306,7 +306,7 @@ contract("OpenLev UniV2", async accounts => {
         } catch (error) {
             assert.include(error.message, 'Make sure price is true', 'throws exception with Make sure price is true');
         }
-        await advanceMultipleBlocksAndTime(1000);
+        await advanceMultipleBlocksAndTime(3000);
         await gotPair.sync();
         let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("priceData1: \t", JSON.stringify(priceData1));
@@ -373,6 +373,8 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal((await openLev.markets(pairId)).priceUpdater, accounts[2]);
         let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("priceData1: \t", JSON.stringify(priceData1));
+        await advanceMultipleBlocksAndTime(1000);
+        await gotPair.sync();
         //
         let marginRatio1 = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
         m.log("Margin Ratio1 current:", marginRatio1.current / 100, "%");

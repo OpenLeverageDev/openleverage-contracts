@@ -98,8 +98,14 @@ contract("FarmingPoolTest", async accounts => {
 
 
         await farming.setRewardDistribution(accounts[0]);
-        await farming.notifyRewardAmount(toWei(10000));
 
+        try {
+            await farming.notifyRewardAmount(toWei(10000));
+            assert.fail("should thrown reward rate too large error");
+        } catch (error) {
+            assert.include(error.message, 'reward rate too large', 'throws exception with reward rate too large');
+        }
+        await farming.notifyRewardAmount(toWei(5999));
 
         await farming.stake(toWei(20000), {from: accounts[0]});
 
