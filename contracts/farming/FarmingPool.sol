@@ -147,7 +147,7 @@ contract FarmingPool is LPTokenWrapper, IRewardDistributionRecipient {
     }
 
     function getReward() public updateReward(msg.sender) checkStart {
-        uint256 reward = earned(msg.sender);
+        uint256 reward = rewards [msg.sender];
         if (reward > 0) {
             rewards[msg.sender] = 0;
             oleToken.safeTransfer(msg.sender, reward);
@@ -179,6 +179,9 @@ contract FarmingPool is LPTokenWrapper, IRewardDistributionRecipient {
             emit RewardAdded(reward);
         }
         uint balance = oleToken.balanceOf(address(this));
-        require(rewardRate <= balance.div(duration),'balance is not enough');
+        require(rewardRate <= balance.div(duration), 'balance is not enough');
+        // max rewardRate 100/s
+        require(rewardRate <= 1e20, 'reward rate too large');
+
     }
 }

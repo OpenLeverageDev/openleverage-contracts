@@ -19,7 +19,7 @@ contract OLETokenLock {
         uint128 endTime;
     }
 
-    constructor(IOLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes, address delegateTo) {
+    constructor(IOLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes) {
         require(beneficiaries.length == amounts.length
         && beneficiaries.length == startTimes.length
             && beneficiaries.length == endTimes.length, "array length must be same");

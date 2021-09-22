@@ -117,7 +117,24 @@ contract("GovernorAlphaTest", async accounts => {
     assert.equal(3, (await gov.state(1)).toString());
   });
 
+  it('Propose to cancel', async () => {
+    await ole.mint(proposeAccount, toWei(10000));
+    await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+    let lastbk = await web3.eth.getBlock('latest');
+    await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+    await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.castVote(1, true, {from: proposeAccount});
+    await ole.mint(againsAccount, toWei(1000000));
+    await ole.approve(xole.address, toWei(1000000), {from: againsAccount});
+    await xole.create_lock(toWei(1000000), lastbk.timestamp + WEEK, {from: againsAccount});
+    //delay 1 block
+    await ole.transfer(accounts[1], 0);
+    await gov.cancel(1);
+    assert.equal(2, (await gov.state(1)).toString());
 
+  });
   it('Proposal expired', async () => {
 
     if (process.env.FASTMODE === 'true'){

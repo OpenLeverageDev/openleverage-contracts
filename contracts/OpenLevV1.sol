@@ -50,7 +50,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         calculateConfig.feesDiscountThreshold = 30 * (10 ** 18);
         calculateConfig.penaltyRatio = 300;
         calculateConfig.twapDuration = 60;
-        calculateConfig.maxLiquidationPriceDiffientRatio = 30;
+        calculateConfig.maxLiquidationPriceDiffientRatio = 10;
     }
 
     function addMarket(
@@ -383,15 +383,15 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             if (market.pool0Insurance >= needed) {
                 market.pool0Insurance = market.pool0Insurance.sub(needed);
             } else {
-                market.pool0Insurance = 0;
                 maxCanRepayAmount = market.pool0Insurance.add(remaining);
+                market.pool0Insurance = 0;
             }
         } else {
             if (market.pool1Insurance >= needed) {
                 market.pool1Insurance = market.pool1Insurance.sub(needed);
             } else {
-                market.pool1Insurance = 0;
                 maxCanRepayAmount = market.pool1Insurance.add(remaining);
+                market.pool1Insurance = 0;
             }
         }
         return maxCanRepayAmount;
@@ -407,7 +407,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             vars.sellPool = market.pool0;
             vars.sellToken = IERC20(market.token0);
             vars.sellPoolInsurance = market.pool0Insurance;
-
         } else {
             vars.buyPool = market.pool0;
             vars.buyToken = IERC20(market.token0);

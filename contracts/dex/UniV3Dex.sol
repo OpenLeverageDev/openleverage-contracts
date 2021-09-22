@@ -37,7 +37,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
 
     function initializeUniV3(
         IUniswapV3Factory _uniV3Factory
-    ) public {
+    ) internal {
         uniV3Factory = _uniV3Factory;
     }
 
