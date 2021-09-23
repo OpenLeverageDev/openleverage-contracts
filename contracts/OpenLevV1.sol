@@ -243,11 +243,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
                 marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
                 // buy back depositToken
                 if (longToken == trade.depositToken) {
-                    liquidateVars.depositReturn = flashSell(address(marketVars.sellToken), address(marketVars.buyToken), liquidateVars.receiveAmount.sub(liquidateVars.borrowed), 0, dexData);
+                    liquidateVars.depositReturn = flashSell(address(marketVars.sellToken), address(marketVars.buyToken), liquidateVars.receiveAmount - liquidateVars.borrowed, 0, dexData);
                     doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
-
                 } else {
-                    liquidateVars.depositReturn = liquidateVars.receiveAmount.sub(liquidateVars.borrowed);
+                    liquidateVars.depositReturn = liquidateVars.receiveAmount - liquidateVars.borrowed;
                     doTransferOut(owner, marketVars.buyToken, liquidateVars.depositReturn);
                 }
             } else {
@@ -381,14 +380,14 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint needed = totalRepayment.sub(remaining);
         if (longToken) {
             if (market.pool0Insurance >= needed) {
-                market.pool0Insurance = market.pool0Insurance.sub(needed);
+                market.pool0Insurance = market.pool0Insurance - needed;
             } else {
                 maxCanRepayAmount = market.pool0Insurance.add(remaining);
                 market.pool0Insurance = 0;
             }
         } else {
             if (market.pool1Insurance >= needed) {
-                market.pool1Insurance = market.pool1Insurance.sub(needed);
+                market.pool1Insurance = market.pool1Insurance - needed;
             } else {
                 maxCanRepayAmount = market.pool1Insurance.add(remaining);
                 market.pool1Insurance = 0;
@@ -601,10 +600,6 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         if (dexData.isUniV2Class()) {
             updatePriceInternal(marketId, token0, token1, dexData, false);
         }
-    }
-
-    function getDexUint8(uint32 dexData) internal pure returns (uint8){
-        return uint8(dexData >= 2 ** 24 ? dexData >> 24 : dexData);
     }
 
     function isSupportDex(uint8 dex) internal pure returns (bool){

@@ -17,7 +17,7 @@ contract LiquidateHelper {
         uint32 marketLimit;
     }
     //～27000 gas cost one
-    function batchQuery(IOpenLev openLev, address[] calldata owners, uint16[] calldata marketIds, bool[] calldata longTokens, bytes calldata dexData) external view returns (Vars[] memory results){
+    function batchQuery(IOpenLevLiqHelper openLev, address[] calldata owners, uint16[] calldata marketIds, bool[] calldata longTokens, bytes calldata dexData) external view returns (Vars[] memory results){
 
         results = new Vars[](owners.length);
         DexAggregatorInterface dexAggregator = openLev.dexAggregator();
@@ -55,11 +55,8 @@ contract LiquidateHelper {
 
 }
 
-interface IOpenLev {
-
+interface IOpenLevLiqHelper {
     function activeTrades(address owner, uint16 marketId, bool longToken) external view returns (Types.Trade memory);
-
     function dexAggregator() external view returns (DexAggregatorInterface);
-
     function markets(uint16 marketId) external view returns (Types.Market memory);
 }

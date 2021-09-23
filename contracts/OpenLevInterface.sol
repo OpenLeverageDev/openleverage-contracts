@@ -46,6 +46,7 @@ abstract contract OpenLevStorage {
     mapping(address => bool) public allowedDepositTokens;
 
     CalculateConfig internal calculateConfig;
+
     AddressConfig public addressConfig;
 
     event MarginTrade(
