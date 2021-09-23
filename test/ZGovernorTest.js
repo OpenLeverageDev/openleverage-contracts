@@ -64,12 +64,12 @@ contract("GovernorAlphaTest", async accounts => {
 
         await gov.castVote(1, true, {from: proposeAccount});
 
-        try {
-            await gov.castVote(1, false, {from: proposeAccount});
-            assert.equal("message", 'voter success');
-        } catch (error) {
-            assert.include(error.message, 'Voter already voted');
-        }
+    try {
+      await gov.castVote(1, false, {from: proposeAccount});
+      assert.equal("message", 'voter success');
+    } catch (error) {
+      assert.include(error.message, 'Voter already voted');
+    }
 
     });
 
