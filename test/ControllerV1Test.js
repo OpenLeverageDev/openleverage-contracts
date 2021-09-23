@@ -112,7 +112,7 @@ contract("ControllerV1", async accounts => {
         await token0Ctr.mint(accounts[0], utils.toWei(10));
         await token0Ctr.approve(pool0, utils.toWei(10));
         await pool0Ctr.mint(utils.toWei(5));
-        await controller.setOpenLev("0x0000000000000000000000000000000000000000");
+        await controller.setOpenLev(accounts[0]);
         let availabeBorrow = await pool0Ctr.availableForBorrow();
         m.log("availabeBorrow", utils.toETH(availabeBorrow));
 
