@@ -36,6 +36,7 @@ contract Timelock {
     }
 
     fallback() external payable {}
+
     receive() external payable {}
 
     modifier onlyAdmin() {
@@ -59,10 +60,11 @@ contract Timelock {
         emit NewAdmin(admin);
     }
 
-    function setPendingAdmin(address pendingAdmin_) public onlyAdmin {
+    function setPendingAdmin(address pendingAdmin_) public {
         if (admin_initialized) {
             require(msg.sender == address(this), "Call must come from Timelock");
         } else {
+            require(msg.sender == admin, "Call must come from admin");
             admin_initialized = true;
         }
         pendingAdmin = pendingAdmin_;

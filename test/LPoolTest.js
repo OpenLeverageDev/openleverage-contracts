@@ -1,5 +1,5 @@
 const utils = require("./utils/OpenLevUtil");
-const {toWei} = require("./utils/OpenLevUtil");
+const {toWei, assertPrint} = require("./utils/OpenLevUtil");
 
 const {toBN, maxUint, advanceMultipleBlocks} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
@@ -136,7 +136,12 @@ contract("LPoolDelegator", async accounts => {
 
             await testToken.approve(erc20Pool.address, maxUint(), {from: accounts[1]});
             await controller.setOpenLev(accounts[1]);
-            await erc20Pool.repayBorrowEndByOpenLev(accounts[2], 1000 * 1e10, {from: accounts[1]});
+            let tx = await erc20Pool.repayBorrowEndByOpenLev(accounts[2], 1000 * 1e10, {from: accounts[1]});
+            m.log("tx",JSON.stringify(tx));
+            assertPrint("repayAmount", '10000000000000', toBN(tx.logs[3].args.repayAmount));
+            assertPrint("badDebtsAmount", '40002385369101', toBN(tx.logs[3].args.badDebtsAmount));
+            assertPrint("accountBorrowsNew", '0', toBN(tx.logs[3].args.accountBorrows));
+            assertPrint("totalBorrows", '0', toBN(tx.logs[3].args.totalBorrows));
 
             let borrowsCurrent = await erc20Pool.borrowBalanceCurrent(accounts[1]);
             assert.equal(0, borrowsCurrent);

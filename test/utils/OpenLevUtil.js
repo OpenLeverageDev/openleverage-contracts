@@ -101,9 +101,9 @@ exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) =
         delegate.address);
 }
 
-exports.createXOLE = async (ole, admin, dev, dexAgg) => {
+exports.createXOLE = async (ole, admin, dev, dexAgg,account) => {
     let delegatee = await xOLE.new();
-    let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: admin});
+    let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: account==undefined?admin:account});
     return xOLE.at(xOLEInstance.address);
 }
 
