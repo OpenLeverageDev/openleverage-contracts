@@ -8,10 +8,10 @@ contract GovernorAlpha {
     string public constant name = "Open Leverage Governor Alpha";
 
     // The number of votes in support of a proposal required in order for a quorum to be reached and for a vote to succeed
-    function quorumVotes(uint blockNumber) public view returns (uint) {return xole.totalSupplyAt(blockNumber) / 25;} //  4% of OLE
+    function quorumVotes(uint blockNumber) public view returns (uint) {return xole.totalSupplyAt(blockNumber) / 25;} //  4% of XOLE
 
     // The number of votes required in order for a voter to become a proposer
-    function proposalThreshold(uint blockNumber) public view returns (uint) {return xole.totalSupplyAt(blockNumber) / 100;} // 1% of OLE
+    function proposalThreshold() public pure returns (uint) {return 1000e18;} // 1000 XOLE
 
     // The maximum number of actions that can be included in a proposal
     function proposalMaxOperations() public pure returns (uint) {return 10;} // 10 actions
@@ -140,7 +140,7 @@ contract GovernorAlpha {
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) external returns (uint) {
         uint previousBlockNumber = sub256(block.number, 1);
-        require(xole.balanceOfAt(msg.sender, previousBlockNumber) > proposalThreshold(previousBlockNumber), "GovernorAlpha::propose: proposer votes below proposal threshold");
+        require(xole.balanceOfAt(msg.sender, previousBlockNumber) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -238,13 +238,14 @@ contract GovernorAlpha {
             return ProposalState.Queued;
         }
     }
+
     function cancel(uint proposalId) external {
         ProposalState proposalState = state(proposalId);
         require(proposalState != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
 
         Proposal storage proposal = proposals[proposalId];
         uint previousBlockNumber = sub256(block.number, 1);
-        require(msg.sender == guardian || xole.balanceOfAt(proposal.proposer, previousBlockNumber) < proposalThreshold(previousBlockNumber), "GovernorAlpha::cancel: proposer above threshold");
+        require(msg.sender == guardian || xole.balanceOfAt(proposal.proposer, previousBlockNumber) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
 
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
@@ -253,6 +254,7 @@ contract GovernorAlpha {
 
         emit ProposalCanceled(proposalId);
     }
+
     function castVote(uint proposalId, bool support) external {
         return _castVote(msg.sender, proposalId, support);
     }

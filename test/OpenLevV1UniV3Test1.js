@@ -261,20 +261,29 @@ contract("OpenLev UniV3", async accounts => {
 
         // provide some funds for trader and saver
         await utils.mint(token0, trader, 10000);
+        await utils.mint(token0, saver, 10000);
+
         m.log("Trader", last8(trader), "minted", await token0.symbol(), await token0.balanceOf(trader));
 
         await utils.mint(token1, saver, 10000);
+        await utils.mint(token1, trader, 10000);
+
         m.log("Saver", last8(saver), "minted", await token1.symbol(), await token1.balanceOf(saver));
 
         // Trader to approve openLev to spend
         let deposit = utils.toWei(1000);
         await token0.approve(openLev.address, deposit, {from: trader});
+        await token1.approve(openLev.address, deposit, {from: trader});
 
         // Saver deposit to pool1
         let saverSupply = utils.toWei(3000);
         let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
         await token1.approve(await pool1.address, utils.toWei(3000), {from: saver});
         await pool1.mint(saverSupply, {from: saver});
+
+        let pool0 = await LPool.at((await openLev.markets(pairId)).pool0);
+        await token0.approve(pool0.address, saverSupply, {from: saver});
+        await pool0.mint(saverSupply, {from: saver});
 
         let borrow = utils.toWei(2000);
         m.log("toBorrow from Pool 1: \t", borrow);
@@ -295,16 +304,21 @@ contract("OpenLev UniV3", async accounts => {
         await gotPair.setPreviousPrice(token0.address, token1.address, 1);
         let priceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni3DexData);
         m.log("priceData: \t", JSON.stringify(priceData));
+        assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
+        await openLev.marginTrade(0, true, true, deposit, borrow, 0, Uni3DexData, {from: trader});
+        assertPrint("Insurance of Pool1:", '1457851480795178902', (await openLev.markets(pairId)).pool1Insurance);
 
         let tx_liquidate = await openLev.liquidate(trader, 0, 0, 0, Uni3DexData, {from: liquidator2});
         m.log("V3 Liquidation Gas Used: ", tx_liquidate.receipt.gasUsed);
 
         assertPrint("Deposit Return", '0', tx_liquidate.logs[0].args.depositReturn);
 
+        assertPrint("Outstanding Amount", '1349133598016785243595', tx_liquidate.logs[0].args.outstandingAmount);
+
         assertPrint("Insurance of Pool1:", '0', (await openLev.markets(pairId)).pool1Insurance);
         checkAmount("Borrows is zero", 0, await pool1.borrowBalanceCurrent(trader), 18);
         checkAmount("Trader Despoit Token Balance will not back", 9000000000000000000000, await token0.balanceOf(trader), 18);
-        checkAmount("Trader Borrows Token Balance is Zero", 0, await token1.balanceOf(trader), 18);
+        checkAmount("Trader Borrows Token Balance is Zero", 9000000000000000000000, await token1.balanceOf(trader), 18);
     })
 
 
