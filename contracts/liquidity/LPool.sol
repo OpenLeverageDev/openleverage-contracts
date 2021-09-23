@@ -975,8 +975,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
       * @dev Admin function to set a new controller
       */
     function setController(address newController) external override onlyAdmin {
+        require(address(0) != newController, "0x");
         address oldController = controller;
-
         controller = newController;
         // Emit NewController(oldController, newController)
         emit NewController(oldController, newController);
@@ -999,7 +999,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         baseRatePerBlock = baseRatePerBlock_;
         require(multiplierPerBlock_ < 1e13, 'Mul rate too large');
         multiplierPerBlock = multiplierPerBlock_;
-        require(multiplierPerBlock_ < 1e13, 'Jump rate too large');
+        require(jumpMultiplierPerBlock_ < 1e13, 'Jump rate too large');
         jumpMultiplierPerBlock = jumpMultiplierPerBlock_;
         require(kink_ <= 1e18, 'Kline too large');
         kink = kink_;

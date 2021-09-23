@@ -140,9 +140,9 @@ contract("OpenLev UniV2", async accounts => {
         m.log("toBorrow from Pool 1: \t", borrow);
         try {
             await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
-            assert.fail("should thrown  Position not healthy error");
+            assert.fail("should thrown  PNH error");
         } catch (error) {
-            assert.include(error.message, 'Position not healthy', 'throws exception with  Position not healthy');
+            assert.include(error.message, 'PNH', 'throws exception with  PNH');
         }
 
     })
@@ -302,9 +302,9 @@ contract("OpenLev UniV2", async accounts => {
         // should update price first
         try {
             await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
-            assert.fail("should thrown  Make sure price is true error");
+            assert.fail("should thrown  MPT error");
         } catch (error) {
-            assert.include(error.message, 'Make sure price is true', 'throws exception with Make sure price is true');
+            assert.include(error.message, 'MPT', 'throws exception with MPT');
         }
         await advanceMultipleBlocksAndTime(3000);
         await gotPair.sync();
@@ -362,9 +362,9 @@ contract("OpenLev UniV2", async accounts => {
         // should update price first
         try {
             await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
-            assert.fail("should thrown  Make sure price is true error");
+            assert.fail("should thrown  MPT error");
         } catch (error) {
-            assert.include(error.message, 'Make sure price is true', 'throws exception with Make sure price is true');
+            assert.include(error.message, 'MPT', 'throws exception with MPT');
         }
         await advanceMultipleBlocksAndTime(1000);
         let updatePriceTx = await openLev.updatePrice(pairId, true, Uni2DexData, {from: accounts[2]});

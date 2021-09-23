@@ -297,9 +297,9 @@ contract("OpenLev UniV3", async accounts => {
         m.log("Liquidating trade ... ");
         try {
             await openLev.liquidate(trader, 0, 0, utils.maxUint(), Uni3DexData, {from: liquidator2});
-            assert.fail("should thrown Make sure price is true error");
+            assert.fail("should thrown MPT error");
         } catch (error) {
-            assert.include(error.message, 'Make sure price is true', 'throws exception with Position is Healthy');
+            assert.include(error.message, 'MPT', 'throws exception with MPT');
         }
         await gotPair.setPreviousPrice(token0.address, token1.address, 1);
         let priceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni3DexData);
