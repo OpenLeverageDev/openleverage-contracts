@@ -353,18 +353,22 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     }
 
     function setLPoolImplementation(address _lpoolImplementation) external override onlyAdmin {
+        require(address(0) != _lpoolImplementation, '0x');
         lpoolImplementation = _lpoolImplementation;
     }
 
     function setOpenLev(address _openlev) external override onlyAdmin {
+        require(address(0) != _openlev, '0x');
         openLev = _openlev;
     }
 
     function setDexAggregator(DexAggregatorInterface _dexAggregator) external override onlyAdmin {
+        require(address(0) != address(_dexAggregator), '0x');
         dexAggregator = _dexAggregator;
     }
 
     function setInterestParam(uint256 _baseRatePerBlock, uint256 _multiplierPerBlock, uint256 _jumpMultiplierPerBlock, uint256 _kink) external override onlyAdmin {
+        require(_baseRatePerBlock < 1e13 && _multiplierPerBlock < 1e13 && _jumpMultiplierPerBlock < 1e13 && _kink <= 1e18, 'PRI');
         baseRatePerBlock = _baseRatePerBlock;
         multiplierPerBlock = _multiplierPerBlock;
         jumpMultiplierPerBlock = _jumpMultiplierPerBlock;

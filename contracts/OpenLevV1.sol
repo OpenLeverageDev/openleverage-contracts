@@ -12,7 +12,7 @@ import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
 import "./ControllerInterface.sol";
 import "./IWETH.sol";
-import "./XOLE.sol";
+import "./XOLEInterface.sol";
 import "./Types.sol";
 
 /**
@@ -35,22 +35,13 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         address _wETH,
         address _xOLE
     ) public {
-        require(msg.sender == admin, "Not admin");
+        require(msg.sender == admin, "NAD");
         addressConfig.controller = _controller;
         addressConfig.dexAggregator = _dexAggregator;
         addressConfig.wETH = _wETH;
         addressConfig.xOLE = _xOLE;
         setAllowedDepositTokensInternal(depositTokens, true);
-        calculateConfig.defaultFeesRate = 30;
-        calculateConfig.insuranceRatio = 33;
-        calculateConfig.defaultMarginLimit = 3000;
-        calculateConfig.priceDiffientRatio = 5;
-        calculateConfig.updatePriceDiscount = 25;
-        calculateConfig.feesDiscount = 25;
-        calculateConfig.feesDiscountThreshold = 30 * (10 ** 18);
-        calculateConfig.penaltyRatio = 300;
-        calculateConfig.twapDuration = 60;
-        calculateConfig.maxLiquidationPriceDiffientRatio = 10;
+        setCalculateConfigInternal(30, 33, 3000, 5, 25, 25, 30e18, 300, 10, 60);
     }
 
     function addMarket(
@@ -61,10 +52,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     ) external override returns (uint16) {
         uint8 dex = dexData.toDex();
         CalculateConfig memory config = calculateConfig;
-        require(isSupportDex(dex), "Unsupported Dex");
-        require(msg.sender == address(addressConfig.controller), "Not controller");
-        require(marginLimit >= config.defaultMarginLimit, "Limit is lower");
-        require(marginLimit < 100000, "Limit is higher");
+        require(isSupportDex(dex), "UDX");
+        require(msg.sender == address(addressConfig.controller), "NCN");
+        require(marginLimit >= config.defaultMarginLimit, "LLR");
+        require(marginLimit < 100000, "LIH");
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         // Approve the max number for pools
@@ -107,7 +98,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             tv.fees = feesAndInsurance(msg.sender, deposit.add(borrow), address(tv.depositErc20), marketId);
             tv.depositAfterFees = deposit.sub(tv.fees);
             tv.tradeSize = tv.depositAfterFees.add(borrow);
-            require(borrow == 0 || deposit.mul(10000).div(borrow) > vars.marginLimit, "Margin ratio limit not met");
+            require(borrow == 0 || deposit.mul(10000).div(borrow) > vars.marginLimit, "MAM");
         } else {
             if (borrow > 0) {
                 (uint currentPrice, uint8 priceDecimals) = addressConfig.dexAggregator.getPrice(address(vars.sellToken), address(vars.buyToken), dexData);
@@ -118,7 +109,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             tv.fees = feesAndInsurance(msg.sender, deposit.add(tv.borrowValue), address(tv.depositErc20), marketId);
             tv.depositAfterFees = deposit.sub(tv.fees);
             tv.tradeSize = borrow;
-            require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "Margin ratio limit not met");
+            require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "MAM");
         }
 
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
@@ -172,14 +163,14 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
         if (closeTradeVars.depositToken != closeTradeVars.longToken) {
             closeTradeVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
-            require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, 'Liquidate Only');
+            require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, 'LON');
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
             marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
             closeTradeVars.depositReturn = closeTradeVars.receiveAmount.sub(closeTradeVars.repayAmount);
             doTransferOut(msg.sender, marketVars.buyToken, closeTradeVars.depositReturn);
         } else {
             closeTradeVars.sellAmount = flashBuy(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, closeTradeVars.closeAmountAfterFees, dexData);
-            require(minOrMaxAmount >= closeTradeVars.sellAmount, 'Buy amount less than min');
+            require(minOrMaxAmount >= closeTradeVars.sellAmount, 'BLM');
             closeTradeVars.receiveAmount = closeTradeVars.repayAmount;
             marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
             closeTradeVars.depositReturn = closeTradeVars.closeAmountAfterFees.sub(closeTradeVars.sellAmount);
@@ -200,10 +191,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
         //verify
-        verifyLiquidateBefore(trade, marketVars, dexData);
+        verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, marketVars.dexs, dexData.toDexDetail());
         //controller
         (ControllerInterface(addressConfig.controller)).liquidateAllowed(marketId, msg.sender, trade.held, dexData);
-        require(!isPositionHealthy(owner, false, trade.held, marketVars, dexData), "Position is Healthy");
+        require(!isPositionHealthy(owner, false, trade.held, marketVars, dexData), "PIH");
         Types.LiquidateVars memory liquidateVars;
         liquidateVars.dexDetail = dexData.toDexDetail();
         liquidateVars.marketId = marketId;
@@ -230,7 +221,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         // need't to sell all held
         if (!liquidateVars.isSellAllHeld) {
             liquidateVars.sellAmount = flashBuy(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.borrowed, liquidateVars.remainHeldAfterFees, dexData);
-            require(minOrMaxAmount >= liquidateVars.sellAmount, 'Buy amount less than min');
+            require(minOrMaxAmount >= liquidateVars.sellAmount, 'BLM');
             liquidateVars.receiveAmount = liquidateVars.borrowed;
             marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
             liquidateVars.depositReturn = liquidateVars.remainHeldAfterFees.sub(liquidateVars.sellAmount);
@@ -307,7 +298,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
     function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external override {
         Types.Market memory market = markets[marketId];
-        require(!rewards || shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData), "Needn't update price");
+        require(!rewards || shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData), "NUP");
         updatePriceInternal(marketId, market.token0, market.token1, dexData, rewards);
     }
 
@@ -337,8 +328,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             return false;
         }
         (, uint cAvgPrice, uint hAvgPrice,,uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, calculateConfig.twapDuration, dexData);
-        if (block.timestamp < lastUpdateTime.add(calculateConfig.twapDuration))
-        {
+        if (block.timestamp < lastUpdateTime.add(calculateConfig.twapDuration)) {
             return false;
         }
         //Not initialized yet
@@ -368,7 +358,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             // Avoid flash loan
             if (price < cAvgPrice) {
                 uint differencePriceRatio = cAvgPrice.mul(100).div(price);
-                require(differencePriceRatio - 100 < calculateConfig.maxLiquidationPriceDiffientRatio, 'Make sure price is true');
+                require(differencePriceRatio - 100 < calculateConfig.maxLiquidationPriceDiffientRatio, 'MPT');
             }
             return current >= vars.marginLimit || cAvg >= vars.marginLimit || hAvg >= vars.marginLimit;
         }
@@ -427,7 +417,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint newFees = defaultFees;
         CalculateConfig memory config = calculateConfig;
         // if trader holds more xOLE, then should enjoy trading discount.
-        if (XOLE(addressConfig.xOLE).balanceOf(trader, 0) > config.feesDiscountThreshold) {
+        if (XOLEInterface(addressConfig.xOLE).balanceOf(trader, 0) > config.feesDiscountThreshold) {
             newFees = defaultFees.sub(defaultFees.mul(config.feesDiscount).div(100));
         }
         // if trader update price, then should enjoy trading discount.
@@ -482,8 +472,32 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
             token.safeTransfer(to, amount);
         }
     }
-
     /*** Admin Functions ***/
+    function setCalculateConfigInternal(uint16 defaultFeesRate,
+        uint8 insuranceRatio,
+        uint16 defaultMarginLimit,
+        uint16 priceDiffientRatio,
+        uint16 updatePriceDiscount,
+        uint16 feesDiscount,
+        uint128 feesDiscountThreshold,
+        uint16 penaltyRatio,
+        uint8 maxLiquidationPriceDiffientRatio,
+        uint16 twapDuration) internal {
+        require(defaultFeesRate < 10000 && insuranceRatio < 100 && defaultMarginLimit > 0 && updatePriceDiscount <= 100
+        && feesDiscount <= 100 && penaltyRatio < 10000 && twapDuration > 0, 'PRI');
+        calculateConfig.defaultFeesRate = defaultFeesRate;
+        calculateConfig.insuranceRatio = insuranceRatio;
+        calculateConfig.defaultMarginLimit = defaultMarginLimit;
+        calculateConfig.priceDiffientRatio = priceDiffientRatio;
+        calculateConfig.updatePriceDiscount = updatePriceDiscount;
+        calculateConfig.feesDiscount = feesDiscount;
+        calculateConfig.feesDiscountThreshold = feesDiscountThreshold;
+        calculateConfig.penaltyRatio = penaltyRatio;
+        calculateConfig.maxLiquidationPriceDiffientRatio = maxLiquidationPriceDiffientRatio;
+        calculateConfig.twapDuration = twapDuration;
+        emit NewCalculateConfig(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount,
+            feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration);
+    }
 
     function setCalculateConfig(uint16 defaultFeesRate,
         uint8 insuranceRatio,
@@ -495,27 +509,21 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint16 penaltyRatio,
         uint8 maxLiquidationPriceDiffientRatio,
         uint16 twapDuration) external override onlyAdmin() {
-        calculateConfig.defaultFeesRate = defaultFeesRate;
-        calculateConfig.insuranceRatio = insuranceRatio;
-        calculateConfig.defaultMarginLimit = defaultMarginLimit;
-        calculateConfig.priceDiffientRatio = priceDiffientRatio;
-        calculateConfig.updatePriceDiscount = updatePriceDiscount;
-        calculateConfig.feesDiscount = feesDiscount;
-        calculateConfig.feesDiscountThreshold = feesDiscountThreshold;
-        calculateConfig.penaltyRatio = penaltyRatio;
-        calculateConfig.maxLiquidationPriceDiffientRatio = maxLiquidationPriceDiffientRatio;
-        calculateConfig.twapDuration = twapDuration;
-        emit NewCalculateConfig(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount, feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration);
+        setCalculateConfigInternal(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount,
+            feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration);
     }
+
 
     function setAddressConfig(address controller,
         DexAggregatorInterface dexAggregator) external override {
+        require(controller != address(0) && address(dexAggregator) != address(0), 'CD0');
         addressConfig.controller = controller;
         addressConfig.dexAggregator = dexAggregator;
         emit NewAddressConfig(controller, address(dexAggregator));
     }
 
     function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint16 priceDiffientRatio, uint32[] memory dexs) external override onlyAdmin() {
+        require(feesRate < 10000 && marginLimit > 0 && dexs.length > 0, 'PRI');
         Types.Market storage market = markets[marketId];
         market.feesRate = feesRate;
         market.marginLimit = marginLimit;
@@ -550,38 +558,36 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function verifyTrade(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {
         //verify if deposit token allowed
         address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
-        require(allowedDepositTokens[depositTokenAddr], "UnAllowed deposit token");
+        require(allowedDepositTokens[depositTokenAddr], "UDT");
 
         //verify minimal deposit > absolute value 0.0001
         uint minimalDeposit = 10 ** (ERC20(depositTokenAddr).decimals() - 4);
         uint actualDeposit = depositTokenAddr == addressConfig.wETH ? msg.value : deposit;
-        require(actualDeposit > minimalDeposit, "Deposit too small");
+        require(actualDeposit > minimalDeposit, "DTS");
 
         Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
         // New trade
         if (trade.lastBlockNum == 0) {
-            require(borrow > 0, "Borrow 0");
+            require(borrow > 0, "BB0");
             return;
         } else {
             // For new trade, these checks are not needed
-            require(depositToken == trade.depositToken, "Deposit token not same");
-            require(trade.lastBlockNum != uint128(block.number), "Same block");
-            require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "Dex not support");
+            require(depositToken == trade.depositToken, "DTS");
+            require(trade.lastBlockNum != uint128(block.number), "SBK");
+            require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "DNS");
         }
     }
 
     function verifyOpenAfter(uint16 marketId, uint held, Types.MarketVars memory vars, bytes memory dexData) internal {
-        require(isPositionHealthy(msg.sender, true, held, vars, dexData), "Position not healthy");
+        require(isPositionHealthy(msg.sender, true, held, vars, dexData), "PNH");
         if (dexData.isUniV2Class()) {
             updatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), dexData, false);
         }
     }
 
     function verifyCloseBefore(Types.Trade memory trade, Types.MarketVars memory vars, uint closeAmount, bytes memory dexData) internal view {
-        require(trade.lastBlockNum != block.number, "Same block");
-        require(trade.held != 0, "Held is 0");
-        require(closeAmount <= trade.held, "Close > held");
-        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "Dex not support");
+        verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, vars.dexs, dexData.toDexDetail());
+        require(closeAmount <= trade.held, "CBH");
     }
 
     function verifyCloseAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
@@ -590,10 +596,10 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
     }
 
-    function verifyLiquidateBefore(Types.Trade memory trade, Types.MarketVars memory vars, bytes memory dexData) internal view {
-        require(trade.held != 0, "Held is 0");
-        require(trade.lastBlockNum != block.number, "Same block");
-        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "Dex not support");
+    function verifyCloseOrLiquidateBefore(uint held, uint lastBlockNumber, uint32[] memory dexs, uint32 dex) internal view {
+        require(held != 0, "HI0");
+        require(lastBlockNumber != block.number, "SBK");
+        require(isInSupportDex(dexs, dex), "DNS");
     }
 
     function verifyLiquidateAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
@@ -618,7 +624,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         }
     }
     modifier onlySupportDex(bytes memory dexData) {
-        require(isSupportDex(dexData.toDex()), "Unsupported dex");
+        require(isSupportDex(dexData.toDex()), "UDX");
         _;
     }
 }

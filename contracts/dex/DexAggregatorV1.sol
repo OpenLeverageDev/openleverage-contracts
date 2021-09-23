@@ -35,6 +35,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
     }
 
     function setOpenLev(address _openLev) external onlyAdmin {
+        require(address(0) != _openLev, '0x');
         openLev = _openLev;
     }
 
