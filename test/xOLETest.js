@@ -1,6 +1,12 @@
 const xOLE = artifacts.require("XOLE");
 const OLEToken = artifacts.require("OLEToken");
-const {assertPrint, approxAssertPrint, createDexAgg, createUniswapV2Factory, createXOLE} = require("./utils/OpenLevUtil");
+const {
+    assertPrint,
+    approxAssertPrint,
+    createDexAgg,
+    createUniswapV2Factory,
+    createXOLE
+} = require("./utils/OpenLevUtil");
 const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
 const {advanceMultipleBlocksAndTime, advanceBlockAndSetTime, toBN} = require("./utils/EtheUtil");
@@ -35,8 +41,8 @@ contract("xOLE", async accounts => {
         await ole.mint(alice, _1000);
 
         uniswapFactory = await createUniswapV2Factory(admin);
-        let dexAgg = await createDexAgg(uniswapFactory.address,"0x0000000000000000000000000000000000000000",admin);
-        xole = await createXOLE(ole.address, admin, dev, dexAgg.address, {from: admin});
+        let dexAgg = await createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
+        xole = await createXOLE(ole.address, admin, dev, dexAgg.address, admin);
 
         let lastbk = await web3.eth.getBlock('latest');
         let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
@@ -80,7 +86,7 @@ contract("xOLE", async accounts => {
 
     it("Lock to get voting powers, and withdraw", async () => {
 
-        if (process.env.FASTMODE === 'true'){
+        if (process.env.FASTMODE === 'true') {
             m.log("Skipping this test for FAST Mode");
             return;
         }
