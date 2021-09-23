@@ -3,9 +3,11 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "../Types.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../lib/DexData.sol";
+
 
 contract QueryHelper {
+    using DexData for bytes;
 
     constructor ()
     {
@@ -16,6 +18,22 @@ contract QueryHelper {
         uint held;
         uint borrowed;
         uint marginRatio;
+        uint32 marginLimit;
+    }
+    enum LiqStatus{
+        HEALTHY, // Do nothing
+        UPDATE, // Need update price
+        WAITING, // Waiting
+        LIQ, // Can liquidate
+        NOP// No position
+    }
+
+    struct LiqVars {
+        LiqStatus status;
+        uint lastUpdateTime;
+        uint currentMarginRatio;
+        uint cAvgMarginRatio;
+        uint hAvgMarginRatio;
         uint32 marginLimit;
     }
 
@@ -57,6 +75,63 @@ contract QueryHelper {
             item.deposited = trade.deposited;
             (item.marginRatio,,,item.marginLimit) = openLev.marginRatio(traders[i], marketId, longTokens[i], dexData);
             item.borrowed = longTokens[i] ? market.pool0.borrowBalanceCurrent(traders[i]) : market.pool1.borrowBalanceCurrent(traders[i]);
+            results[i] = item;
+        }
+        return results;
+    }
+
+    struct LiqReqVars {
+        IOpenLev openLev;
+        address owner;
+        uint16 marketId;
+        bool longToken;
+        bytes dexData;
+    }
+
+    function getTraderLiqs(IOpenLev openLev, uint16 marketId, address[] calldata traders, bool[] calldata longTokens, bytes calldata dexData) external view returns (LiqVars[] memory results){
+        results = new LiqVars[](traders.length);
+        LiqReqVars memory reqVar;
+        reqVar.openLev = openLev;
+        reqVar.marketId = marketId;
+        reqVar.dexData = dexData;
+        IOpenLev.MarketVar memory market = reqVar.openLev.markets(reqVar.marketId);
+        IOpenLev.AddressConfig memory adrConf = reqVar.openLev.addressConfig();
+        IOpenLev.CalculateConfig memory calConf = reqVar.openLev.getCalculateConfig();
+        (, , , , uint256 timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
+        for (uint i = 0; i < traders.length; i++) {
+            reqVar.owner = traders[i];
+            reqVar.longToken = longTokens[i];
+            LiqVars memory item;
+            Types.Trade memory trade = reqVar.openLev.activeTrades(reqVar.owner, reqVar.marketId, reqVar.longToken);
+            if (trade.held == 0) {
+                item.status = LiqStatus.NOP;
+                results[i] = item;
+                continue;
+            }
+            item.lastUpdateTime = timestamp;
+            (item.currentMarginRatio, item.cAvgMarginRatio, item.hAvgMarginRatio, item.marginLimit) = reqVar.openLev.marginRatio(reqVar.owner, reqVar.marketId, reqVar.longToken, reqVar.dexData);
+            if (item.currentMarginRatio > item.marginLimit && item.cAvgMarginRatio > item.marginLimit && item.hAvgMarginRatio > item.marginLimit) {
+                item.status = LiqStatus.HEALTHY;
+            }
+            else if (item.currentMarginRatio < item.marginLimit && item.cAvgMarginRatio > item.marginLimit && item.hAvgMarginRatio > item.marginLimit) {
+                if (dexData.isUniV2Class()) {
+                    item.status = LiqStatus.UPDATE;
+                } else {
+                    item.status = LiqStatus.WAITING;
+                }
+            } else if (item.currentMarginRatio < item.marginLimit && item.cAvgMarginRatio < item.marginLimit) {
+                //Liq
+                if (block.timestamp - calConf.twapDuration > item.lastUpdateTime || item.hAvgMarginRatio < item.marginLimit) {
+                    // cAvgRatio diff currentRatio >+-5% ,waiting
+                    if (item.currentMarginRatio < item.cAvgMarginRatio
+                        && ((10000 + item.cAvgMarginRatio) * 100 / (10000 + item.currentMarginRatio)) > 100 + calConf.maxLiquidationPriceDiffientRatio) {
+                        item.status = LiqStatus.WAITING;
+                    } else {
+                        item.status = LiqStatus.LIQ;
+                    }
+                }
+                item.status = LiqStatus.WAITING;
+            }
             results[i] = item;
         }
         return results;
@@ -108,6 +183,10 @@ interface IXOLE {
 
 }
 
+interface DexAggregatorInterface {
+    function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory dexData) external view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp);
+}
+
 interface IOpenLev {
     struct MarketVar {// Market info
         LPoolInterface pool0;       // Lending Pool 0
@@ -122,9 +201,37 @@ interface IOpenLev {
         uint pool1Insurance;        // Insurance balance for token 1
     }
 
+    struct AddressConfig {
+        DexAggregatorInterface dexAggregator;
+        address controller;
+        address wETH;
+        address xOLE;
+    }
+
+    struct CalculateConfig {
+        uint16 defaultFeesRate; // 30 =>0.003
+        uint8 insuranceRatio; // 33=>33%
+        uint16 defaultMarginLimit; // 3000=>30%
+        uint16 priceDiffientRatio; //10=>10%
+        uint16 updatePriceDiscount;//25=>25%
+        uint16 feesDiscount; // 25=>25%
+        uint128 feesDiscountThreshold; //  30 * (10 ** 18) minimal holding of xOLE to enjoy fees discount
+        uint16 penaltyRatio;//100=>1%
+        uint8 maxLiquidationPriceDiffientRatio;//30=>30%
+        uint16 twapDuration;//28=>28s
+    }
+
     function activeTrades(address owner, uint16 marketId, bool longToken) external view returns (Types.Trade memory);
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
     function markets(uint16 marketId) external view returns (MarketVar memory);
+
+    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
+
+    function addressConfig() external view returns (AddressConfig memory);
+
+    function getCalculateConfig() external view returns (CalculateConfig memory);
+
+
 }
