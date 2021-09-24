@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/OpenLeverageDev/openleverage-contracts.svg?style=svg&circle-token=e3199a81fde3f99da28d03517a4adbbe0a04f3a2)](https://circleci.com/gh/OpenLeverageDev/openleverage-contracts/tree/main) [![Node.js CI](https://github.com/OpenLeverageDev/openleverage-contracts/actions/workflows/node.js.yml/badge.svg?branch=main)](https://github.com/OpenLeverageDev/openleverage-contracts/actions/workflows/node.js.yml)
+[![Node.js CI](https://github.com/OpenLeverageDev/openleverage-contracts/actions/workflows/node.js.yml/badge.svg?branch=main)](https://github.com/OpenLeverageDev/openleverage-contracts/actions/workflows/node.js.yml)
 
 
 OpenLeverage Protocol
