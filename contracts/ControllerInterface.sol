@@ -67,7 +67,7 @@ contract ControllerStorage {
     mapping(address => mapping(address => LPoolPair)) public lpoolPairs;
     //marketId=>isDistribution
     mapping(uint => bool) public marketExtraDistribution;
-    //marketId=>isDistribution
+    //marketId=>isSuspend
     mapping(uint => bool) public marketSuspend;
     //pool=>allowed
     mapping(address => bool) public lpoolUnAlloweds;
