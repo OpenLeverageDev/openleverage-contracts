@@ -62,7 +62,7 @@ contract("OpenLev integration test ", async accounts => {
     assert.equal(pool1BalanceAfterSupply.sub(pool1BalanceBeforeSupply).toString(), supplyAmount.toString());
     while (await openLev.shouldUpdatePrice(marketId, uniV2) == true) {
       m.log("update price...");
-      await openLev.updatePrice(marketId, true, uniV2);
+      await openLev.updatePrice(marketId, uniV2);
     }
     utils.step("openLev open margin trade 1");
     let deposit = await utils.toWei(10);

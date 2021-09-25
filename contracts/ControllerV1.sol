@@ -124,6 +124,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
         if (transferOut(liquidator, calcLiquidatorRewards)) {
             oleTokenDistribution.extraBalance = oleTokenDistribution.extraBalance.sub(calcLiquidatorRewards);
+            emit LiquidateReward(marketId, liquidator, calcLiquidatorRewards, oleTokenDistribution.extraBalance);
         }
     }
 
@@ -145,6 +146,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
         if (transferOut(tx.origin, reward)) {
             oleTokenDistribution.extraBalance = oleTokenDistribution.extraBalance.sub(reward);
+            emit UpdatePriceReward(marketId, tx.origin, reward, oleTokenDistribution.extraBalance);
         }
     }
 
@@ -314,6 +316,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         oleTokenDistribution.liquidatorOLERatio = liquidatorOLERatio;
         oleTokenDistribution.xoleRaiseRatio = xoleRaiseRatio;
         oleTokenDistribution.xoleRaiseMinAmount = xoleRaiseMinAmount;
+        emit NewOLETokenDistribution(moreSupplyBorrowBalance, moreExtraBalance, updatePricePer, liquidatorMaxPer, liquidatorOLERatio, xoleRaiseRatio, xoleRaiseMinAmount);
     }
 
     function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override onlyAdmin {
@@ -329,7 +332,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
         uint subAmount = supplyAmount.add(borrowAmount);
         oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
-        emit Distribution2Pool(pool, supplyAmount, borrowAmount, startTime, duration);
+        emit Distribution2Pool(pool, supplyAmount, borrowAmount, startTime, duration, oleTokenDistribution.supplyBorrowBalance);
     }
 
     function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external override onlyAdmin {
@@ -345,7 +348,8 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         bool isBorrowMore = borrowAmount > 0 ? true : false;
         uint subAmount = supplyAmount.add(borrowAmount);
         oleTokenDistribution.supplyBorrowBalance = oleTokenDistribution.supplyBorrowBalance.sub(subAmount);
-        emit Distribution2Pool(pool, supplyAmount, borrowAmount, lpoolDistributions[LPoolInterface(pool)][isBorrowMore].startTime, lpoolDistributions[LPoolInterface(pool)][isBorrowMore].duration);
+        emit Distribution2Pool(pool, supplyAmount, borrowAmount, lpoolDistributions[LPoolInterface(pool)][isBorrowMore].startTime,
+            lpoolDistributions[LPoolInterface(pool)][isBorrowMore].duration, oleTokenDistribution.supplyBorrowBalance);
     }
 
     function distributeExtraRewards2Market(uint marketId, bool isDistribution) external override onlyAdminOrDeveloper {

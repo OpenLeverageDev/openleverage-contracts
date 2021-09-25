@@ -78,7 +78,14 @@ contract ControllerStorage {
 
     event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint16 marginLimit, bytes dexData);
 
-    event Distribution2Pool(address pool, uint supplyAmount, uint borrowerAmount, uint64 startTime, uint64 duration);
+    event Distribution2Pool(address pool, uint supplyAmount, uint borrowerAmount, uint64 startTime, uint64 duration, uint newSupplyBorrowBalance);
+
+    event UpdatePriceReward(uint marketId, address updator, uint reward, uint newExtraBalance);
+
+    event LiquidateReward(uint marketId, address liquidator, uint reward, uint newExtraBalance);
+
+    event NewOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount);
+
 
 }
 /**
