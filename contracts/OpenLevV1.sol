@@ -69,7 +69,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         numPairs ++;
         // Init price oracle
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData, false);
+            updatePriceInternal(marketId, token0, token1, dexData);
         } else if (dex == DexData.DEX_UNIV3) {
             addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
         }
@@ -296,10 +296,18 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return (current, cAvg, hAvg, price, cAvgPrice);
     }
 
-    function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external override {
+    function updatePrice(uint16 marketId, bytes memory dexData) external override {
         Types.Market memory market = markets[marketId];
-        require(!rewards || shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData), "NUP");
-        updatePriceInternal(marketId, market.token0, market.token1, dexData, rewards);
+        bool shouldUpdate = shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData);
+        bool updateResult = updatePriceInternal(marketId, market.token0, market.token1, dexData);
+        if (updateResult) {
+            //Discount
+            markets[marketId].priceUpdater = tx.origin;
+            //Reward OLE
+            if (shouldUpdate) {
+                (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId);
+            }
+        }
     }
 
     function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external override view returns (bool){
@@ -315,19 +323,15 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         return calculateConfig;
     }
 
-    function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData, bool rewards) internal {
-        bool updateResult = addressConfig.dexAggregator.updatePriceOracle(token0, token1, calculateConfig.twapDuration, dexData);
-        if (rewards && updateResult) {
-            markets[marketId].priceUpdater = tx.origin;
-            (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId);
-        }
+    function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData) internal returns (bool){
+        return addressConfig.dexAggregator.updatePriceOracle(token0, token1, calculateConfig.twapDuration, dexData);
     }
 
     function shouldUpdatePriceInternal(uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) internal view returns (bool){
         if (!dexData.isUniV2Class()) {
             return false;
         }
-        (, uint cAvgPrice, uint hAvgPrice,,uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, calculateConfig.twapDuration, dexData);
+        (, uint cAvgPrice, uint hAvgPrice,, uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, calculateConfig.twapDuration, dexData);
         if (block.timestamp < lastUpdateTime.add(calculateConfig.twapDuration)) {
             return false;
         }
@@ -346,7 +350,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
     function isPositionHealthy(address owner, bool isOpen, uint held, Types.MarketVars memory vars, bytes memory dexData) internal view returns (bool)
     {
-        (uint current, uint cAvg,uint hAvg,uint price,uint cAvgPrice) = marginRatioInternal(owner,
+        (uint current, uint cAvg, uint hAvg, uint price, uint cAvgPrice) = marginRatioInternal(owner,
             held,
             isOpen ? address(vars.buyToken) : address(vars.sellToken),
             isOpen ? address(vars.sellToken) : address(vars.buyToken),
@@ -581,7 +585,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     function verifyOpenAfter(uint16 marketId, uint held, Types.MarketVars memory vars, bytes memory dexData) internal {
         require(isPositionHealthy(msg.sender, true, held, vars, dexData), "PNH");
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), dexData, false);
+            updatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), dexData);
         }
     }
 
@@ -592,7 +596,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
     function verifyCloseAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData, false);
+            updatePriceInternal(marketId, token0, token1, dexData);
         }
     }
 
@@ -604,7 +608,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
 
     function verifyLiquidateAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData, false);
+            updatePriceInternal(marketId, token0, token1, dexData);
         }
     }
 

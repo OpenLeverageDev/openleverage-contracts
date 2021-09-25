@@ -133,7 +133,7 @@ interface OpenLevInterface {
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
-    function updatePrice(uint16 marketId, bool rewards, bytes memory dexData) external;
+    function updatePrice(uint16 marketId,bytes memory dexData) external;
 
     function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
 
