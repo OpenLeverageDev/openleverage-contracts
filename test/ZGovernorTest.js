@@ -1,4 +1,4 @@
-const {advanceMultipleBlocks, advanceMultipleBlocksAndTime} = require("./utils/EtheUtil");
+const {advanceMultipleBlocks, advanceMultipleBlocksAndTime, advanceBlockAndSetTime} = require("./utils/EtheUtil");
 const {toWei, createXOLE} = require("./utils/OpenLevUtil");
 
 const OLEToken = artifacts.require("OLEToken");
@@ -95,12 +95,14 @@ contract("GovernorAlphaTest", async accounts => {
         }
     });
     it('Propose to cancel', async () => {
-        //815,30,8266,7427,6983,8342
-        //815308266742769838342
-        await ole.mint(proposeAccount, toWei(250600));
-        await ole.approve(xole.address, toWei(250600), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(250600), lastbk.timestamp + (DAY * 7), {from: proposeAccount});
+        let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
+        m.log("Move time to start of the week", new Date(timeToMove));
+        await advanceBlockAndSetTime(timeToMove);
+        await ole.mint(proposeAccount, toWei(240000));
+        await ole.approve(xole.address, toWei(240000), {from: proposeAccount});
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(240000), lastbk.timestamp + (DAY * 7), {from: proposeAccount});
         let vote = await xole.balanceOfAt(proposeAccount, await web3.eth.getBlockNumber());
         m.log("vote=", vote.toString());
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
