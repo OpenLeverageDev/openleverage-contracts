@@ -324,6 +324,8 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
     }
 
     function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData) internal returns (bool){
+        // Shh - currently unused
+        marketId;
         return addressConfig.dexAggregator.updatePriceOracle(token0, token1, calculateConfig.twapDuration, dexData);
     }
 
