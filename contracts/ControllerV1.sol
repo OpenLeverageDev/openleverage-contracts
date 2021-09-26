@@ -270,6 +270,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
             bool succeed = transferOut(account, reward);
             if (succeed) {
                 lPoolRewardByAccounts[lpool][isBorrow][account].rewards = 0;
+                emit PoolReward(address(lpool), account, isBorrow, reward);
             }
         }
     }
@@ -285,8 +286,10 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         uint rewards;
         for (uint i = 0; i < lpools.length; i++) {
             if (updateReward(lpools[i], account, false)) {
-                rewards = rewards.add(earnedInternal(lpools[i], account, false));
+                uint poolRewards = lPoolRewardByAccounts[lpools[i]][false][account].rewards;
+                rewards = rewards.add(poolRewards);
                 lPoolRewardByAccounts[lpools[i]][false][account].rewards = 0;
+                emit PoolReward(address(lpools[i]), account, false, poolRewards);
             }
         }
         require(rewards > 0, 'rewards is zero');

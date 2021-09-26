@@ -84,6 +84,8 @@ contract ControllerStorage {
 
     event LiquidateReward(uint marketId, address liquidator, uint reward, uint newExtraBalance);
 
+    event PoolReward(address pool, address rewarder,bool isBorrow, uint reward);
+
     event NewOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount);
 
 
