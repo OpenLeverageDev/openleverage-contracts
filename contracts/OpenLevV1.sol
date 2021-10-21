@@ -41,7 +41,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         addressConfig.wETH = _wETH;
         addressConfig.xOLE = _xOLE;
         setAllowedDepositTokensInternal(depositTokens, true);
-        setCalculateConfigInternal(30, 33, 3000, 5, 25, 25, 30e18, 300, 10, 60);
+        setCalculateConfigInternal(20, 33, 3000, 5, 25, 25, 30e18, 300, 5, 60);
     }
 
     function addMarket(
@@ -423,7 +423,7 @@ contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Admin
         uint newFees = defaultFees;
         CalculateConfig memory config = calculateConfig;
         // if trader holds more xOLE, then should enjoy trading discount.
-        if (XOLEInterface(addressConfig.xOLE).balanceOf(trader, 0) > config.feesDiscountThreshold) {
+        if (XOLEInterface(addressConfig.xOLE).balanceOf(trader) > config.feesDiscountThreshold) {
             newFees = defaultFees.sub(defaultFees.mul(config.feesDiscount).div(100));
         }
         // if trader update price, then should enjoy trading discount.

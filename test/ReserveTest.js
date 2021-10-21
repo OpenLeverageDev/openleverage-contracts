@@ -19,7 +19,7 @@ contract("Reserve", async accounts => {
       return;
     }
 
-    let oleToken = await OLEToken.new(admin, "Open Leverage Token", "OLE");
+    let oleToken = await OLEToken.new(admin,admin, "Open Leverage Token", "OLE");
     await oleToken.mint(admin, '1000000000000000000');
 
     let latestBlock = await web3.eth.getBlock("latest");

@@ -1,4 +1,9 @@
-const {advanceMultipleBlocks, advanceMultipleBlocksAndTime, advanceBlockAndSetTime} = require("./utils/EtheUtil");
+const {
+    advanceMultipleBlocks,
+    advanceMultipleBlocksAndTime,
+    advanceBlockAndSetTime,
+    unlockedAccount
+} = require("./utils/EtheUtil");
 const {toWei, createXOLE} = require("./utils/OpenLevUtil");
 
 const OLEToken = artifacts.require("OLEToken");
@@ -9,6 +14,7 @@ const MockTLAdmin = artifacts.require("MockTLAdmin");
 const m = require('mocha-logger');
 
 const timeMachine = require('ganache-time-traveler');
+const EIP712 = require("./utils/EIP712");
 
 contract("GovernorAlphaTest", async accounts => {
     let xole;
@@ -22,7 +28,7 @@ contract("GovernorAlphaTest", async accounts => {
     let DAY = 86400;
     let WEEK = 4 * 7 * DAY;
     beforeEach(async () => {
-        ole = await OLEToken.new(admin, 'OLE', 'OLE');
+        ole = await OLEToken.new(admin, admin, 'OLE', 'OLE');
         timelock = await Timelock.new(admin, 180 + '');
         tlAdmin = await MockTLAdmin.new(timelock.address);
 
@@ -50,13 +56,13 @@ contract("GovernorAlphaTest", async accounts => {
 
 
     it('Repeat vote', async () => {
-
         await ole.mint(proposeAccount, toWei(100000));
-
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
         await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
-        let vote = await xole.balanceOfAt(proposeAccount, await web3.eth.getBlockNumber());
+        let lastBlockNum = await web3.eth.getBlockNumber();
+        await advanceMultipleBlocksAndTime(1);
+        let vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
         m.log("vote=", vote.toString());
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
         //delay 1 block
@@ -64,16 +70,120 @@ contract("GovernorAlphaTest", async accounts => {
 
         await gov.castVote(1, true, {from: proposeAccount});
 
-    try {
-      await gov.castVote(1, false, {from: proposeAccount});
-      assert.equal("message", 'voter success');
-    } catch (error) {
-      assert.include(error.message, 'Voter already voted');
-    }
+        try {
+            await gov.castVote(1, false, {from: proposeAccount});
+            assert.equal("message", 'voter success');
+        } catch (error) {
+            assert.include(error.message, 'Voter already voted');
+        }
 
     });
 
+    it.skip('delegate vote to other', async () => {
+        await ole.mint(proposeAccount, toWei(300));
+        let delegateAcc = accounts[5];
+        await ole.mint(delegateAcc, toWei(200000));
 
+        await ole.approve(xole.address, toWei(300), {from: proposeAccount});
+        await ole.approve(xole.address, toWei(200000), {from: delegateAcc});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(100), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc});
+        await xole.delegate(proposeAccount, {from: delegateAcc});
+
+        let lastBlockNum = await web3.eth.getBlockNumber();
+        await advanceMultipleBlocksAndTime(1);
+        let vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
+        assert.equal("104264160000000000000000", vote.toString());
+        assert.equal("104264160000000000000000", (await xole.totalSupplyAt(lastBlockNum)).toString());
+        await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+        lastBlockNum = await web3.eth.getBlockNumber();
+        // delegate not change vote
+        m.log("delegateAcc.delegatee before", await xole.delegates(delegateAcc));
+        await xole.delegate(delegateAcc, {from: delegateAcc});
+        m.log("delegateAcc.delegatee after", await xole.delegates(delegateAcc));
+        m.log("votes before ", (await xole.getCurrentVotes(proposeAccount)).toString());
+        vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
+        assert.equal("104264160000000000000000", vote.toString());
+        assert.equal("104264160000000000000000", (await xole.totalSupplyAt(lastBlockNum)).toString());
+        //delegate by sign
+        const Domain = {
+            name: 'xOLE',
+            chainId: 1,
+            verifyingContract: xole.address
+        };
+        const Types = {
+            Delegation: [
+                {name: 'delegatee', type: 'address'},
+                {name: 'nonce', type: 'uint256'},
+                {name: 'expiry', type: 'uint256'}
+            ]
+        };
+        const {v, r, s} = EIP712.sign(Domain, 'Delegation', {
+            delegatee: proposeAccount,
+            nonce: 0,
+            expiry: 10e9
+        }, Types, "0x4fcd6a2d18a6731703461436c8d6b0e0825f646a78e4fead34e0e4df1e3c1892");
+        await xole.delegateBySig(proposeAccount, 0, 10e9, v, r, s);
+        assert.equal("104264160000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
+        assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
+        // delegatorAcc lock more
+        await xole.increase_amount(toWei(100), {from: delegateAcc});
+        assert.equal("104368320000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
+        assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
+        // delegatorAcc withraw all
+        await advanceBlockAndSetTime(lastbk.timestamp + 2 * WEEK);
+        await xole.withdraw({from: delegateAcc});
+        assert.equal("104160000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
+        assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
+        // proposeAccount withraw all
+        await xole.withdraw({from: proposeAccount});
+        assert.equal("0", (await xole.getCurrentVotes(proposeAccount)).toString());
+        assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
+    });
+
+    it.skip('Cast Vote BySig', async () => {
+        await ole.mint(proposeAccount, toWei(2000));
+        let delegateAcc = accounts[5];
+        await ole.mint(delegateAcc, toWei(100000));
+
+        await ole.approve(xole.address, toWei(2000), {from: proposeAccount});
+        await ole.approve(xole.address, toWei(100000), {from: delegateAcc});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(2000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc});
+        // await xole.delegate(proposeAccount, {from: delegateAcc});
+
+        let lastBlockNum = await web3.eth.getBlockNumber();
+        await advanceMultipleBlocksAndTime(1);
+        let vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
+        assert.equal("2083200000000000000000", vote.toString());
+        assert.equal("106243200000000000000000", (await xole.totalSupplyAt(lastBlockNum)).toString());
+        await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+        //delay 1 block
+        await ole.transfer(accounts[1], 0);
+        await gov.castVote(1, true, {from: proposeAccount});
+        //0xB8b55BDBC81b62f49ae134205a1A3F16c82B0BaE
+        const Domain = {
+            name: 'Open Leverage Governor Alpha',
+            chainId: 1,
+            verifyingContract: gov.address
+        };
+        const Types = {
+            Ballot: [
+                {name: 'proposalId', type: 'uint256'},
+                {name: 'support', type: 'bool'}
+            ]
+        };
+        const {v, r, s} = EIP712.sign(Domain, 'Ballot', {
+            proposalId: 1,
+            support: true
+        }, Types, "0x4fcd6a2d18a6731703461436c8d6b0e0825f646a78e4fead34e0e4df1e3c1892");
+        await gov.castVoteBySig(1, true, v, r, s);
+        assert.equal((await xole.totalSupplyAt(lastBlockNum)).toString(), (await gov.proposals(1)).forVotes);
+    });
     it('Not enough votes to join the queue', async () => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
@@ -94,6 +204,7 @@ contract("GovernorAlphaTest", async accounts => {
             assert.include(error.message, 'GovernorAlpha::queue: proposal can only be queued if it is succeeded');
         }
     });
+
     it('Propose to cancel', async () => {
         let lastbk = await web3.eth.getBlock('latest');
         let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
@@ -103,7 +214,9 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.approve(xole.address, toWei(240000), {from: proposeAccount});
         lastbk = await web3.eth.getBlock('latest');
         await xole.create_lock(toWei(240000), lastbk.timestamp + (DAY * 7), {from: proposeAccount});
-        let vote = await xole.balanceOfAt(proposeAccount, await web3.eth.getBlockNumber());
+        let lastBlockNum = await web3.eth.getBlockNumber();
+        await advanceMultipleBlocksAndTime(1);
+        let vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
         m.log("vote=", vote.toString());
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
         //delay 1 block
@@ -111,14 +224,11 @@ contract("GovernorAlphaTest", async accounts => {
         await gov.castVote(1, true, {from: proposeAccount});
         //delay 1 block
         await ole.transfer(accounts[1], 0);
-        await advanceMultipleBlocksAndTime(6000);
-        vote = await xole.balanceOfAt(proposeAccount, await web3.eth.getBlockNumber());
-        m.log("vote=", vote.toString());
-        await gov.cancel(1);
+        await gov.cancel(1, {from: proposeAccount});
         assert.equal(2, (await gov.state(1)).toString());
 
     });
-    it(' negative vote is greater than the affirmative vote', async () => {
+    it('Negative vote is greater than the affirmative vote', async () => {
 
         if (process.env.FASTMODE === 'true') {
             m.log("Skipping this test for FAST Mode");

@@ -12,7 +12,7 @@ const {
     step,
     resetStep
 } = require("./utils/OpenLevUtil");
-const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
+const {advanceMultipleBlocksAndTime, toBN, advanceBlockAndSetTime} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
 const TestToken = artifacts.require("MockERC20");
 const XOLEDelegator = artifacts.require("XOLEDelegator");
@@ -44,6 +44,7 @@ contract("XOLE", async accounts => {
     let usdtOLEDexData;
     let daiUsdtDexData;
     let dexAgg;
+    let snapshotId;
     beforeEach(async () => {
 
         // runs once before the first test in this block
@@ -88,8 +89,12 @@ contract("XOLE", async accounts => {
         await utils.mint(usdt, xole.address, 10000);
 
         resetStep();
+        let snapshot = await timeMachine.takeSnapshot();
+        snapshotId = snapshot['result'];
     });
-
+    afterEach(async () => {
+        await timeMachine.revertToSnapshot(snapshotId);
+    });
     it("Convert current erc20 holdings to reward, withdrawn dev fund", async () => {
 
         assert.equal('0', (await ole.balanceOf(xole.address)).toString());
@@ -102,7 +107,7 @@ contract("XOLE", async accounts => {
         await xole.convertToSharingToken(toWei(1), 0, usdtOLEDexData);
         m.log("devFund:", (await xole.devFund()).toString());
         m.log("totalRewarded:", (await xole.totalRewarded()).toString());
-        m.log("supply:", (await xole.supply()).toString());
+        m.log("supply:", (await xole.totalLocked()).toString());
         m.log("lastUpdateTime:", (await xole.lastUpdateTime()).toString());
         m.log("rewardPerTokenStored:", (await xole.rewardPerTokenStored()).toString());
         assert.equal('498495030004550854', (await xole.devFund()).toString());
@@ -130,7 +135,7 @@ contract("XOLE", async accounts => {
         await xole.withdrawDevFund({from: dev});
 
         m.log("ole balance in xOLE:", await ole.balanceOf(xole.address));
-        m.log("supply:", await xole.supply());
+        m.log("supply:", await xole.totalLocked());
         m.log("totalRewarded:", await xole.totalRewarded());
         m.log("withdrewReward:", await xole.withdrewReward());
         m.log("devFund:", await xole.devFund());
@@ -160,18 +165,17 @@ contract("XOLE", async accounts => {
 
         m.log("xOLE devFund:", await xole.devFund());
         assert.equal('493579017198530649425', (await xole.devFund()).toString());
-
         m.log("xOLE withdrewReward:", await xole.withdrewReward());
         assert.equal('0', (await xole.withdrewReward()).toString());
-
-        m.log("xOLE withdrewReward:", await xole.withdrewReward());
-
+        m.log("xole.totalSupply", (await xole.totalSupply()).toString());
+        m.log("xole.balanceOf", (await xole.balanceOf(admin)).toString());
+        m.log("earned:", (await xole.earned(admin)).toString());
+        m.log("rewardPerTokenStored before:", (await xole.rewardPerTokenStored()).toString());
+        // withdraw ole reward
         await xole.withdrawReward();
-
-        assert.equal('493579017198530640000', (await ole.balanceOf(admin)).toString());
-
+        m.log("rewardPerTokenStored after:", (await xole.rewardPerTokenStored()).toString());
         assert.equal('493579017198530640000', (await xole.withdrewReward()).toString());
-
+        assert.equal('493579017198530640000', (await ole.balanceOf(admin)).toString());
         //add sharingToken Reward 2000
         await usdt.mint(xole.address, toWei(2000));
         //sharing 1000
@@ -234,8 +238,144 @@ contract("XOLE", async accounts => {
         m.log("xOLE devFund:", await xole.devFund());
         assert.equal('447897029387249337755', (await xole.devFund()).toString());
     })
-    it("John and Tom stakes, Tom stakes more, shares fees", async () => {
 
+    it("John Deposit for 1 weeks, Tom 2 weeks", async () => {
+
+        await ole.mint(john, toWei(10000));
+        await ole.mint(tom, toWei(10000));
+        await dai.mint(xole.address, toWei(1000));
+        await ole.approve(xole.address, toWei(500), {from: john});
+        await ole.approve(xole.address, toWei(500), {from: tom});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
+        m.log("Move time to start of the week", new Date(timeToMove));
+        await advanceBlockAndSetTime(timeToMove);
+
+        step("John stake 500 1 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + WEEK, {from: john});
+        step("Tom stake 500 2 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + (2 * WEEK) + 60 * 60, {from: tom});
+        assertPrint("Total staked:", toWei(1000), await xole.totalLocked());
+        step("New reward 1");
+        await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
+        assertPrint("Dev Fund:", '498495030004550854', await xole.devFund());
+        assertPrint("Total to share:", '498495030004550855', await xole.totalRewarded());
+        assertPrint("John earned:", '246682021973748000', await xole.earned(john));
+        //Tom earned more 2.08% than John
+        assertPrint("Tom earned:", '251813008030801958', await xole.earned(tom));
+    })
+
+    it("John Deposit for 1 weeks, Tom 2 weeks increase amount yet", async () => {
+
+        await ole.mint(john, toWei(10000));
+        await ole.mint(tom, toWei(10000));
+        await dai.mint(xole.address, toWei(1000));
+        await ole.approve(xole.address, toWei(500), {from: john});
+        await ole.approve(xole.address, toWei(1000), {from: tom});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
+        m.log("Move time to start of the week", new Date(timeToMove));
+        await advanceBlockAndSetTime(timeToMove);
+
+        step("John stake 500 1 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + WEEK, {from: john});
+        step("Tom stake 500 2 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + (2 * WEEK) + 60 * 60, {from: tom});
+        await xole.increase_amount(toWei(500), {from: tom});
+
+        assertPrint("Total staked:", toWei(1500), await xole.totalLocked());
+        step("New reward 1");
+        await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
+        assertPrint("Dev Fund:", '498495030004550854', await xole.devFund());
+        assertPrint("Total to share:", '498495030004550855', await xole.totalRewarded());
+        assertPrint("John earned:", '163892369149313000', await xole.earned(john));
+        //Tom earned more 104.16% than John
+        assertPrint("Tom earned:", '334602660855237420', await xole.earned(tom));
+    })
+
+    it("John Deposit for 1 weeks, Tom 2 weeks increase unlock time to 4 weeks", async () => {
+
+        await ole.mint(john, toWei(10000));
+        await ole.mint(tom, toWei(10000));
+        await dai.mint(xole.address, toWei(1000));
+        await ole.approve(xole.address, toWei(500), {from: john});
+        await ole.approve(xole.address, toWei(1000), {from: tom});
+        let lastbk = await web3.eth.getBlock('latest');
+        let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
+        m.log("Move time to start of the week", new Date(timeToMove));
+        await advanceBlockAndSetTime(timeToMove);
+
+        step("John stake 500 1 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + WEEK, {from: john});
+        step("Tom stake 500 2 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + (2 * WEEK) + 60 * 60, {from: tom});
+        timeToMove = lastbk.timestamp + WEEK;
+        await advanceBlockAndSetTime(timeToMove);
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.increase_unlock_time(lastbk.timestamp + (4 * WEEK) + 60 * 60, {from: tom});
+
+        step("New reward 1");
+        await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
+        assertPrint("Dev Fund:", '498495030004550854', await xole.devFund());
+        assertPrint("Total to share:", '498495030004550855', await xole.totalRewarded());
+        assertPrint("John earned:", '241706279094526000', await xole.earned(john));
+        //Tom earned more 6.24% than John
+        assertPrint("Tom earned:", '256788750910024422', await xole.earned(tom));
+    })
+
+    it("John Deposit for 1 weeks, Tom 2 weeks redraw, share again", async () => {
+
+        await ole.mint(john, toWei(10000));
+        await ole.mint(tom, toWei(10000));
+        await dai.mint(xole.address, toWei(1000));
+        await ole.approve(xole.address, toWei(500), {from: john});
+        await ole.approve(xole.address, toWei(1000), {from: tom});
+        let lastbk = await web3.eth.getBlock('latest');
+        let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
+        m.log("Move time to start of the week", new Date(timeToMove));
+        await advanceBlockAndSetTime(timeToMove);
+
+        step("John stake 500 1 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + WEEK, {from: john});
+        step("Tom stake 500 2 weeks");
+        lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(500), lastbk.timestamp + (2 * WEEK) + 60 * 60, {from: tom});
+
+        step("New reward 1");
+        await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
+
+        assertPrint("John earned:", '246682021973748000', await xole.earned(john));
+        //Tom earned more 2.08% than John
+        assertPrint("Tom earned:", '251813008030801958', await xole.earned(tom));
+
+        let lockedEndBlock = (await xole.locked(tom)).end;
+        m.log("lockedEndBlock=", lockedEndBlock);
+        lastbk = await web3.eth.getBlock('latest');
+        m.log("lastbk.timestamp before=", lastbk.timestamp);
+        await advanceBlockAndSetTime(parseInt(lockedEndBlock.toString()));
+        lastbk = await web3.eth.getBlock('latest');
+        m.log("lastbk.timestamp after=", lastbk.timestamp);
+
+        await xole.withdraw({from: tom});
+        assertPrint("Total Extra Token:", toWei(500), await xole.totalSupply());
+        assertPrint("Tom Extra Token:", 0, await xole.balanceOf(tom));
+
+        await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
+        //241706279094526000+498495030004550855
+        assertPrint("John earned:", '745167097231345500', await xole.earned(john));
+        assertPrint("Tom earned:", '0', await xole.earned(tom));
+    })
+    it("John and Tom stakes, Tom stakes more, shares fees", async () => {
+        m.log("process.env.FASTMODE", process.env.FASTMODE);
         if (process.env.FASTMODE === 'true') {
             m.log("Skipping this test for FAST Mode");
             return;
@@ -255,7 +395,7 @@ contract("XOLE", async accounts => {
         step("Tom stake 300");
         await xole.create_lock(toWei(300), lastbk.timestamp + WEEK, {from: tom});
         assertPrint("Tom staked:", toWei(300), (await xole.locked(tom)).amount);
-        assertPrint("Total staked:", toWei(800), await xole.supply());
+        assertPrint("Total staked:", toWei(800), await xole.totalLocked());
         step("New reward 1");
         await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
         assertPrint("Dev Fund:", '498495030004550854', await xole.devFund());
@@ -270,7 +410,7 @@ contract("XOLE", async accounts => {
         await xole.increase_amount(toWei(200), {from: tom});
         assertPrint("Tom staked:", toWei(500), (await xole.locked(tom)).amount);
         assertPrint("John staked:", toWei(500), (await xole.locked(john)).amount);
-        assertPrint("Total staked:", toWei(1000), await xole.supply());
+        assertPrint("Total staked:", toWei(1000), await xole.totalLocked());
 
         step("New reward 1");
         await xole.convertToSharingToken(toWei(1), 0, daiOLEDexData);
@@ -288,7 +428,7 @@ contract("XOLE", async accounts => {
         step("John stack more, but earning should not change because no new reward");
         await ole.approve(xole.address, toWei(1000), {from: john});
         await xole.increase_amount(toWei(1000), {from: john});
-        assertPrint("Total staked:", toWei(2000), await xole.supply());
+        assertPrint("Total staked:", toWei(2000), await xole.totalLocked());
         assertPrint("Dev Fund:", '996980105262148814', await xole.devFund());
         assertPrint("John earned:", '560801931381642500', await xole.earned(john));
         assertPrint("Tom earned:", '436178173880504900', await xole.earned(tom));
@@ -299,10 +439,10 @@ contract("XOLE", async accounts => {
         assertPrint("John earned:", '75184019786873262500', await xole.earned(john));
         assertPrint("Tom earned:", '25310584125711044900', await xole.earned(tom));
 
-        await advanceMultipleBlocksAndTime(40400);
+        await advanceBlockAndSetTime(lastbk.timestamp + 3 * WEEK);
         step("John exits, but earning should not change because no new reward");
         await xole.withdraw({from: john});
-        assertPrint("Total staked:", toWei(500), await xole.supply());
+        assertPrint("Total staked:", toWei(500), await xole.totalLocked());
         assertPrint("Dev Fund:", '100494603912584309258', await xole.devFund());
         assertPrint("John earned:", '0', await xole.earned(john));
         assertPrint("Tom earned:", '25310584125711044900', await xole.earned(tom));
@@ -340,7 +480,7 @@ contract("XOLE", async accounts => {
 
     })
 
-    //Admin Test TODO
+    // Admin Test
     it("Admin setDevFundRatio test", async () => {
         let timeLock = await utils.createTimelock(admin);
         let xole0 = await utils.createXOLE(ole.address, timeLock.address, dev, dexAgg.address, accounts[0]);

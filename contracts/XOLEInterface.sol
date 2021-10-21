@@ -8,55 +8,35 @@ import "./dex/DexAggregatorInterface.sol";
 contract XOLEStorage {
 
     // EIP-20 token name for this token
-    string public name = 'xOLE';
+    string public constant name = 'xOLE';
 
     // EIP-20 token symbol for this token
-    string public symbol = 'xOLE';
+    string public constant symbol = 'xOLE';
 
     // EIP-20 token decimals for this token
     uint8 public constant decimals = 18;
 
-    // Total number of tokens locked
-    uint public supply;
+    // Total number of tokens supply
+    uint public totalSupply;
 
-    // Allowance amounts on behalf of others
-    mapping(address => mapping(address => uint)) internal allowances;
+    // Total number of tokens locked
+    uint public totalLocked;
 
     // Official record of token balances for each account
     mapping(address => uint) internal balances;
 
     mapping(address => LockedBalance) public locked;
 
-    uint256 public epoch;
+    DexAggregatorInterface public dexAgg;
 
-    Point[100000000000000000000000000000] public point_history; // epoch -> unsigned point
-
-    mapping(address => Point[1000000000]) public user_point_history; // user -> Point[user_epoch]
-
-    mapping(address => uint256) public user_point_epoch;
-
-    mapping(uint256 => int128) public slope_changes; // time -> signed slope change
-
-    DexAggregatorInterface dexAgg;
-
-    struct Point {
-        int128 bias;
-        int128 slope;   // - dweight / dt
-        uint256 ts;
-        uint256 blk;   // block
-    }
+    IERC20 public oleToken;
 
     struct LockedBalance {
         uint256 amount;
         uint256 end;
     }
 
-    struct Vars {
-        uint256 _epoch;
-        uint256 user_epoch;
-    }
-
-    address ZERO_ADDRESS = address(0);
+    uint constant oneWeekExtraRaise = 208;// 2.08%*192=400%(4years raise)
 
     int128 constant DEPOSIT_FOR_TYPE = 0;
     int128 constant CREATE_LOCK_TYPE = 1;
@@ -67,24 +47,18 @@ contract XOLEStorage {
     uint256 constant MAXTIME = 4 * 365 * 86400;  // 4 years
     uint256 constant MULTIPLIER = 10 ** 18;
 
-    IERC20 oleToken;
 
     // dev team account
     address public dev;
 
     uint public devFund;
 
-    uint public totalStaked;
-
-    // user => staked balance of OLE
-    mapping(address => uint) public stakedBalances;
-
     uint public devFundRatio; // ex. 5000 => 50%
-
-    mapping(address => uint256) public userRewardPerTokenPaid;
 
     // user => reward
     mapping(address => uint256) public rewards;
+
+    uint public totalStaked;
 
     // total to shared
     uint public totalRewarded;
@@ -95,8 +69,48 @@ contract XOLEStorage {
 
     uint public rewardPerTokenStored;
 
+    mapping(address => uint256) public userRewardPerTokenPaid;
+
+
+    // A record of each accounts delegate
+    mapping(address => address) public delegates;
+
+    // A checkpoint for marking number of votes from a given block
+    struct Checkpoint {
+        uint32 fromBlock;
+        uint votes;
+    }
+
+    mapping(uint256 => Checkpoint) public totalSupplyCheckpoints;
+
+    uint256 public totalSupplyNumCheckpoints;
+
+    // A record of votes checkpoints for each account, by index
+    mapping(address => mapping(uint32 => Checkpoint)) public checkpoints;
+
+    // The number of checkpoints for each account
+    mapping(address => uint32) public numCheckpoints;
+
+    // The EIP-712 typehash for the contract's domain
+    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
+
+    // The EIP-712 typehash for the delegation struct used by the contract
+    bytes32 public constant DELEGATION_TYPEHASH = keccak256("Delegation(address delegatee,uint256 nonce,uint256 expiry)");
+
+    // A record of states for signing / validating signatures
+    mapping(address => uint) public nonces;
+
+    // An event thats emitted when an account changes its delegate
+    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
+
+    // An event thats emitted when a delegate account's vote balance changes
+    event DelegateVotesChanged(address indexed delegate, uint previousBalance, uint newBalance);
+
+
     event RewardAdded(address fromToken, uint convertAmount, uint reward);
     event RewardConvert(address fromToken, address toToken, uint convertAmount, uint returnAmount);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
 
     event Deposit (
         address indexed provider,
@@ -142,21 +156,7 @@ interface XOLEInterface {
 
     function setDexAgg(DexAggregatorInterface newDexAgg) external;
 
-    event CommitOwnership (address admin);
-
-    event ApplyOwnership (address admin);
-
     // xOLE functions
-
-    function get_last_user_slope(address addr) external view returns (int128);
-
-    function user_point_history_ts(address _addr, uint256 _idx) external view returns (uint256);
-
-    function locked__end(address _addr) external view returns (uint256);
-
-    function checkpoint() external;
-
-    function deposit_for(address _addr, uint256 _value) external;
 
     function create_lock(uint256 _value, uint256 _unlock_time) external;
 
@@ -166,13 +166,7 @@ interface XOLEInterface {
 
     function withdraw() external;
 
-    function balanceOf(address addr, uint256 _t) external view returns (uint256);
-
-    function balanceOfAt(address addr, uint256 _block) external view returns (uint256);
-
-    function totalSupply(uint256 t) external view returns (uint256);
-
-    function totalSupplyAt(uint256 _block) external view returns (uint256);
+    function balanceOf(address addr) external view returns (uint256);
 
 }
 
