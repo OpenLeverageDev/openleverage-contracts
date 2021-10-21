@@ -35,14 +35,14 @@ contract OLEToken is Adminable {
 
     /**
      * Construct a new OpenLev token
-     * @param account The initial account to grant all the tokens
+     * @param initAccount The initial account to grant all the tokens
      */
-    constructor(address account, string memory _name, string memory _symbol)  {
-        admin = msg.sender;
-        balances[account] = totalSupply;
+    constructor(address initAccount, address payable _admin, string memory _name, string memory _symbol)  {
+        admin = _admin;
+        balances[initAccount] = totalSupply;
         name = _name;
         symbol = _symbol;
-        emit Transfer(address(0), account, totalSupply);
+        emit Transfer(address(0), initAccount, totalSupply);
     }
 
     function mint(address account, uint amount) external onlyAdmin {

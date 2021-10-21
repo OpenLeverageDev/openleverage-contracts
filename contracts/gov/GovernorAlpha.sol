@@ -11,7 +11,7 @@ contract GovernorAlpha {
     function quorumVotes(uint blockNumber) public view returns (uint) {return xole.totalSupplyAt(blockNumber) / 25;} //  4% of XOLE
 
     // The number of votes required in order for a voter to become a proposer
-    function proposalThreshold() public pure returns (uint) {return 1000e18;} // 1000 XOLE
+    function proposalThreshold() public view returns (uint) {return xole.totalSupplyAt(block.number) / 100;} // 1%
 
     // The maximum number of actions that can be included in a proposal
     function proposalMaxOperations() public pure returns (uint) {return 10;} // 10 actions
@@ -140,7 +140,7 @@ contract GovernorAlpha {
 
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) external returns (uint) {
         uint previousBlockNumber = sub256(block.number, 1);
-        require(xole.balanceOfAt(msg.sender, previousBlockNumber) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
+        require(xole.getPriorVotes(msg.sender, previousBlockNumber) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
         require(targets.length == values.length && targets.length == signatures.length && targets.length == calldatas.length, "GovernorAlpha::propose: proposal function information arity mismatch");
         require(targets.length != 0, "GovernorAlpha::propose: must provide actions");
         require(targets.length <= proposalMaxOperations(), "GovernorAlpha::propose: too many actions");
@@ -245,8 +245,9 @@ contract GovernorAlpha {
 
         Proposal storage proposal = proposals[proposalId];
         uint previousBlockNumber = sub256(block.number, 1);
-        require(msg.sender == guardian || xole.balanceOfAt(proposal.proposer, previousBlockNumber) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
-
+        if (msg.sender != proposal.proposer) {
+            require(msg.sender == guardian || xole.getPriorVotes(proposal.proposer, previousBlockNumber) < proposalThreshold(), "GovernorAlpha::cancel: proposer above threshold");
+        }
         proposal.canceled = true;
         for (uint i = 0; i < proposal.targets.length; i++) {
             timelock.cancelTransaction(proposal.targets[i], proposal.values[i], proposal.signatures[i], proposal.calldatas[i], proposal.eta);
@@ -276,7 +277,7 @@ contract GovernorAlpha {
 
         Receipt storage receipt = receipts[proposalId][voter];
         require(!receipt.hasVoted, "Voter already voted");
-        uint votes = xole.balanceOfAt(voter, proposal.startBlock);
+        uint votes = xole.getPriorVotes(voter, proposal.startBlock);
 
         if (support) {
             proposal.forVotes = add256(proposal.forVotes, votes);
@@ -337,7 +338,8 @@ interface TimelockInterface {
 }
 
 interface XOLETokenInterface {
-    function balanceOfAt(address account, uint blockNumber) external view returns (uint);
+    function getPriorVotes(address account, uint blockNumber) external view returns (uint);
 
     function totalSupplyAt(uint256 blockNumber) external view returns (uint);
+
 }

@@ -222,7 +222,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
     function stake(LPoolInterface lpool, address account, uint256 amount) internal returns (bool) {
         bool updateSucceed = updateReward(lpool, account, false);
-        if (xoleToken == address(0) || XOleInterface(xoleToken).balanceOf(account, 0) < oleTokenDistribution.xoleRaiseMinAmount) {
+        if (xoleToken == address(0) || XOleInterface(xoleToken).balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
             return updateSucceed;
         }
         uint addExtraToken = amount.mul(oleTokenDistribution.xoleRaiseRatio).div(100);
@@ -422,6 +422,6 @@ interface OPENLevInterface {
 }
 
 interface XOleInterface {
-    function balanceOf(address addr, uint256 _t) external view returns (uint256);
+    function balanceOf(address addr) external view returns (uint256);
 }
 

@@ -56,6 +56,7 @@ contract("OpenLev UniV3", async accounts => {
 
         let delegatee = await OpenLevV1.new();
         openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegatee.address);
+        await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
         await controller.setOpenLev(openLev.address);
         await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
         await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');

@@ -55,6 +55,7 @@ contract("OpenLev UniV2", async accounts => {
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
         delegatee = await OpenLevV1.new();
         openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, accounts[0], delegatee.address);
+        await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
         await controller.setOpenLev(openLev.address);
         await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
         await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
@@ -196,7 +197,7 @@ contract("OpenLev UniV2", async accounts => {
         let borrow = utils.toWei(500);
         m.log("toBorrow from Pool 1: \t", borrow);
         await advanceMultipleBlocksAndTime(100);
-        await openLev.updatePrice(pairId,Uni2DexData);
+        await openLev.updatePrice(pairId, Uni2DexData);
         let priceData2 = await dexAgg.uniV2PriceOracle(gotPair.address);
         m.log("PriceData2: \t", JSON.stringify(priceData2));
         let priceData3 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
@@ -280,7 +281,7 @@ contract("OpenLev UniV2", async accounts => {
         await pool1.mint(saverSupply, {from: saver});
         let borrow = utils.toWei(500);
         await advanceMultipleBlocksAndTime(70);
-        await openLev.updatePrice(pairId,  Uni2DexData);
+        await openLev.updatePrice(pairId, Uni2DexData);
 
         await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
         await advanceMultipleBlocksAndTime(300);
@@ -339,7 +340,7 @@ contract("OpenLev UniV2", async accounts => {
         await pool1.mint(saverSupply, {from: saver});
         let borrow = utils.toWei(500);
         await advanceMultipleBlocksAndTime(70);
-        await openLev.updatePrice(pairId,  Uni2DexData);
+        await openLev.updatePrice(pairId, Uni2DexData);
 
         await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
         await advanceMultipleBlocksAndTime(300);

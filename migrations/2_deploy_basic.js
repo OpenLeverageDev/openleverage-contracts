@@ -24,7 +24,7 @@ module.exports = async function (deployer, network, accounts) {
   await deployer.deploy(Timelock, adminAccount, (3 * 60) + "", utils.deployOption(accounts));
   let adminCtr = Timelock.address;
   //ole
-  await deployer.deploy(OLEToken, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
+  await deployer.deploy(OLEToken,adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
   //dexAgg
   await deployer.deploy(DexAggregatorV1, utils.deployOption(accounts));
   await deployer.deploy(DexAggregatorDelegator, "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", "0x1f98431c8ad98523631ae4a59f267346ea31f984", adminCtr, DexAggregatorV1.address, utils.deployOption(accounts));

@@ -7,7 +7,7 @@ contract("OLEToken", async accounts => {
 
   it("mint burn approve transfer test", async () => {
 
-    let oleToken = await OLEToken.new(accounts[0], "Open Leverage Token", "OLE");
+    let oleToken = await OLEToken.new(accounts[0],accounts[0], "Open Leverage Token", "OLE");
     //mint
     await oleToken.mint(accounts[0], "1000000000000000000");
     // await oleToken.delegate(accounts[1]);
