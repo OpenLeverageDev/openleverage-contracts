@@ -346,6 +346,17 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
      * @param s Half of the ECDSA signature pair
      */
     function delegateBySig(address delegatee, uint nonce, uint expiry, uint8 v, bytes32 r, bytes32 s) public {
+        delegateBySigInternal(delegatee, nonce, expiry, v, r, s);
+    }
+
+    function delegateBySigs(address delegatee, uint[] memory nonce, uint[] memory expiry, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) public {
+        require(nonce.length == expiry.length && nonce.length == v.length && nonce.length == r.length && nonce.length == s.length);
+        for (uint i = 0; i < nonce.length; i++) {
+            delegateBySigInternal(delegatee, nonce[i], expiry[i], v[i], r[i], s[i]);
+        }
+    }
+
+    function delegateBySigInternal(address delegatee, uint nonce, uint expiry, uint8 v, bytes32 r, bytes32 s) internal {
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
         bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -353,8 +364,9 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         require(signatory != address(0), "delegateBySig: invalid signature");
         require(nonce == nonces[signatory]++, "delegateBySig: invalid nonce");
         require(block.timestamp <= expiry, "delegateBySig: signature expired");
-        return _delegate(signatory, delegatee);
+        _delegate(signatory, delegatee);
     }
+
 
     /**
      * Gets the current votes balance for `account`
