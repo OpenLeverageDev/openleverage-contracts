@@ -81,7 +81,7 @@ contract("GovernorAlphaTest", async accounts => {
 
     it('delegate vote to other', async () => {
         await ole.mint(proposeAccount, toWei(300));
-        let delegateAcc = accounts[5];
+        let delegateAcc = accounts[4];
         await ole.mint(delegateAcc, toWei(200000));
 
         await ole.approve(xole.address, toWei(300), {from: proposeAccount});
@@ -124,7 +124,7 @@ contract("GovernorAlphaTest", async accounts => {
             delegatee: proposeAccount,
             nonce: 0,
             expiry: 10e9
-        }, Types, "0x4fcd6a2d18a6731703461436c8d6b0e0825f646a78e4fead34e0e4df1e3c1892");
+        }, Types, "0x08c0b9cfd6bf5a970a26456bf5db7b46d22d91f406f64931cde609f457fa0b29");
         await xole.delegateBySig(proposeAccount, 0, 10e9, v, r, s);
         assert.equal("104264160000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
@@ -145,8 +145,8 @@ contract("GovernorAlphaTest", async accounts => {
 
     it('delegate vote to other by more signatures', async () => {
         await ole.mint(proposeAccount, toWei(300));
-        let delegateAcc1 = accounts[5];
-        let delegateAcc2 = accounts[6];
+        let delegateAcc1 = accounts[4];
+        let delegateAcc2 = accounts[5];
 
         await ole.mint(delegateAcc1, toWei(200000));
         await ole.mint(delegateAcc2, toWei(300000));
@@ -177,7 +177,7 @@ contract("GovernorAlphaTest", async accounts => {
             delegatee: proposeAccount,
             nonce: 0,
             expiry: 10e9
-        }, Types, "0x4fcd6a2d18a6731703461436c8d6b0e0825f646a78e4fead34e0e4df1e3c1892");
+        }, Types, "0x08c0b9cfd6bf5a970a26456bf5db7b46d22d91f406f64931cde609f457fa0b29");
 
         const s2 = EIP712.sign(Domain, 'Delegation', {
             delegatee: proposeAccount,
@@ -194,7 +194,7 @@ contract("GovernorAlphaTest", async accounts => {
 
     it('Cast Vote BySig', async () => {
         await ole.mint(proposeAccount, toWei(2000));
-        let delegateAcc = accounts[5];
+        let delegateAcc = accounts[4];
         await ole.mint(delegateAcc, toWei(100000));
 
         await ole.approve(xole.address, toWei(2000), {from: proposeAccount});
@@ -229,7 +229,7 @@ contract("GovernorAlphaTest", async accounts => {
         const {v, r, s} = EIP712.sign(Domain, 'Ballot', {
             proposalId: 1,
             support: true
-        }, Types, "0x4fcd6a2d18a6731703461436c8d6b0e0825f646a78e4fead34e0e4df1e3c1892");
+        }, Types, "0x08c0b9cfd6bf5a970a26456bf5db7b46d22d91f406f64931cde609f457fa0b29");
         await gov.castVoteBySig(1, true, v, r, s);
         assert.equal((await xole.totalSupplyAt(lastBlockNum)).toString(), (await gov.proposals(1)).forVotes);
     });
