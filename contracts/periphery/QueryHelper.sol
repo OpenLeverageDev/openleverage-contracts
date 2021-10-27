@@ -86,6 +86,11 @@ contract QueryHelper {
         address owner;
         uint16 marketId;
         bool longToken;
+        uint256 token0price;
+        uint256 token0cAvgPrice;
+        uint256 token1price;
+        uint256 token1cAvgPrice;
+        uint256 timestamp;
         bytes dexData;
     }
 
@@ -98,7 +103,9 @@ contract QueryHelper {
         IOpenLev.MarketVar memory market = reqVar.openLev.markets(reqVar.marketId);
         IOpenLev.AddressConfig memory adrConf = reqVar.openLev.addressConfig();
         IOpenLev.CalculateConfig memory calConf = reqVar.openLev.getCalculateConfig();
-        (, , , , uint256 timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
+        (reqVar.token0price, reqVar.token0cAvgPrice,,,reqVar.timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
+        (reqVar.token1price, reqVar.token1cAvgPrice,,,) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token1, market.token0, calConf.twapDuration, reqVar.dexData);
+
         for (uint i = 0; i < traders.length; i++) {
             reqVar.owner = traders[i];
             reqVar.longToken = longTokens[i];
@@ -109,14 +116,18 @@ contract QueryHelper {
                 results[i] = item;
                 continue;
             }
-            item.lastUpdateTime = timestamp;
+            item.lastUpdateTime = reqVar.timestamp;
             (item.currentMarginRatio, item.cAvgMarginRatio, item.hAvgMarginRatio, item.marginLimit) = reqVar.openLev.marginRatio(reqVar.owner, reqVar.marketId, reqVar.longToken, reqVar.dexData);
             if (item.currentMarginRatio > item.marginLimit && item.cAvgMarginRatio > item.marginLimit && item.hAvgMarginRatio > item.marginLimit) {
                 item.status = LiqStatus.HEALTHY;
             }
             else if (item.currentMarginRatio < item.marginLimit && item.cAvgMarginRatio > item.marginLimit && item.hAvgMarginRatio > item.marginLimit) {
                 if (dexData.isUniV2Class()) {
-                    item.status = LiqStatus.UPDATE;
+                    if (block.timestamp - calConf.twapDuration > item.lastUpdateTime) {
+                        item.status = LiqStatus.UPDATE;
+                    } else {
+                        item.status = LiqStatus.WAITING;
+                    }
                 } else {
                     item.status = LiqStatus.WAITING;
                 }
@@ -124,9 +135,13 @@ contract QueryHelper {
                 //Liq
                 if (block.timestamp - calConf.twapDuration > item.lastUpdateTime || item.hAvgMarginRatio < item.marginLimit) {
                     // cAvgRatio diff currentRatio >+-5% ,waiting
-                    if (item.currentMarginRatio < item.cAvgMarginRatio
-                        && ((10000 + item.cAvgMarginRatio) * 100 / (10000 + item.currentMarginRatio)) > 100 + calConf.maxLiquidationPriceDiffientRatio) {
-                        item.status = LiqStatus.WAITING;
+                    if ((longTokens[i] == false && reqVar.token0cAvgPrice > reqVar.token0price && reqVar.token0cAvgPrice.mul(100).div(reqVar.token0price) - 100 >= calConf.maxLiquidationPriceDiffientRatio)
+                        || (longTokens[i] == true && reqVar.token1cAvgPrice > reqVar.token1price && reqVar.token1cAvgPrice.mul(100).div(reqVar.token1price) - 100 >= calConf.maxLiquidationPriceDiffientRatio)) {
+                        if (dexData.isUniV2Class()) {
+                            item.status = LiqStatus.UPDATE;
+                        } else {
+                            item.status = LiqStatus.WAITING;
+                        }
                     } else {
                         item.status = LiqStatus.LIQ;
                     }
@@ -149,7 +164,7 @@ contract QueryHelper {
         uint currentSellAmount;
         bool canRepayBorrows;
     }
-    //slippage 0.5=>50
+    //slippage 10%=>100
     function getLiqCallData(IOpenLev openLev, IV3Quoter v3Quoter, uint16 marketId, uint16 slippage, address trader, bool longToken, bytes memory dexData) external returns (uint minOrMaxAmount,
         bytes memory callDexData)
     {
@@ -162,7 +177,7 @@ contract QueryHelper {
         IOpenLev.AddressConfig memory adrConf = openLev.addressConfig();
         IOpenLev.CalculateConfig memory calConf = openLev.getCalculateConfig();
         // if trader holds more xOLE, then should enjoy trading discount.
-        if (IXOLE(adrConf.xOLE).balanceOf(trader, 0) > calConf.feesDiscountThreshold) {
+        if (IXOLE(adrConf.xOLE).balanceOf(trader) > calConf.feesDiscountThreshold) {
             callVars.newFees = callVars.defaultFees.sub(callVars.defaultFees.mul(calConf.feesDiscount).div(100));
         }
         // if trader update price, then should enjoy trading discount.
@@ -219,7 +234,7 @@ contract QueryHelper {
     }
 
     function getXOLEDetail(IXOLE xole, IERC20 balanceOfToken) external view returns (XOLEVars memory vars){
-        vars.totalStaked = xole.totalSupply(0);
+        vars.totalStaked = xole.totalLocked();
         vars.totalShared = xole.totalRewarded();
         vars.tranferedToAccount = xole.withdrewReward();
         vars.devFund = xole.devFund();
@@ -230,7 +245,7 @@ contract QueryHelper {
 }
 
 interface IXOLE {
-    function totalSupply(uint256 t) external view returns (uint256);
+    function totalLocked() external view returns (uint256);
 
     function totalRewarded() external view returns (uint256);
 
@@ -238,7 +253,7 @@ interface IXOLE {
 
     function devFund() external view returns (uint256);
 
-    function balanceOf(address addr, uint256 _t) external view returns (uint256);
+    function balanceOf(address addr) external view returns (uint256);
 
 
 }
