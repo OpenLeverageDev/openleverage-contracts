@@ -261,6 +261,17 @@ contract GovernorAlpha {
     }
 
     function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) external {
+        castVoteBySigInternal(proposalId, support, v, r, s);
+    }
+
+    function castVoteBySigs(uint proposalId, bool[] memory support, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) external {
+        require(support.length == v.length && v.length == r.length && r.length == s.length);
+        for (uint i = 0; i < support.length; i++) {
+            castVoteBySigInternal(proposalId, support[i], v[i], r[i], s[i]);
+        }
+    }
+
+    function castVoteBySigInternal(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) internal {
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
         bytes32 structHash = keccak256(abi.encode(BALLOT_TYPEHASH, proposalId, support));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
