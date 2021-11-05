@@ -10,11 +10,14 @@ contract OLETokenLock {
     IOLEToken public token;
     mapping(address => ReleaseVar) public releaseVars;
 
+    event Release(address beneficiary, uint amount);
+    event TransferTo(address beneficiary, address to, uint amount);
+
     struct ReleaseVar {
-        uint256 released;
         uint256 amount;
         uint128 startTime;
         uint128 endTime;
+        uint128 lastUpdateTime;
     }
 
     constructor(IOLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes) {
@@ -24,42 +27,65 @@ contract OLETokenLock {
         token = token_;
         for (uint i = 0; i < beneficiaries.length; i++) {
             address beneficiary = beneficiaries[i];
-            releaseVars[beneficiary] = ReleaseVar(0, amounts[i], startTimes[i], endTimes[i]);
+            releaseVars[beneficiary] = ReleaseVar(amounts[i], startTimes[i], endTimes[i], startTimes[i]);
         }
     }
+
 
     function release(address beneficiary) external {
         require(beneficiary != address(0), "beneficiary address cannot be 0");
-        uint256 currentTransfer = transferableAmount(beneficiary);
-        uint256 amount = token.balanceOf(address(this));
-        require(amount > 0, "no amount available");
-        // The transfer out limit exceeds the available limit of the account
-        require(amount >= currentTransfer, "transfer out limit exceeds ");
-        releaseVars[beneficiary].released = releaseVars[beneficiary].released.add(currentTransfer);
-        token.transfer(beneficiary, currentTransfer);
+        releaseInternal(beneficiary);
     }
 
-    function transferableAmount(address beneficiary) public view returns (uint256){
-        require(block.timestamp >= releaseVars[beneficiary].startTime, "not time to unlock");
-        require(releaseVars[beneficiary].amount > 0, "beneficiary does not exist");
+    function releaseInternal(address beneficiary) internal {
+        uint256 amount = token.balanceOf(address(this));
+        require(amount > 0, "no amount available");
+        uint256 releaseAmount = releaseAbleAmount(beneficiary);
+        // The transfer out limit exceeds the available limit of the account
+        require(amount >= releaseAmount, "transfer out limit exceeds ");
+        releaseVars[beneficiary].lastUpdateTime = uint128(block.timestamp > releaseVars[beneficiary].endTime ? releaseVars[beneficiary].endTime : block.timestamp);
+        token.transfer(beneficiary, releaseAmount);
+        emit Release(beneficiary, releaseAmount);
+    }
 
-        uint256 currentTime = block.timestamp;
-        uint beneficiaryAmount = releaseVars[beneficiary].amount;
+    function transferTo(address to, uint amount) external {
+        address beneficiary = msg.sender;
+        require(releaseVars[beneficiary].amount > 0, 'beneficiary does not exist');
+        require(to != beneficiary, 'same address');
+        // release firstly
+        releaseInternal(beneficiary);
+        // calc locked left amount
+        uint lockedLeftAmount = lockedAmount(beneficiary);
+        require(lockedLeftAmount >= amount, 'Not enough');
+        releaseVars[beneficiary].amount = lockedLeftAmount.sub(amount);
+        uint128 startTime = uint128(releaseVars[beneficiary].startTime > block.timestamp ? releaseVars[beneficiary].startTime : block.timestamp);
+        releaseVars[beneficiary].startTime = startTime;
+        releaseVars[to] = ReleaseVar(amount, startTime, releaseVars[beneficiary].endTime, startTime);
+        emit TransferTo(beneficiary, to, amount);
+    }
 
-        uint256 currentTransfer;
-        if (currentTime >= releaseVars[beneficiary].endTime) {
-            currentTransfer = beneficiaryAmount;
-        } else {
-            uint256 moleculeTime = currentTime.sub(releaseVars[beneficiary].startTime);
-            currentTransfer = moleculeTime.mul(beneficiaryAmount).div(releaseVars[beneficiary].endTime - releaseVars[beneficiary].startTime);
-        }
-        return currentTransfer.sub(releaseVars[beneficiary].released);
+    function releaseAbleAmount(address beneficiary) public view returns (uint256){
+        ReleaseVar memory releaseVar = releaseVars[beneficiary];
+        require(block.timestamp >= releaseVar.startTime, "not time to unlock");
+        require(releaseVar.amount > 0, "beneficiary does not exist");
+        uint256 calTime = block.timestamp > releaseVar.endTime ? releaseVar.endTime : block.timestamp;
+        return calTime.sub(releaseVar.lastUpdateTime).mul(releaseVar.amount)
+        .div(releaseVar.endTime - releaseVar.startTime);
+    }
+
+    function lockedAmount(address beneficiary) public view returns (uint256){
+        ReleaseVar memory releaseVar = releaseVars[beneficiary];
+        require(releaseVar.endTime >= block.timestamp, 'locked end');
+        return releaseVar.amount.mul(releaseVar.endTime - releaseVar.lastUpdateTime)
+        .div(releaseVar.endTime - releaseVar.startTime);
     }
 
 }
 
 interface IOLEToken {
     function balanceOf(address account) external view returns (uint256);
+
     function transfer(address recipient, uint256 amount) external returns (bool);
+
     function delegate(address delegatee) external;
 }

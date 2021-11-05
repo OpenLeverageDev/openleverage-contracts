@@ -13,8 +13,10 @@ contract Reserve is Adminable {
     uint public vestingAmount;
     uint public vestingBegin;
     uint public vestingEnd;
+    uint public releaseRate;
+    uint public withdrawAmount;
 
-    uint public lastUpdate;
+    event TransferTo(address to, uint amount);
 
     constructor (
         address payable _admin,
@@ -34,29 +36,24 @@ contract Reserve is Adminable {
         vestingBegin = _vestingBegin;
         vestingEnd = _vestingEnd;
         vestingAmount = _vestingAmount;
-        lastUpdate = _vestingBegin;
+        releaseRate = vestingAmount.div(vestingEnd - vestingBegin);
     }
 
     function transfer(address to, uint amount) external onlyAdmin {
         require(to != address(0), "to address cannot be 0");
         require(amount > 0, "amount is 0!");
         require(amount <= availableToVest(), "Amount exceeds limit");
-        lastUpdate = block.timestamp;
+        withdrawAmount = withdrawAmount + amount;
         oleToken.transfer(to, amount);
+        emit TransferTo(to, amount);
     }
 
     function availableToVest() public view returns (uint) {
-        uint amount;
         if (block.timestamp >= vestingEnd) {
-            amount = oleToken.balanceOf(address(this));
+            return oleToken.balanceOf(address(this));
         } else {
-            if (block.timestamp > lastUpdate) {
-                amount = vestingAmount.mul(block.timestamp - lastUpdate).div(vestingEnd - vestingBegin);
-            } else {
-                amount = 0;
-            }
+            return vestingBegin > block.timestamp ? 0 : releaseRate.mul(block.timestamp - vestingBegin).sub(withdrawAmount);
         }
-        return amount;
     }
 
 }
