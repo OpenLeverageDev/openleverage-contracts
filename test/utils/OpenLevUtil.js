@@ -101,9 +101,9 @@ exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) =
         delegate.address);
 }
 
-exports.createXOLE = async (ole, admin, dev, dexAgg,account) => {
+exports.createXOLE = async (ole, admin, dev, dexAgg, account) => {
     let delegatee = await xOLE.new();
-    let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: account==undefined?admin:account});
+    let xOLEInstance = await xOLEDelegator.new(ole, dexAgg, 5000, dev, admin, delegatee.address, {from: account == undefined ? admin : account});
     return xOLE.at(xOLEInstance.address);
 }
 
@@ -158,6 +158,13 @@ exports.maxUint = () => {
 exports.last8 = function (aString) {
     if (aString != undefined && typeof aString == "string") {
         return ".." + aString.substr(aString.length - 8);
+    } else {
+        return aString;
+    }
+}
+exports.firstStr = function (aString, index) {
+    if (aString != undefined && typeof aString == "string") {
+        return ".." + aString.substr(0, index);
     } else {
         return aString;
     }

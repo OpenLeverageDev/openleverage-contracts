@@ -233,6 +233,54 @@ contract("GovernorAlphaTest", async accounts => {
         await gov.castVoteBySig(1, true, v, r, s);
         assert.equal((await xole.totalSupplyAt(lastBlockNum)).toString(), (await gov.proposals(1)).forVotes);
     });
+
+    it('Cast Vote By more Sig', async () => {
+        await ole.mint(proposeAccount, toWei(10000));
+        let delegateAcc1 = accounts[4];
+        let delegateAcc2 = accounts[5];
+        await ole.mint(delegateAcc1, toWei(100000));
+        await ole.mint(delegateAcc2, toWei(100000));
+
+        await ole.approve(xole.address, toWei(10000), {from: proposeAccount});
+        await ole.approve(xole.address, toWei(100000), {from: delegateAcc1});
+        await ole.approve(xole.address, toWei(100000), {from: delegateAcc2});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc1});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc2});
+
+        let lastBlockNum = await web3.eth.getBlockNumber();
+        await advanceMultipleBlocksAndTime(1);
+        await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
+        //delay 1 block
+        await ole.transfer(accounts[1], 0);
+        await gov.castVote(1, true, {from: proposeAccount});
+        //0xB8b55BDBC81b62f49ae134205a1A3F16c82B0BaE
+        const Domain = {
+            name: 'Open Leverage Governor Alpha',
+            chainId: 1,
+            verifyingContract: gov.address
+        };
+        const Types = {
+            Ballot: [
+                {name: 'proposalId', type: 'uint256'},
+                {name: 'support', type: 'bool'}
+            ]
+        };
+        const s1 = EIP712.sign(Domain, 'Ballot', {
+            proposalId: 1,
+            support: true
+        }, Types, "0x08c0b9cfd6bf5a970a26456bf5db7b46d22d91f406f64931cde609f457fa0b29");
+        const s2 = EIP712.sign(Domain, 'Ballot', {
+            proposalId: 1,
+            support: true
+        }, Types, "0xe65eef72928865d3b974b51c2975230b0b888167b90121e8e6bffb95069e7539");
+        await gov.castVoteBySigs(1, [true, true], [s1.v, s2.v], [s1.r, s2.r], [s1.s, s2.s]);
+
+        assert.equal((await xole.totalSupplyAt(lastBlockNum)).toString(), (await gov.proposals(1)).forVotes);
+    });
+
     it('Not enough votes to join the queue', async () => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
