@@ -1,5 +1,4 @@
 const OLEToken = artifacts.require("OLEToken");
-const FarmingPool = artifacts.require("FarmingPool");
 
 const utils = require("./util");
 const m = require('mocha-logger');

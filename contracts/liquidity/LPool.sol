@@ -299,7 +299,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
     function doTransferIn(address from, uint amount, bool convertWeth) internal returns (uint actualAmount) {
-        uint balanceBefore = IERC20(underlying).balanceOf(address(this));
         if (isWethPool && convertWeth) {
             actualAmount = msg.value;
             IWETH(underlying).deposit{value : actualAmount}();
