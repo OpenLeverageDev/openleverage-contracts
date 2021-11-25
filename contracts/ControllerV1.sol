@@ -79,16 +79,13 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         }
     }
 
-    function borrowAllowed(address borrower, address payee, uint borrowAmount) external override onlyLPoolAllowed onlyOpenLevOperator onlyNotSuspended {
-        // Shh - currently unused
-        payee;
+    function borrowAllowed(address borrower, address payee, uint borrowAmount) external override onlyLPoolAllowed onlyNotSuspended onlyOpenLevOperator(payee) {
         require(LPoolInterface(msg.sender).availableForBorrow() >= borrowAmount, "Borrow out of range");
         updateReward(LPoolInterface(msg.sender), borrower, true);
     }
 
     function repayBorrowAllowed(address payer, address borrower, uint repayAmount, bool isEnd) external override {
         // Shh - currently unused
-        payer;
         repayAmount;
         if (isEnd) {
             require(openLev == payer, "Operator not openLev");
@@ -98,7 +95,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         }
     }
 
-    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator {
+    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         liquidateAmount;
         dexData;
@@ -135,7 +132,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         return true;
     }
 
-    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator {
+    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         marketId;
         // market no distribution
@@ -403,8 +400,8 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         require(!suspend, 'Suspended');
         _;
     }
-    modifier onlyOpenLevOperator() {
-        require(openLev == msg.sender || openLev == address(0), "Operator not openLev");
+    modifier onlyOpenLevOperator(address operator) {
+        require(openLev == operator || openLev == address(0), "Operator not openLev");
         _;
     }
 
