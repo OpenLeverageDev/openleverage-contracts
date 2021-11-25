@@ -7,7 +7,7 @@ const Reserve = artifacts.require("Reserve");
 const OLETokenLock = artifacts.require("OLETokenLock");
 const DexAggregatorV1 = artifacts.require("DexAggregatorV1");
 
-const OpenLevFarmingPool = artifacts.require("FarmingPool");
+const OpenLevFarmingPool = artifacts.require("FarmingPools");
 
 const utils = require("./util");
 const m = require('mocha-logger');
