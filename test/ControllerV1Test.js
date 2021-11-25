@@ -5,6 +5,8 @@ const {advanceBlockAndSetTime, toBN} = require("./utils/EtheUtil");
 const timeMachine = require('ganache-time-traveler');
 const {mint, Uni3DexData} = require("./utils/OpenLevUtil");
 const Controller = artifacts.require('ControllerV1');
+const ControllerDelegator = artifacts.require('ControllerDelegator');
+
 
 contract("ControllerV1", async accounts => {
     let admin = accounts[0];
@@ -172,7 +174,7 @@ contract("ControllerV1", async accounts => {
         m.log("liquidator ole balance:", (await oleToken.balanceOf(liquidator)).toString());
 
         let distribution = await controller.oleTokenDistribution();
-        assert.equal("180", (await oleToken.balanceOf(liquidator)).div(toBN(10 ** 14)).toString());
+        assert.equal("900", (await oleToken.balanceOf(liquidator)).div(toBN(10 ** 14)).toString());
         assert.equal("199", distribution.extraBalance.div(toBN(10 ** 18)).toString());
     });
 
@@ -772,6 +774,7 @@ contract("ControllerV1", async accounts => {
     it("Admin setImplementation test", async () => {
         let instance = await Controller.new();
         let {controller, timeLock} = await instanceSimpleController();
+        controller = await ControllerDelegator.at(controller.address);
         await timeLock.executeTransaction(controller.address, 0, 'setImplementation(address)',
             web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
         assert.equal(instance.address, await controller.implementation());

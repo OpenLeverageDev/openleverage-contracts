@@ -56,6 +56,7 @@ contract("OpenLev UniV3", async accounts => {
 
         let delegatee = await OpenLevV1.new();
         openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegatee.address);
+        openLev = await OpenLevV1.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
         await controller.setOpenLev(openLev.address);
         await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
@@ -490,6 +491,7 @@ contract("OpenLev UniV3", async accounts => {
     it("Admin setImplementation test", async () => {
         let instance = await OpenLevV1.new();
         let {timeLock, openLev} = await instanceSimpleOpenLev();
+        openLev = await OpenLevDelegator.at(openLev.address);
         await timeLock.executeTransaction(openLev.address, 0, 'setImplementation(address)',
             web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
         assert.equal(instance.address, await openLev.implementation());

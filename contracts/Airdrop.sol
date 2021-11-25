@@ -84,7 +84,7 @@ contract Airdrop is Ownable {
         emit Claimed(_trancheId, account, _balance);
     }
 
-    function _verifyClaim(address account, bytes32 root, uint256 _balance, bytes32[] memory _merkleProof) private view returns (bool valid) {
+    function _verifyClaim(address account, bytes32 root, uint256 _balance, bytes32[] memory _merkleProof) private pure returns (bool valid) {
         bytes32 leaf = keccak256(abi.encodePacked(account, _balance));
         return MerkleProof.verify(_merkleProof, root, leaf);
     }

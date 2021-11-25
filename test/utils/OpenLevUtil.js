@@ -14,7 +14,7 @@ const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 
 const UniswapV2Router = artifacts.require("IUniswapV2Router");
 const uniRouterV2Address_kovan = exports.uniRouterV2Address_kovan = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
-const OpenLevDelegate = artifacts.require("OpenLevV1");
+const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
 const MockUniswapV3Pair = artifacts.require("MockUniswapV3Pair");
@@ -43,7 +43,7 @@ exports.createController = async (admin, oleToken, wChainToken, xoleToken) => {
         zeroAddr,
         admin,
         instance.address);
-    return controller;
+    return await Controller.at(controller.address);
 }
 
 
@@ -90,8 +90,8 @@ exports.tokenAt = async (address) => {
     return await TestToken.at(address);
 }
 exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) => {
-    let delegate = await OpenLevDelegate.new();
-    return await OpenLevDelegator.new(
+    let delegate = await OpenLevV1.new();
+    let openLev = await OpenLevDelegator.new(
         controller,
         dexAgg ? dexAgg : zeroAddr,
         depositTokens ? depositTokens : [],
@@ -99,6 +99,7 @@ exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) =
         xOLE,
         admin,
         delegate.address);
+    return await OpenLevV1.at(openLev.address);
 }
 
 exports.createXOLE = async (ole, admin, dev, dexAgg, account) => {

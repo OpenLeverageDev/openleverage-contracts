@@ -196,7 +196,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         address tokenB,
         uint24 fee
     ) internal view returns (IUniswapV3Pool) {
-        if (address(uniV3Factory) == 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f) {
+        if (address(uniV3Factory) == 0x1F98431c8aD98523631AE4a59f267346ea31F984) {
             return IUniswapV3Pool(PoolAddress.computeAddress(address(uniV3Factory) , PoolAddress.getPoolKey(tokenA, tokenB, fee)));
         } else {
             return IUniswapV3Pool(uniV3Factory.getPool(tokenA, tokenB, fee));

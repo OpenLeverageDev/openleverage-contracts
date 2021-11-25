@@ -97,7 +97,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         /* Do not allow self-transfers */
         require(src != dst, "src = dst");
         /* Fail if transfer not allowed */
-        (ControllerInterface(controller)).transferAllowed(address(this), src, dst, tokens);
+        (ControllerInterface(controller)).transferAllowed(src, dst, tokens);
 
         /* Get the allowance, infinite for the account owner */
         uint startingAllowance = 0;
@@ -211,14 +211,22 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      */
     function mint(uint mintAmount) external override nonReentrant {
         accrueInterest();
-        // mintFresh emits the actual Mint event if successful and logs on errors, so we don't need to
-        mintFresh(msg.sender, mintAmount);
+        mintFresh(msg.sender, mintAmount, false);
+    }
+
+    function mintTo(address to) external payable override nonReentrant {
+        accrueInterest();
+        if (isWethPool) {
+            mintFresh(to, msg.value, false);
+        } else {
+            mintFresh(to, 0, true);
+        }
     }
 
     function mintEth() external payable override nonReentrant {
         require(isWethPool, "not eth pool");
         accrueInterest();
-        mintFresh(msg.sender, msg.value);
+        mintFresh(msg.sender, msg.value, false);
     }
 
     /**
@@ -265,7 +273,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         repayBorrowFresh(msg.sender, borrower, repayAmount, true);
     }
 
-
+    function sync() public override {
+        totalCash = IERC20(underlying).balanceOf(address(this));
+    }
 
     /*** Safe Token ***/
 
@@ -275,9 +285,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @return The quantity of underlying tokens owned by this contract
      */
     function getCashPrior() internal view returns (uint) {
-        IERC20 token = IERC20(underlying);
-        return token.balanceOf(address(this));
+        return totalCash;
     }
+
 
     /**
      * @dev Similar to EIP20 transfer, except it handles a False result from `transferFrom` and reverts in that case.
@@ -288,17 +298,16 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferIn(address from, uint amount, bool convertWeth) internal returns (uint) {
+    function doTransferIn(address from, uint amount, bool convertWeth) internal returns (uint actualAmount) {
         uint balanceBefore = IERC20(underlying).balanceOf(address(this));
         if (isWethPool && convertWeth) {
-            IWETH(underlying).deposit{value : msg.value}();
+            actualAmount = msg.value;
+            IWETH(underlying).deposit{value : actualAmount}();
         } else {
+            actualAmount = amount;
             IERC20(underlying).safeTransferFrom(from, address(this), amount);
         }
-        // Calculate the amount that was *actually* transferred
-        uint balanceAfter = IERC20(underlying).balanceOf(address(this));
-        require(balanceAfter >= balanceBefore, "transfer overflow");
-        return balanceAfter - balanceBefore;
+        sync();
     }
 
     /**
@@ -317,6 +326,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         } else {
             IERC20(underlying).safeTransfer(to, amount);
         }
+        sync();
     }
 
     function availableForBorrow() external view override returns (uint){
@@ -589,7 +599,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @return The quantity of underlying asset owned by this contract
      */
     function getCash() external override view returns (uint) {
-        return getCashPrior();
+        return totalCash;
     }
 
     function calCurrentBorrowIndex() internal view returns (MathError, uint) {
@@ -700,7 +710,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @param mintAmount The amount of the underlying asset to supply
      * @return uint the actual mint amount.
      */
-    function mintFresh(address minter, uint mintAmount) internal sameBlock returns (uint) {
+    function mintFresh(address minter, uint mintAmount, bool isDelegete) internal sameBlock returns (uint) {
         MintLocalVars memory vars;
         (vars.mathErr, vars.exchangeRateMantissa) = exchangeRateStoredInternal();
         require(vars.mathErr == MathError.NO_ERROR, 'calc exchangerate error');
@@ -713,8 +723,14 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  in case of a fee. On success, the cToken holds an additional `actualMintAmount`
          *  of cash.
          */
-        vars.actualMintAmount = doTransferIn(minter, mintAmount, true);
-
+        if (isDelegete) {
+            uint priorCash = getCashPrior();
+            sync();
+            require(totalCash > priorCash, 'mint 0');
+            vars.actualMintAmount = totalCash - priorCash;
+        } else {
+            vars.actualMintAmount = doTransferIn(minter, mintAmount, true);
+        }
         /*
          * We get the current exchange rate and calculate the number of lTokens to be minted:
          *  mintTokens = actualMintAmount / exchangeRate
@@ -724,7 +740,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         require(vars.mathErr == MathError.NO_ERROR, "calc mint token error");
 
         /* Fail if mint not allowed */
-        (ControllerInterface(controller)).mintAllowed(address(this), minter, vars.mintTokens);
+        (ControllerInterface(controller)).mintAllowed(minter, vars.mintTokens);
         /*
          * We calculate the new total supply of lTokens and minter token balance, checking for overflow:
          *  totalSupplyNew = totalSupply + mintTokens
@@ -799,7 +815,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         }
 
         /* Fail if redeem not allowed */
-        (ControllerInterface(controller)).redeemAllowed(address(this), redeemer, vars.redeemTokens);
+        (ControllerInterface(controller)).redeemAllowed(redeemer, vars.redeemTokens);
 
         /*
          * We calculate the new total supply and redeemer balance, checking for underflow:
@@ -845,7 +861,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
       */
     function borrowFresh(address payable borrower, address payable payee, uint borrowAmount) internal sameBlock {
         /* Fail if borrow not allowed */
-        (ControllerInterface(controller)).borrowAllowed(address(this), borrower, payee, borrowAmount);
+        (ControllerInterface(controller)).borrowAllowed(borrower, payee, borrowAmount);
 
         /* Fail gracefully if protocol has insufficient underlying cash */
         require(getCashPrior() >= borrowAmount, 'cash<borrow');
@@ -906,7 +922,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      */
     function repayBorrowFresh(address payer, address borrower, uint repayAmount, bool isEnd) internal sameBlock returns (uint) {
         /* Fail if repayBorrow not allowed */
-        (ControllerInterface(controller)).repayBorrowAllowed(address(this), payer, borrower, repayAmount, isEnd);
+        (ControllerInterface(controller)).repayBorrowAllowed(payer, borrower, repayAmount, isEnd);
 
         RepayBorrowLocalVars memory vars;
 

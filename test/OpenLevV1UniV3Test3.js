@@ -62,8 +62,8 @@ contract("OpenLev UniV3", async accounts => {
 
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
 
-
         openLev = await OpenLevV1.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegate.address);
+        openLev = await OpenLevDelegate.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
         await controller.setOpenLev(openLev.address);
         await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);

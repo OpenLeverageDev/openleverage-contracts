@@ -19,7 +19,7 @@ import "./Types.sol";
   * @title OpenLevV1
   * @author OpenLeverage
   */
-contract OpenLevV1 is DelegateInterface, OpenLevInterface, OpenLevStorage, Adminable, ReentrancyGuard {
+contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInterface, OpenLevStorage {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
     using DexData for bytes;

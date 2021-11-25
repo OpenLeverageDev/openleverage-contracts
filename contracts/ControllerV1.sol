@@ -15,7 +15,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
   * @title Controller
   * @author OpenLeverage
   */
-contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStorage, Adminable {
+contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, ControllerStorage {
     using SafeMath for uint;
 
     constructor () {}
@@ -64,43 +64,45 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
 
 
     /*** Policy Hooks ***/
-    function mintAllowed(address lpool, address minter, uint lTokenAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyNotSuspended() {
-        stake(LPoolInterface(lpool), minter, lTokenAmount);
+    function mintAllowed(address minter, uint lTokenAmount) external override onlyLPoolAllowed onlyNotSuspended {
+        stake(LPoolInterface(msg.sender), minter, lTokenAmount);
     }
 
-    function transferAllowed(address lpool, address from, address to, uint lTokenAmount) external override onlyLPoolSender(lpool) {
-        withdraw(LPoolInterface(lpool), from, lTokenAmount);
-        stake(LPoolInterface(lpool), to, lTokenAmount);
+    function transferAllowed(address from, address to, uint lTokenAmount) external override {
+        withdraw(LPoolInterface(msg.sender), from, lTokenAmount);
+        stake(LPoolInterface(msg.sender), to, lTokenAmount);
     }
 
-    function redeemAllowed(address lpool, address redeemer, uint lTokenAmount) external override onlyLPoolSender(lpool) onlyNotSuspended() {
-        if (withdraw(LPoolInterface(lpool), redeemer, lTokenAmount)) {
-            getRewardInternal(LPoolInterface(lpool), redeemer, false);
+    function redeemAllowed(address redeemer, uint lTokenAmount) external override onlyNotSuspended {
+        if (withdraw(LPoolInterface(msg.sender), redeemer, lTokenAmount)) {
+            getRewardInternal(LPoolInterface(msg.sender), redeemer, false);
         }
     }
 
-    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override onlyLPoolSender(lpool) onlyLPoolAllowed(lpool) onlyOpenLevOperator(payee) onlyNotSuspended() {
-        require(LPoolInterface(lpool).availableForBorrow() >= borrowAmount, "Borrow out of range");
-        updateReward(LPoolInterface(lpool), borrower, true);
+    function borrowAllowed(address borrower, address payee, uint borrowAmount) external override onlyLPoolAllowed onlyOpenLevOperator onlyNotSuspended {
+        // Shh - currently unused
+        payee;
+        require(LPoolInterface(msg.sender).availableForBorrow() >= borrowAmount, "Borrow out of range");
+        updateReward(LPoolInterface(msg.sender), borrower, true);
     }
 
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount, bool isEnd) external override onlyLPoolSender(lpool) {
+    function repayBorrowAllowed(address payer, address borrower, uint repayAmount, bool isEnd) external override {
         // Shh - currently unused
         payer;
         repayAmount;
         if (isEnd) {
             require(openLev == payer, "Operator not openLev");
         }
-        if (updateReward(LPoolInterface(lpool), borrower, true)) {
-            getRewardInternal(LPoolInterface(lpool), borrower, true);
+        if (updateReward(LPoolInterface(msg.sender), borrower, true)) {
+            getRewardInternal(LPoolInterface(msg.sender), borrower, true);
         }
     }
 
-    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator(msg.sender) {
-        require(!marketSuspend[marketId], 'Market suspended');
+    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override onlyOpenLevOperator {
         // Shh - currently unused
         liquidateAmount;
         dexData;
+        require(!marketSuspend[marketId], 'Market suspended');
         // market no distribution
         if (marketExtraDistribution[marketId] == false) {
             return;
@@ -113,7 +115,7 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), DexData.UNIV2);
         // oleRewards=wETHValue*liquidatorOLERatio
         uint calcLiquidatorRewards = uint(600000)  // needs approximately 600k gas for liquidation
-        .mul(tx.gasprice).mul(price).div(10 ** uint(decimal))
+        .mul(50 gwei).mul(price).div(10 ** uint(decimal))
         .mul(oleTokenDistribution.liquidatorOLERatio).div(100);
         // check compare max
         if (calcLiquidatorRewards > oleTokenDistribution.liquidatorMaxPer) {
@@ -128,12 +130,12 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
         }
     }
 
-    function marginTradeAllowed(uint marketId) external view override onlyNotSuspended() returns (bool){
+    function marginTradeAllowed(uint marketId) external view override onlyNotSuspended returns (bool){
         require(!marketSuspend[marketId], 'Market suspended');
         return true;
     }
 
-    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator(msg.sender) {
+    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator {
         // Shh - currently unused
         marketId;
         // market no distribution
@@ -393,20 +395,16 @@ contract ControllerV1 is DelegateInterface, ControllerInterface, ControllerStora
     function setMarketSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
         marketSuspend[marketId] = suspend;
     }
-    modifier onlyLPoolSender(address lPool) {
-        require(msg.sender == lPool, "Sender not lPool");
-        _;
-    }
-    modifier onlyLPoolAllowed(address lPool) {
-        require(!lpoolUnAlloweds[lPool], "LPool paused");
+    modifier onlyLPoolAllowed() {
+        require(!lpoolUnAlloweds[msg.sender], "LPool paused");
         _;
     }
     modifier onlyNotSuspended() {
         require(!suspend, 'Suspended');
         _;
     }
-    modifier onlyOpenLevOperator(address operator) {
-        require(openLev == operator || openLev == address(0), "Operator not openLev");
+    modifier onlyOpenLevOperator() {
+        require(openLev == msg.sender || openLev == address(0), "Operator not openLev");
         _;
     }
 

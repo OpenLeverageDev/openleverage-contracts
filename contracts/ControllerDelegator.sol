@@ -3,13 +3,12 @@ pragma solidity 0.7.6;
 
 import "./Adminable.sol";
 import "./DelegatorInterface.sol";
-import "./ControllerInterface.sol";
 
 
-contract ControllerDelegator is DelegatorInterface, ControllerInterface, ControllerStorage, Adminable {
+contract ControllerDelegator is DelegatorInterface, Adminable {
 
-    constructor(IERC20 _oleToken,
-        IERC20 _xoleToken,
+    constructor(address _oleToken,
+        address _xoleToken,
         address _wETH,
         address _lpoolImplementation,
         address _openlev,
@@ -41,100 +40,4 @@ contract ControllerDelegator is DelegatorInterface, ControllerInterface, Control
         implementation = implementation_;
         emit NewImplementation(oldImplementation, implementation);
     }
-
-    function createLPoolPair(address tokenA, address tokenB, uint16 marginLimit, bytes memory dexData) external override {
-        delegateToImplementation(abi.encodeWithSignature("createLPoolPair(address,address,uint16,bytes)", tokenA, tokenB, marginLimit, dexData));
-    }
-    /*** Policy Hooks ***/
-
-    function mintAllowed(address lpool, address minter, uint lTokenAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("mintAllowed(address,address,uint256)", lpool, minter, lTokenAmount));
-    }
-
-    function transferAllowed(address lpool, address from, address to, uint lTokenAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("transferAllowed(address,address,address,uint256)", lpool, from, to, lTokenAmount));
-    }
-
-    function redeemAllowed(address lpool, address redeemer, uint lTokenAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("redeemAllowed(address,address,uint256)", lpool, redeemer, lTokenAmount));
-    }
-
-    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("borrowAllowed(address,address,address,uint256)", lpool, borrower, payee, borrowAmount));
-    }
-
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount, bool isEnd) external override {
-        delegateToImplementation(abi.encodeWithSignature("repayBorrowAllowed(address,address,address,uint256,bool)", lpool, payer, borrower, repayAmount, isEnd));
-    }
-
-    function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external override {
-        delegateToImplementation(abi.encodeWithSignature("liquidateAllowed(uint256,address,uint256,bytes)", marketId, liquidator, liquidateAmount, dexData));
-    }
-
-    function marginTradeAllowed(uint marketId) external view override returns (bool){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("marginTradeAllowed(uint256)", marketId));
-        return abi.decode(data, (bool));
-    }
-
-    function updatePriceAllowed(uint marketId) external override {
-        delegateToImplementation(abi.encodeWithSignature("updatePriceAllowed(uint256)", marketId));
-    }
-
-    /*** Admin Functions ***/
-
-    function setLPoolImplementation(address _lpoolImplementation) external override {
-        delegateToImplementation(abi.encodeWithSignature("setLPoolImplementation(address)", _lpoolImplementation));
-    }
-
-    function setOpenLev(address _openlev) external override {
-        delegateToImplementation(abi.encodeWithSignature("setOpenLev(address)", _openlev));
-    }
-
-    function setDexAggregator(DexAggregatorInterface _dexAggregator) external override {
-        delegateToImplementation(abi.encodeWithSignature("setDexAggregator(address)", _dexAggregator));
-    }
-
-    function setInterestParam(uint256 _baseRatePerBlock, uint256 _multiplierPerBlock, uint256 _jumpMultiplierPerBlock, uint256 _kink) external override {
-        delegateToImplementation(abi.encodeWithSignature("setInterestParam(uint256,uint256,uint256,uint256)", _baseRatePerBlock, _multiplierPerBlock, _jumpMultiplierPerBlock, _kink));
-    }
-
-    function setLPoolUnAllowed(address lpool, bool unAllowed) external override {
-        delegateToImplementation(abi.encodeWithSignature("setLPoolUnAllowed(address,bool)", lpool, unAllowed));
-    }
-
-    function setSuspend(bool suspend) external override {
-        delegateToImplementation(abi.encodeWithSignature("setSuspend(bool)", suspend));
-    }
-
-    function setMarketSuspend(uint marketId, bool suspend) external override {
-        delegateToImplementation(abi.encodeWithSignature("setMarketSuspend(uint256,bool)", marketId, suspend));
-    }
-
-    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("setOLETokenDistribution(uint256,uint256,uint128,uint128,uint16,uint16,uint128)",
-            moreSupplyBorrowBalance, moreExtraBalance, updatePricePer, liquidatorMaxPer, liquidatorOLERatio, xoleRaiseRatio, xoleRaiseMinAmount));
-    }
-
-    function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external override {
-        delegateToImplementation(abi.encodeWithSignature("distributeRewards2Pool(address,uint256,uint256,uint64,uint64)", pool, supplyAmount, borrowAmount, startTime, duration));
-    }
-
-    function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external override {
-        delegateToImplementation(abi.encodeWithSignature("distributeRewards2PoolMore(address,uint256,uint256)", pool, supplyAmount, borrowAmount));
-    }
-
-    function distributeExtraRewards2Market(uint marketId, bool isDistribution) external override {
-        delegateToImplementation(abi.encodeWithSignature("distributeExtraRewards2Market(uint256,bool)", marketId, isDistribution));
-    }
-    /***Distribution Functions ***/
-
-    function earned(LPoolInterface lpool, address account, bool isBorrow) public override view returns (uint256){
-        bytes memory data = delegateToViewImplementation(abi.encodeWithSignature("earned(address,address,bool)", lpool, account, isBorrow));
-        return abi.decode(data, (uint));
-    }
-
-    function getSupplyRewards(LPoolInterface[] calldata lpools, address account) external override {
-        delegateToImplementation(abi.encodeWithSignature("getSupplyRewards(address[],address)", lpools, account));
-    }
-
 }

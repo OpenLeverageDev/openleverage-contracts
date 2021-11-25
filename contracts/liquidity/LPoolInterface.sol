@@ -66,14 +66,14 @@ abstract contract LPoolStorage {
      */
     uint public totalBorrows;
 
+    uint internal totalCash;
+
     /**
     * @notice Fraction of interest currently set aside for reserves 20%
     */
     uint public reserveFactorMantissa;
 
-
     uint public totalReserves;
-
 
     address public underlying;
 
@@ -97,6 +97,8 @@ abstract contract LPoolStorage {
     // Mapping of account addresses to outstanding borrow balances
 
     mapping(address => BorrowSnapshot) internal accountBorrows;
+
+
 
 
     /*** Token Events ***/
@@ -190,6 +192,8 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function mint(uint mintAmount) external virtual;
 
+    function mintTo(address to) external payable virtual;
+
     function mintEth() external payable virtual;
 
     function redeem(uint redeemTokens) external virtual;
@@ -224,6 +228,7 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function accrueInterest() public virtual;
 
+    function sync() public virtual;
 
     /*** Admin Functions ***/
 

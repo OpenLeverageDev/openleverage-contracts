@@ -6,6 +6,7 @@ const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
 const LPool = artifacts.require('LPool');
 const LPoolDelegator = artifacts.require('LPoolDelegator');
+const LPoolDepositor = artifacts.require('LPoolDepositor');
 
 contract("LPoolDelegator", async accounts => {
 
@@ -137,7 +138,7 @@ contract("LPoolDelegator", async accounts => {
             await testToken.approve(erc20Pool.address, maxUint(), {from: accounts[1]});
             await controller.setOpenLev(accounts[1]);
             let tx = await erc20Pool.repayBorrowEndByOpenLev(accounts[2], 1000 * 1e10, {from: accounts[1]});
-            m.log("tx",JSON.stringify(tx));
+            m.log("tx", JSON.stringify(tx));
             assertPrint("repayAmount", '10000000000000', toBN(tx.logs[3].args.repayAmount));
             assertPrint("badDebtsAmount", '40002385369101', toBN(tx.logs[3].args.badDebtsAmount));
             assertPrint("accountBorrowsNew", '0', toBN(tx.logs[3].args.accountBorrows));
@@ -186,28 +187,74 @@ contract("LPoolDelegator", async accounts => {
         }
     }),
 
-        it("mint redeem eth test", async () => {
-            let weth = await utils.createWETH();
-            let controller = await utils.createController(accounts[0]);
-            let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
-            let erc20Pool = createPoolResult.pool;
-            let mintAmount = toWei(1);
-            //deposit 1
-            let ethBegin = await web3.eth.getBalance(admin);
-            m.log("ethBegin=", ethBegin);
-            await erc20Pool.mintEth({value: mintAmount});
-            assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
-            assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
-            //redeem
-            let ethBefore = await web3.eth.getBalance(admin);
-            await erc20Pool.redeemUnderlying(mintAmount);
-            assert.equal(await erc20Pool.getCash(), 0);
-            assert.equal(await erc20Pool.totalSupply(), 0);
-            let ethAfter = await web3.eth.getBalance(admin);
-            m.log("ethBefore=", ethBefore);
-            m.log("ethAfter=", ethAfter);
-            assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
-        })
+    it("mint redeem eth test", async () => {
+        let weth = await utils.createWETH();
+        let controller = await utils.createController(accounts[0]);
+        let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
+        let erc20Pool = createPoolResult.pool;
+        let mintAmount = toWei(1);
+        //deposit 1
+        let ethBegin = await web3.eth.getBalance(admin);
+        m.log("ethBegin=", ethBegin);
+        let tx = await erc20Pool.mintEth({value: mintAmount});
+        m.log("MintEth Gas Used: ", tx.receipt.gasUsed);
+        assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
+        assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
+        //redeem
+        let ethBefore = await web3.eth.getBalance(admin);
+        await erc20Pool.redeemUnderlying(mintAmount);
+        assert.equal(await erc20Pool.getCash(), 0);
+        assert.equal(await erc20Pool.totalSupply(), 0);
+        let ethAfter = await web3.eth.getBalance(admin);
+        m.log("ethBefore=", ethBefore);
+        m.log("ethAfter=", ethAfter);
+        assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
+    })
+    it("Depositor deposit eth redeem test", async () => {
+        let weth = await utils.createWETH();
+        let controller = await utils.createController(accounts[0]);
+        let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
+        let erc20Pool = createPoolResult.pool;
+        let poolDepositor = await LPoolDepositor.new();
+        let mintAmount = toWei(1);
+        //deposit 1
+        let ethBegin = await web3.eth.getBalance(admin);
+        m.log("ethBegin=", ethBegin);
+        let tx = await poolDepositor.depositEth(erc20Pool.address, {value: mintAmount});
+        m.log("DepositEth Gas Used: ", tx.receipt.gasUsed);
+        assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
+        assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
+        //redeem
+        let ethBefore = await web3.eth.getBalance(admin);
+        await erc20Pool.redeemUnderlying(mintAmount);
+        assert.equal(await erc20Pool.getCash(), 0);
+        assert.equal(await erc20Pool.totalSupply(), 0);
+        let ethAfter = await web3.eth.getBalance(admin);
+        m.log("ethBefore=", ethBefore);
+        m.log("ethAfter=", ethAfter);
+        assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
+    })
+
+    it("Depositor deposit erc20 redeem test", async () => {
+        let controller = await utils.createController(accounts[0]);
+        let createPoolResult = await utils.createPool(accounts[0], controller, admin);
+        let erc20Pool = createPoolResult.pool;
+        let testToken = createPoolResult.token;
+        await utils.mint(testToken, admin, 1);
+        let poolDepositor = await LPoolDepositor.new();
+        let mintAmount = toWei(1);
+        //deposit 1
+        await testToken.approve(poolDepositor.address, maxUint());
+        let tx = await poolDepositor.deposit(erc20Pool.address, mintAmount);
+        m.log("DepositErc20 Gas Used: ", tx.receipt.gasUsed);
+        assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
+        assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
+        //redeem
+        await erc20Pool.redeemUnderlying(mintAmount);
+        assert.equal(await erc20Pool.getCash(), 0);
+        assert.equal(await erc20Pool.totalSupply(), 0);
+        assert.equal(toWei(1).toString(), (await testToken.balanceOf(admin)).toString());
+    })
     it("pool not allowed test", async () => {
         let controller = await utils.createController(accounts[0]);
         let createPoolResult = await utils.createPool(accounts[0], controller, admin);

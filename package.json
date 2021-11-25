@@ -33,6 +33,6 @@
     "mocha-logger": "^1.0.7",
     "sol-merger": "^3.1.0",
     "solidity-coverage": "^0.7.16",
-    "truffle-plugin-verify": "^0.5.7"
+    "truffle-plugin-verify": "^0.5.18"
   }
 }

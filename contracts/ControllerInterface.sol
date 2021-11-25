@@ -84,7 +84,7 @@ contract ControllerStorage {
 
     event LiquidateReward(uint marketId, address liquidator, uint reward, uint newExtraBalance);
 
-    event PoolReward(address pool, address rewarder,bool isBorrow, uint reward);
+    event PoolReward(address pool, address rewarder, bool isBorrow, uint reward);
 
     event NewOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount);
 
@@ -100,15 +100,15 @@ interface ControllerInterface {
 
     /*** Policy Hooks ***/
 
-    function mintAllowed(address lpool, address minter, uint lTokenAmount) external;
+    function mintAllowed(address minter, uint lTokenAmount) external;
 
-    function transferAllowed(address lpool, address from, address to, uint lTokenAmount) external;
+    function transferAllowed(address from, address to, uint lTokenAmount) external;
 
-    function redeemAllowed(address lpool, address redeemer, uint lTokenAmount) external;
+    function redeemAllowed(address redeemer, uint lTokenAmount) external;
 
-    function borrowAllowed(address lpool, address borrower, address payee, uint borrowAmount) external;
+    function borrowAllowed(address borrower, address payee, uint borrowAmount) external;
 
-    function repayBorrowAllowed(address lpool, address payer, address borrower, uint repayAmount, bool isEnd) external;
+    function repayBorrowAllowed(address payer, address borrower, uint repayAmount, bool isEnd) external;
 
     function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external;
 
