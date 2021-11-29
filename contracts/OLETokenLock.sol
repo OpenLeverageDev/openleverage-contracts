@@ -51,6 +51,7 @@ contract OLETokenLock {
     function transferTo(address to, uint amount) external {
         address beneficiary = msg.sender;
         require(releaseVars[beneficiary].amount > 0, 'beneficiary does not exist');
+        require(releaseVars[to].amount == 0, 'to is exist');
         require(to != beneficiary, 'same address');
         // release firstly
         releaseInternal(beneficiary);

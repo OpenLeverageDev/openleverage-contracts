@@ -160,6 +160,20 @@ contract("OLETokenLock", async accounts => {
             assert.include(error.message, 'locked end', 'throws exception with locked end');
         }
     });
+
+    it("transfer to a exit account error with to is exist test", async () => {
+        let oleToken = await OLEToken.new(accounts[0], accounts[0], 'TEST', 'TEST');
+        let timeLock = await TimeLock.new(oleToken.address, [accounts[1],accounts[2]], [toWei(100000),toWei(100000)],
+            [parseInt(await lastBlockTime()),parseInt(await lastBlockTime())], [parseInt(await lastBlockTime()) + 1000,parseInt(await lastBlockTime()) + 1000]);
+        await oleToken.transfer(timeLock.address, toWei(200000));
+        await timeMachine.advanceTime(10);
+        try {
+            await timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[1]});
+            assert.fail("should thrown to is exist error");
+        } catch (error) {
+            assert.include(error.message, 'to is exist', 'throws exception with to is exist');
+        }
+    });
     it("transfer to A succeed test", async () => {
         let oleToken = await OLEToken.new(accounts[0], accounts[0], 'TEST', 'TEST');
         let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)],
