@@ -567,7 +567,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         require(allowedDepositTokens[depositTokenAddr], "UDT");
 
         //verify minimal deposit > absolute value 0.0001
-        uint minimalDeposit = 10 ** (ERC20(depositTokenAddr).decimals() - 4);
+        uint decimals = ERC20(depositTokenAddr).decimals();
+        uint minimalDeposit = decimals > 4 ? 10 ** (decimals - 4) : 1;
         uint actualDeposit = depositTokenAddr == addressConfig.wETH ? msg.value : deposit;
         require(actualDeposit > minimalDeposit, "DTS");
 
