@@ -47,7 +47,7 @@ contract("OpenLev UniV3", async accounts => {
 
     token0 = await TestToken.at(await gotPair.token0());
     token1 = await TestToken.at(await gotPair.token1());
-    dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
+    dexAgg = await utils.createEthDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
 
     xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
     let delegate = await OpenLevDelegate.new();

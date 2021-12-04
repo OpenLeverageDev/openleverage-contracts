@@ -53,7 +53,7 @@ contract("OpenLev UniV3", async accounts => {
 
 
         let delegate = await OpenLevDelegate.new();
-        let dexAgg = await utils.createDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
+        let dexAgg = await utils.createEthDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
         let univ3Addr = await dexAgg.uniV3Factory();
         m.log("UniV3Addr: ", univ3Addr);
 

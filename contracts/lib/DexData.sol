@@ -20,6 +20,7 @@ library DexData {
 
     uint8 constant DEX_UNIV2 = 1;
     uint8 constant DEX_UNIV3 = 2;
+    uint8 constant DEX_PANCAKE = 3;
     bytes constant UNIV2 = hex"01";
     //    bytes constant UNIV3_FEE0 = hex"02000000";
 
@@ -71,6 +72,7 @@ library DexData {
         }
         return temp > 0;
     }
+
     // univ2 class
     function isUniV2Class(bytes memory data) internal pure returns (bool) {
         return (data.length - dexNameLength) % 20 == 0;

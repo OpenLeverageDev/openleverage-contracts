@@ -19,7 +19,8 @@ const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
 const MockUniswapV3Pair = artifacts.require("MockUniswapV3Pair");
 
-const DexAggregator = artifacts.require("DexAggregatorV1");
+const EthDexAggregator = artifacts.require("EthDexAggregatorV1");
+const BscDexAggregator = artifacts.require("BscDexAggregatorV1");
 const DexAggregatorDelegator = artifacts.require("DexAggregatorDelegator");
 
 const Timelock = artifacts.require('Timelock');
@@ -28,6 +29,7 @@ const m = require('mocha-logger');
 const zeroAddr = "0x0000000000000000000000000000000000000000";
 exports.Uni2DexData = "0x01";
 exports.Uni3DexData = "0x02" + "000bb8" + "01";
+exports.PancakeDexData = "0x03";
 
 exports.createLPoolImpl = async () => {
     return await LPool.new();
@@ -67,11 +69,18 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
     await token1.mint(gotPair.address, toWei(100000));
     return gotPair;
 }
-exports.createDexAgg = async (_uniV2Factory, _uniV3Factory, admin) => {
-    let delegate = await DexAggregator.new();
+exports.createEthDexAgg = async (_uniV2Factory, _uniV3Factory, admin) => {
+    let delegate = await EthDexAggregator.new();
     let dexAgg = await DexAggregatorDelegator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr, admin, delegate.address);
-    return await DexAggregator.at(dexAgg.address);
+    return await EthDexAggregator.at(dexAgg.address);
 }
+
+exports.createBscDexAgg = async (_uniV2Factory, _uniV3Factory, admin) => {
+    let delegate = await BscDexAggregator.new();
+    let dexAgg = await DexAggregatorDelegator.new(_uniV2Factory ? _uniV2Factory : await this.createUniswapV2Factory(), _uniV3Factory ? _uniV3Factory : zeroAddr, admin, delegate.address);
+    return await BscDexAggregator.at(dexAgg.address);
+}
+
 exports.createToken = async (tokenSymbol) => {
     return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
 }

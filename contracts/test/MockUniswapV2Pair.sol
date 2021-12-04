@@ -4,7 +4,7 @@ pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./MockERC20.sol";
-import "../dex/UniV2Dex.sol";
+import "../dex/eth/UniV2Dex.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Callee.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
@@ -96,6 +96,31 @@ contract MockUniswapV2Pair {
             MockERC20(_token1).mint(address(this), _reserve1 - MockERC20(_token1).balanceOf(address(this)));
         }
     }
+
+    function setPriceUpdateAfter(address tokenA, address tokenB, uint price) external {
+        tokenB;
+        if (_token0 == tokenA) {
+            _reserve0 = 1000000 * 1e18 * 1;
+            _reserve1 = 1000000 * 1e18 * uint112(price) / 100;
+        }
+        if (_token1 == tokenA) {
+            _reserve1 = 1000000 * 1e18 * 1;
+            _reserve0 = 1000000 * 1e18 * uint112(price) / 100;
+        }
+        if (MockERC20(_token0).balanceOf(address(this)) > _reserve0) {
+            MockERC20(_token0).transfer(_token0, MockERC20(_token0).balanceOf(address(this)) - _reserve0);
+        } else {
+            MockERC20(_token0).mint(address(this), _reserve0 - MockERC20(_token0).balanceOf(address(this)));
+        }
+        if (MockERC20(_token1).balanceOf(address(this)) > _reserve1) {
+            MockERC20(_token1).transfer(_token1, MockERC20(_token1).balanceOf(address(this)) - _reserve1);
+        } else {
+            MockERC20(_token1).mint(address(this), _reserve1 - MockERC20(_token1).balanceOf(address(this)));
+        }
+        
+        _update(MockERC20(_token0).balanceOf(address(this)), MockERC20(_token1).balanceOf(address(this)), _reserve0, _reserve1);
+    }
+
     // update reserves and, on the first call per block, price accumulators
     function _update(uint balance0, uint balance1, uint112 _reserve00, uint112 _reserve11) private {
         require(balance0 <= uint112(- 1) && balance1 <= uint112(- 1), 'UniswapV2: OVERFLOW');

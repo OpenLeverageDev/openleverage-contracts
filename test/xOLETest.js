@@ -2,7 +2,7 @@ const OLEToken = artifacts.require("OLEToken");
 const {
     assertPrint,
     approxAssertPrint,
-    createDexAgg,
+    createEthDexAgg,
     createUniswapV2Factory,
     createXOLE
 } = require("./utils/OpenLevUtil");
@@ -39,7 +39,7 @@ contract("xOLE", async accounts => {
         await ole.mint(alice, _1000);
 
         uniswapFactory = await createUniswapV2Factory(admin);
-        let dexAgg = await createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
+        let dexAgg = await createEthDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
         xole = await createXOLE(ole.address, admin, dev, dexAgg.address, admin);
 
         let lastbk = await web3.eth.getBlock('latest');

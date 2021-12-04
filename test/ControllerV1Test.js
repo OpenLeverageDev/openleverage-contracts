@@ -818,7 +818,7 @@ contract("ControllerV1", async accounts => {
         await utils.createUniswapV2Pool(uniswapFactoryV2, weth, oleToken);
         gotPair = await utils.createUniswapV3Pool(uniswapFactoryV3, tokenA, tokenB, accounts[0]);
         await utils.createUniswapV3Pool(uniswapFactoryV3, weth, oleToken, accounts[0]);
-        let dexAgg = await utils.createDexAgg(uniswapFactoryV2.address, uniswapFactoryV3.address, accounts[0]);
+        let dexAgg = await utils.createEthDexAgg(uniswapFactoryV2.address, uniswapFactoryV3.address, accounts[0]);
 
         m.log("oleToken.address " + oleToken.address);
         let xOLE = await utils.createXOLE(oleToken.address, admin, accounts[9], dexAgg.address);

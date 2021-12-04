@@ -78,7 +78,7 @@ contract("XOLE", async accounts => {
         await uniswapFactory.addPair(oleUsdtPair.address);
         await uniswapFactory.addPair(oleDaiPair.address);
         m.log("Added pairs", last8(pair.address), last8(oleUsdtPair.address), last8(oleDaiPair.address));
-        dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
+        dexAgg = await utils.createEthDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
         // Making sure the pair has been added correctly in mock
         let gotPair = await MockUniswapV2Pair.at(await uniswapFactory.getPair(usdt.address, dai.address));
         assert.equal(await pair.token0(), await gotPair.token0());

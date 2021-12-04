@@ -6,8 +6,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-
-import "./UniV2Dex.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
 contract UniV2Dex {

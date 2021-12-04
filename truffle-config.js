@@ -17,6 +17,8 @@
 *
 */
 
+const { bscTestnet } = require("./migrations/util");
+
 // const HDWalletProvider = require('@truffle/hdwallet-provider');
 // const infuraKey = "fj4jll3k.....";
 //
@@ -52,6 +54,26 @@ module.exports = {
       network_id: "*",
       disableConfirmationListener: true
     },
+
+    bscTestnet: {
+      provider: () => new HDWalletProvider("secret", `wss://testnet.binance.vision/ws`),
+      network_id: 97,       
+      gas: 5500000,        
+      confirmations: 1,    
+      timeoutBlocks: 200,  
+      skipDryRun: true,
+      websockets: true,
+      // networkCheckTimeout: 10000000,
+      // deploymentPollingInterval: 100000000
+    },
+
+    bscIntegrationTest: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 8545,            // Standard Ethereum port (default: none)
+      network_id: "*",
+      disableConfirmationListener: true
+    }
+
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port

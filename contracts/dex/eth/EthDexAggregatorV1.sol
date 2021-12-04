@@ -4,14 +4,14 @@ pragma experimental ABIEncoderV2;
 
 import "./UniV2Dex.sol";
 import "./UniV3Dex.sol";
-import "./DexAggregatorInterface.sol";
-import "../lib/DexData.sol";
+import "../DexAggregatorInterface.sol";
+import "../../lib/DexData.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "../DelegateInterface.sol";
-import "../Adminable.sol";
+import "../../DelegateInterface.sol";
+import "../../Adminable.sol";
 
 
-contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2Dex, UniV3Dex {
+contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2Dex, UniV3Dex {
     using DexData for bytes;
     using SafeMath for uint;
     mapping(IUniswapV2Pair => V2PriceOracle)  public uniV2PriceOracle;
@@ -20,9 +20,6 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
 
     uint8 private constant priceDecimals = 18;
 
-    constructor ()
-    {
-    }
     //v2 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f
     //v3 0x1f98431c8ad98523631ae4a59f267346ea31f984
     function initialize(
@@ -48,7 +45,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -59,7 +56,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             buyAmount = uniV3SellMul(sellAmount, minBuyAmount, data.toUniV3Path());
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -71,7 +68,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true);
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -81,7 +78,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             buyAmount = uniV2CalBuyAmount(uniV2Factory, buyToken, sellToken, sellAmount);
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -90,7 +87,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             sellAmount = uniV2CalSellAmount(uniV2Factory, buyToken, sellToken, buyAmount);
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -104,7 +101,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             (price,) = uniV3GetPrice(desToken, quoteToken, decimals, data.toFee());
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -119,7 +116,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             (price, timestamp,) = uniV3GetAvgPrice(desToken, quoteToken, secondsAgo, decimals, data.toFee());
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 
@@ -150,7 +147,7 @@ contract DexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface
             (price, cAvgPrice, hAvgPrice, timestamp) = uniV3GetPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, decimals, dexData.toFee());
         }
         else {
-            require(false, 'Unsupported dex');
+            revert('Unsupported dex');
         }
     }
 

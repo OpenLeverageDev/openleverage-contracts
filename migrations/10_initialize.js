@@ -1,11 +1,12 @@
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
-const ControllerV1 = artifacts.require("ControllerDelegator");
+const ControllerV1 = artifacts.require("ControllerV1");
+const ControllerDelegator = artifacts.require("ControllerDelegator")
 const Gov = artifacts.require("GovernorAlpha");
 const Timelock = artifacts.require("Timelock");
 const OLEToken = artifacts.require("OLEToken");
 const Reserve = artifacts.require("Reserve");
 const OLETokenLock = artifacts.require("OLETokenLock");
-const DexAggregatorV1 = artifacts.require("DexAggregatorV1");
+const DexAggregatorV1 = artifacts.require("BscDexAggregatorV1");
 
 const OpenLevFarmingPool = artifacts.require("FarmingPools");
 
@@ -38,7 +39,7 @@ async function initializeContract(accounts, network) {
    */
   m.log("Waiting controller setInterestParam......");
   let blocksPerYear = toBN(utils.blocksPerYear(network));
-  await tl.executeTransaction(ControllerV1.address, 0, 'setInterestParam(uint256,uint256,uint256,uint256)',
+  await tl.executeTransaction(ControllerDelegator.address, 0, 'setInterestParam(uint256,uint256,uint256,uint256)',
     encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [toBN(10e16).div(blocksPerYear), toBN(30e16).div(blocksPerYear), toBN(150e16).div(blocksPerYear), toBN(50e16)]), 0);
 }
 
@@ -59,10 +60,10 @@ async function initializeToken(accounts) {
   //50% to controller
   let token2Controller = totalSupply.div(toBN(100)).mul(toBN(50));
   m.log("waiting transfer to controller......");
-  await oleToken.transfer(ControllerV1.address, token2Controller);
+  await oleToken.transfer(ControllerDelegator.address, token2Controller);
   m.log("waiting controller setOpenLevTokenDistribution......");
   //50% to liquidator, max 100 OLE reward once, 3X gas fee, 50% to trader&lends
-  await tl.executeTransaction(ControllerV1.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
+  await tl.executeTransaction(ControllerDelegator.address, 0, 'setOLETokenDistribution(uint256,uint256,uint256,uint256)',
     encodeParameters(['uint256', 'uint256', 'uint256', 'uint256'], [totalSupply.div(toBN(100)).mul(toBN(50)).div(toBN(2)),
       toWei(100),
       toBN(300),
@@ -74,39 +75,49 @@ async function initializeToken(accounts) {
  *initializeLenderPool
  */
 async function initializeLenderPool(accounts, network) {
-  m.log("waiting controller create FEI - WETH market ......");
-  await intializeMarket(accounts, network, '0x4E9d5268579ae76f390F232AEa29F016bD009aAB', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3000);
-  m.log("waiting controller create XOR - WETH market ......");
-  await intializeMarket(accounts, network, '0xcc00A6ecFe6941EabF4E97EcB717156dA47FFc81', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3100);
-  m.log("waiting controller create UNI - WETH market ......");
-  await intializeMarket(accounts, network, '0xD728EBbe962f88C78136C79b65E4846e2B24159A', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3200);
-  m.log("waiting controller create DPI - WETH market ......");
-  await intializeMarket(accounts, network, '0x541cCcc83234Cc315d0489d701Ab7A4BA5D9F70C', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3300);
-  m.log("waiting controller create RAI - WETH market ......");
-  await intializeMarket(accounts, network, '0xF1132a849bA8752DC22aC6245Dc4a5489590990f', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3400);
-  m.log("waiting controller create WISE - WETH market ......");
-  await intializeMarket(accounts, network, '0x8deA6203B4EE086d8fd7C0618999e4c22e57df01', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3500);
-  m.log("waiting controller create CORE - WETH market ......");
-  await intializeMarket(accounts, network, '0x0a27F9fb4Ea453c1f1d591472D3F113Fb46b746e', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3600);
-  m.log("waiting controller create WETH - USDT  market ......");
-  await intializeMarket(accounts, network, '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', '0xf894289F63B0b365485cEe34aa50681f295F84b4', 3700);
-  m.log("waiting controller create WBTC - WETH market ......");
-  await intializeMarket(accounts, network, '0x9278bf26744D3C98B8f24809Fe8EA693b9aA4cF6', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3800);
-  m.log("waiting controller create DAI - USDT market ......");
-  await intializeMarket(accounts, network, '0x5C95482B5962b6c3D2d47DC4a3FD7173E99853b0', '0xf894289F63B0b365485cEe34aa50681f295F84b4', 3900);
-  m.log("waiting controller create Frax - USDC market ......");
-  await intializeMarket(accounts, network, '0x88128f0c48a2F6181b6Be1759Fc6724b8e314CAe', '0x7A8BD2583a3d29241da12DD6f3ae88e92a538144', 4000);
-  // m.log("waiting controller create OLE - WETH market ......");
-  // await intializeMarket(accounts, network, OLEToken.address, '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3000);
+
+  switch (netwrok){
+    case utils.kovan, utils.ethIntegrationTest:
+      m.log("waiting controller create FEI - WETH market ......");
+      await intializeMarket(accounts, network, '0x4E9d5268579ae76f390F232AEa29F016bD009aAB', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3000);
+      m.log("waiting controller create XOR - WETH market ......");
+      await intializeMarket(accounts, network, '0xcc00A6ecFe6941EabF4E97EcB717156dA47FFc81', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3100);
+      m.log("waiting controller create UNI - WETH market ......");
+      await intializeMarket(accounts, network, '0xD728EBbe962f88C78136C79b65E4846e2B24159A', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3200);
+      m.log("waiting controller create DPI - WETH market ......");
+      await intializeMarket(accounts, network, '0x541cCcc83234Cc315d0489d701Ab7A4BA5D9F70C', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3300);
+      m.log("waiting controller create RAI - WETH market ......");
+      await intializeMarket(accounts, network, '0xF1132a849bA8752DC22aC6245Dc4a5489590990f', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3400);
+      m.log("waiting controller create WISE - WETH market ......");
+      await intializeMarket(accounts, network, '0x8deA6203B4EE086d8fd7C0618999e4c22e57df01', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3500);
+      m.log("waiting controller create CORE - WETH market ......");
+      await intializeMarket(accounts, network, '0x0a27F9fb4Ea453c1f1d591472D3F113Fb46b746e', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3600);
+      m.log("waiting controller create WETH - USDT  market ......");
+      await intializeMarket(accounts, network, '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', '0xf894289F63B0b365485cEe34aa50681f295F84b4', 3700);
+      m.log("waiting controller create WBTC - WETH market ......");
+      await intializeMarket(accounts, network, '0x9278bf26744D3C98B8f24809Fe8EA693b9aA4cF6', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3800);
+      m.log("waiting controller create DAI - USDT market ......");
+      await intializeMarket(accounts, network, '0x5C95482B5962b6c3D2d47DC4a3FD7173E99853b0', '0xf894289F63B0b365485cEe34aa50681f295F84b4', 3900);
+      m.log("waiting controller create Frax - USDC market ......");
+      await intializeMarket(accounts, network, '0x88128f0c48a2F6181b6Be1759Fc6724b8e314CAe', '0x7A8BD2583a3d29241da12DD6f3ae88e92a538144', 4000);
+      // m.log("waiting controller create OLE - WETH market ......");
+      // await intializeMarket(accounts, network, OLEToken.address, '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3000);
+      break;
+    case utils.bscIntegrationTest:
+      m.log("waiting controller create WBNB - BUSD market ......");
+      await intializeMarket(accounts, network, '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000);
+  }
 }
 
 async function intializeMarket(accounts, network, token0, token1, marginLimit) {
-  let controller = await ControllerV1.at(ControllerV1.address);
+  let controller = await ControllerV1.at(ControllerDelegator.address);
   let openLev = await OpenLevV1.at(OpenLevV1.address);
 
   let tl = await Timelock.at(Timelock.address);
-  let numPairs = await openLev.numPairs();
-  let transaction = await controller.createLPoolPair(token0, token1, marginLimit, "0x01");
+  // let numPairs = await openLev.numPairs();
+  let transaction = await controller.createLPoolPair(token0, token1, marginLimit, utils.getUniV2DexData(network));
+  
+  // let transaction = await controller.createLPoolPair(token0, token1, marginLimit, "0x03");
   let pool0 = transaction.logs[0].args.pool0;
   let pool1 = transaction.logs[0].args.pool1;
   m.log("pool0=", pool0.toLowerCase());
@@ -201,6 +212,7 @@ async function loggerInfo() {
   m.log("Timelock.address=", Timelock.address.toLowerCase());
   m.log("Treasury.address=", TreasuryDelegator.address.toLowerCase());
   m.log("ControllerV1.address=", ControllerV1.address.toLowerCase());
+  m.log("ControllerDelegator.address=", ControllerDelegator.address.toLowerCase());
   m.log("OpenLevV1.address=", OpenLevV1.address.toLowerCase());
   m.log("OLEFarmingPool.address=", OpenLevFarmingPool.address.toLowerCase());
   m.log("Reserve.address=", Reserve.address.toLowerCase());

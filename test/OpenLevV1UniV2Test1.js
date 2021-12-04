@@ -50,7 +50,7 @@ contract("OpenLev UniV2", async accounts => {
         uniswapFactory = await utils.createUniswapV2Factory();
         gotPair = await utils.createUniswapV2Pool(uniswapFactory, token0, token1);
 
-        dexAgg = await utils.createDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", accounts[0]);
+        dexAgg = await utils.createEthDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", accounts[0]);
 
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
         delegatee = await OpenLevV1.new();
