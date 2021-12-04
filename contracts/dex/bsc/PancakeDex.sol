@@ -196,12 +196,12 @@ contract PancakeDex {
 
     function getPancakeClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        if (address(factory) == 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f) {
+        if (address(factory) == 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73) {
             return address(uint(keccak256(abi.encodePacked(
                     hex'ff',
                     address(factory),
                     keccak256(abi.encodePacked(token0, token1)),
-                    hex'96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f'
+                    hex'00fb7f630766e6a796048ea87d01acd3068e8ff67d078148a3fa3f4a84f69bd5'
                 ))));
         } else {
             return factory.getPair(tokenA, tokenB);
