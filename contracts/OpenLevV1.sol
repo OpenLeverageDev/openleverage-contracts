@@ -41,7 +41,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         addressConfig.wETH = _wETH;
         addressConfig.xOLE = _xOLE;
         setAllowedDepositTokensInternal(depositTokens, true);
-        setCalculateConfigInternal(20, 33, 3000, 5, 25, 25, 30e18, 300, 5, 60);
+        setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 300, 5, 60);
     }
 
     function addMarket(
@@ -478,6 +478,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             token.safeTransfer(to, amount);
         }
     }
+
     /*** Admin Functions ***/
     function setCalculateConfigInternal(uint16 defaultFeesRate,
         uint8 insuranceRatio,
