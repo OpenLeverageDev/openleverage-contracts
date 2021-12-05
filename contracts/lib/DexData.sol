@@ -21,8 +21,15 @@ library DexData {
     uint8 constant DEX_UNIV2 = 1;
     uint8 constant DEX_UNIV3 = 2;
     uint8 constant DEX_PANCAKE = 3;
+    uint8 constant DEX_SUSHI = 4;
+    uint8 constant DEX_MDEX = 5;
+    uint8 constant DEX_TRADERJOE = 6;
+    uint8 constant DEX_SPOOKY = 7;
+    uint8 constant DEX_QUICK = 8;
+    uint8 constant DEX_SHIBA = 9;
+    uint8 constant DEX_APE = 10;
+
     bytes constant UNIV2 = hex"01";
-    //    bytes constant UNIV3_FEE0 = hex"02000000";
 
     struct V3PoolData {
         address tokenA;
