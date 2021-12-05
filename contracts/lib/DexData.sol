@@ -29,6 +29,8 @@ library DexData {
     uint8 constant DEX_SHIBA = 9;
     uint8 constant DEX_APE = 10;
 
+    bytes constant UNIV2 = hex"01";
+
     struct V3PoolData {
         address tokenA;
         address tokenB;
