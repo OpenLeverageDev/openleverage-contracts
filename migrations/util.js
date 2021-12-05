@@ -20,9 +20,11 @@ exports.getAdmin = function (accounts) {
 }
 exports.uniswapV2Address = function (network) {
   switch (network){
-    case bscIntegrationTest, bscTestnet: 
+    case bscIntegrationTest:
+    case bscTestnet: 
       return '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
-    case kovan, ethIntegrationTest: 
+    case kovan:
+    case ethIntegrationTest: 
       return '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
     default: 
       return zeroAddress;
@@ -31,7 +33,8 @@ exports.uniswapV2Address = function (network) {
 
 exports.uniswapV3Address = function (network) {
   switch (network){
-    case kovan, ethIntegrationTest: 
+    case kovan:
+    case ethIntegrationTest: 
       return '0x1f98431c8ad98523631ae4a59f267346ea31f984';
     default: 
       return zeroAddress;
@@ -40,7 +43,8 @@ exports.uniswapV3Address = function (network) {
 
 exports.getDepositTokens = function (network) {
   switch (network){
-    case kovan, ethIntegrationTest: 
+    case kovan:
+    case ethIntegrationTest: 
       return [
         weth9,
         "0xc58854ce3a7d507b1ca97fa7b28a411956c07782",//weth(test)
@@ -66,16 +70,19 @@ exports.getDepositTokens = function (network) {
 
 exports.blocksPerYear = function (network) {
   switch (network){
-    case kovan, ethIntegrationTest:
+    case kovan:
+    case ethIntegrationTest:
       return 2102400;
-    case bscIntegrationTest, bscTestnet:
+    case bscIntegrationTest:
+    case bscTestnet:
       return 10512000;
   }
 }
 
 exports.tokenName = function (network) {
   switch (network){
-    case bscIntegrationTest, bscTestnet: 
+    case bscIntegrationTest:
+    case bscTestnet: 
       return "ELO";
     default:   
       return "Open Leverage";
@@ -84,7 +91,8 @@ exports.tokenName = function (network) {
 
 exports.tokenSymbol = function (network) {
   switch (network){
-    case bscIntegrationTest, bscTestnet: 
+    case bscIntegrationTest:
+    case bscTestnet: 
       return "ELO"
     default: 
       return "OLE";
@@ -93,7 +101,8 @@ exports.tokenSymbol = function (network) {
 
 exports.getWChainToken = function (network) {
   switch (network){
-    case kovan, ethIntegrationTest: 
+    case kovan:
+    case ethIntegrationTest: 
       //WETH9
       return "0xd0A1E359811322d97991E03f863a0C30C2cF029C";
     case bscIntegrationTest:
@@ -120,10 +129,12 @@ exports.getFarmingDuration = function () {
 
 exports.getUniV2DexData = function (network){
   switch (network){
-    case kovan, ethIntegrationTest: 
+    case kovan:
+    case ethIntegrationTest: 
       //WETH9
       return "0x01";
-    case bscIntegrationTest, bscTestnet:
+    case bscIntegrationTest:
+    case bscTestnet:
       return "0x03";
     default: 
       return zeroAddress;

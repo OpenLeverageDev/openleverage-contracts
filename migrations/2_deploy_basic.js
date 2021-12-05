@@ -25,19 +25,21 @@ module.exports = async function (deployer, network, accounts) {
   await deployer.deploy(Timelock, adminAccount, (3 * 60) + "", utils.deployOption(accounts));
   let adminCtr = Timelock.address;
   //ole
-  await deployer.deploy(OLEToken,adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
+  await deployer.deploy(OLEToken, adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
   //dexAgg
   switch (network){
-    case utils.kovan, utils.ethIntegrationTest:
+    case utils.kovan:
+    case utils.ethIntegrationTest:
       await deployer.deploy(EthDexAggregatorV1, utils.deployOption(accounts));
       await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(), utils.uniswapV3Address(), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
       break;
-    case utils.bscIntegrationTest,utils.bscTestnet :
+    case utils.bscIntegrationTest:
+    case utils.bscTestnet:
       await deployer.deploy(BscDexAggregatorV1, utils.deployOption(accounts));
       await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(), utils.uniswapV3Address(), adminCtr, BscDexAggregatorV1.address, utils.deployOption(accounts));
       break;
     default:
-      console.Error("unkown network");
+      m.error("unkown network");
       return
   }
 
