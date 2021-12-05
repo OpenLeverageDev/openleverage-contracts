@@ -52,7 +52,14 @@ module.exports = async function (deployer, network, accounts) {
     //controller
     await deployer.deploy(LPool, utils.deployOption(accounts));
     await deployer.deploy(ControllerV1, utils.deployOption(accounts));
-    await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, adminCtr, ControllerV1.address, utils.deployOption(accounts));
+    switch (network) {
+        case utils.bscIntegrationTest:
+        case utils.bscTestnet:
+            await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x03', adminCtr, ControllerV1.address, utils.deployOption(accounts));
+            break;
+        default:
+            await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02', adminCtr, ControllerV1.address, utils.deployOption(accounts));
+    }
     //openLev
     await deployer.deploy(OpenLevV1, utils.deployOption(accounts));
     switch (network) {

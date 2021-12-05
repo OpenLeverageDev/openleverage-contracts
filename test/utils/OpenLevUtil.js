@@ -43,6 +43,7 @@ exports.createController = async (admin, oleToken, wChainToken, xoleToken) => {
         zeroAddr,
         zeroAddr,
         zeroAddr,
+        "0x01",
         admin,
         instance.address);
     return await Controller.at(controller.address);

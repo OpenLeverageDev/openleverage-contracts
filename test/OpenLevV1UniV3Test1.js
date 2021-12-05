@@ -452,12 +452,11 @@ contract("OpenLev UniV3", async accounts => {
     })
     it("Admin setSupportDexs test", async () => {
         let {timeLock, openLev} = await instanceSimpleOpenLev();
-        await timeLock.executeTransaction(openLev.address, 0, 'setSupportDexs(uint8[])',
-            web3.eth.abi.encodeParameters(['uint8[]'], [[1, 2]]), 0);
-        assert.equal(1, await openLev.supportDexs(0));
-        assert.equal(2, await openLev.supportDexs(1));
+        await timeLock.executeTransaction(openLev.address, 0, 'setSupportDex(uint8,bool)',
+            web3.eth.abi.encodeParameters(['uint8', 'bool'], [1, true]), 0);
+        assert.equal(true, await openLev.supportDexs(1));
         try {
-            await openLev.setSupportDexs([1, 2]);
+            await openLev.setSupportDex(1, true);
             assert.fail("should thrown caller must be admin error");
         } catch (error) {
             assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');

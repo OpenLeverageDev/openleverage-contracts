@@ -50,7 +50,7 @@ abstract contract OpenLevStorage {
 
     AddressConfig public addressConfig;
 
-    uint8[] public supportDexs;
+    mapping(uint8 => bool) public supportDexs;
 
     event MarginTrade(
         address trader,
@@ -156,7 +156,7 @@ interface OpenLevInterface {
 
     function setAllowedDepositTokens(address[] memory tokens, bool allowed) external;
 
-    function setSupportDexs(uint8[] memory _dexs) external;
+    function setSupportDex(uint8 dex, bool support) external;
 
 
 }

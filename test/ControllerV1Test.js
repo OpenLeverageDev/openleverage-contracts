@@ -699,6 +699,19 @@ contract("ControllerV1", async accounts => {
             assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
         }
     });
+
+    it("Admin setOleWethDexData test", async () => {
+        let {controller, timeLock} = await instanceSimpleController();
+        await timeLock.executeTransaction(controller.address, 0, 'setOleWethDexData(bytes)', web3.eth.abi.encodeParameters(['bytes'], ["0x03"]), 0);
+        assert.equal("0x03", (await controller.oleWethDexData()), {from: accounts[2]});
+        try {
+            await controller.setOleWethDexData("0x03");
+            assert.fail("should thrown caller must be admin or developer error");
+        } catch (error) {
+            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
+        }
+    });
+
     it("Admin setOLETokenDistribution test", async () => {
         let {controller, oleToken, timeLock} = await instanceSimpleController();
         await oleToken.mint(controller.address, 100);

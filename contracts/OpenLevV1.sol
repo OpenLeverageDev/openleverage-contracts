@@ -40,7 +40,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         addressConfig.dexAggregator = _dexAggregator;
         addressConfig.wETH = _wETH;
         addressConfig.xOLE = _xOLE;
-        supportDexs = _supportDexs;
+        for (uint i = 0; i < _supportDexs.length; i++) {
+            supportDexs[_supportDexs[i]] = true;
+        }
         setAllowedDepositTokensInternal(depositTokens, true);
         setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 300, 5, 60);
     }
@@ -55,8 +57,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         CalculateConfig memory config = calculateConfig;
         require(isSupportDex(dex), "UDX");
         require(msg.sender == address(addressConfig.controller), "NCN");
-        require(marginLimit >= config.defaultMarginLimit, "LLR");
-        require(marginLimit < 100000, "LIH");
+        require(marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "MLI");
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         // Approve the max number for pools
@@ -556,9 +557,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         setAllowedDepositTokensInternal(tokens, allowed);
     }
 
-    function setSupportDexs(uint8[] memory dexs) external override onlyAdmin() {
-        require(dexs.length > 0, 'EPY');
-        supportDexs = dexs;
+    function setSupportDex(uint8 dex, bool support) public override onlyAdmin() {
+        supportDexs[dex] = support;
     }
 
     function setAllowedDepositTokensInternal(address[] memory tokens, bool allowed) internal {
@@ -606,13 +606,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     }
 
 
-    function isSupportDex(uint8 dex) internal view returns (bool supported){
-        for (uint i = 0; i < supportDexs.length; i++) {
-            if (supportDexs[i] == dex) {
-                supported = true;
-                break;
-            }
-        }
+    function isSupportDex(uint8 dex) internal view returns (bool){
+        return supportDexs[dex];
     }
 
     function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){

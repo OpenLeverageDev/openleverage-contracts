@@ -56,6 +56,8 @@ contract ControllerStorage {
     uint256 public jumpMultiplierPerBlock;
     uint256 public kink;
 
+    bytes public oleWethDexData;
+
     address public openLev;
 
     DexAggregatorInterface public dexAggregator;
@@ -131,6 +133,8 @@ interface ControllerInterface {
     function setSuspend(bool suspend) external;
 
     function setMarketSuspend(uint marketId, bool suspend) external;
+
+    function setOleWethDexData(bytes memory _oleWethDexData) external;
 
     // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
     function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external;

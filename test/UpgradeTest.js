@@ -143,6 +143,7 @@ contract("Upgrade", async accounts => {
             "0x0000000000000000000000000000000000000000",
             "0x0000000000000000000000000000000000000000",
             "0x0000000000000000000000000000000000000000",
+            "0x02",
             accounts[0],
             delegate.address);
         //update
@@ -150,7 +151,7 @@ contract("Upgrade", async accounts => {
         await controller.setImplementation(updateDelegate.address);
         controller = await ControllerUpgradeV2.at(controller.address);
         let baseRatePerBlock = await controller.baseRatePerBlock();
-        controller= await ControllerDelegator.at(controller.address);
+        controller = await ControllerDelegator.at(controller.address);
         m.log("baseRatePerBlock ", baseRatePerBlock);
 
         assert.equal("0", baseRatePerBlock);

@@ -17,7 +17,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
   */
 contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, ControllerStorage {
     using SafeMath for uint;
-
     constructor () {}
 
     function initialize(
@@ -26,7 +25,8 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         address _wETH,
         address _lpoolImplementation,
         address _openlev,
-        DexAggregatorInterface _dexAggregator
+        DexAggregatorInterface _dexAggregator,
+        bytes memory _oleWethDexData
     ) public {
         require(msg.sender == admin, "not admin");
         oleToken = _oleToken;
@@ -35,6 +35,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         lpoolImplementation = _lpoolImplementation;
         openLev = _openlev;
         dexAggregator = _dexAggregator;
+        oleWethDexData = _oleWethDexData;
     }
 
     struct LPoolPairVar {
@@ -109,7 +110,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
             return;
         }
         //get wETH quote ole price
-        (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), DexData.UNIV2);
+        (uint256 price, uint8 decimal) = dexAggregator.getPrice(wETH, address(oleToken), oleWethDexData);
         // oleRewards=wETHValue*liquidatorOLERatio
         uint calcLiquidatorRewards = uint(600000)  // needs approximately 600k gas for liquidation
         .mul(50 gwei).mul(price).div(10 ** uint(decimal))
@@ -394,6 +395,11 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
     function setMarketSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
         marketSuspend[marketId] = suspend;
     }
+
+    function setOleWethDexData(bytes memory _oleWethDexData) external override onlyAdminOrDeveloper {
+        oleWethDexData = _oleWethDexData;
+    }
+
     modifier onlyLPoolAllowed() {
         require(!lpoolUnAlloweds[msg.sender], "LPool paused");
         _;
