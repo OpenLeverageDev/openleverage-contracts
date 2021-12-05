@@ -220,7 +220,7 @@ contract("LPoolDelegator", async accounts => {
         //deposit 1
         let ethBegin = await web3.eth.getBalance(admin);
         m.log("ethBegin=", ethBegin);
-        let tx = await poolDepositor.depositEth(erc20Pool.address, {value: mintAmount});
+        let tx = await poolDepositor.depositNative(erc20Pool.address, {value: mintAmount});
         m.log("DepositEth Gas Used: ", tx.receipt.gasUsed);
         assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
         assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());

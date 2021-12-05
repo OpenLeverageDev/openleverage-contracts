@@ -11,6 +11,9 @@ const ControllerDelegator = artifacts.require("ControllerDelegator");
 const LPool = artifacts.require("LPool");
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
+const Airdrop = artifacts.require("Airdrop");
+const LPoolDepositor = artifacts.require("LPoolDepositor");
+const Reserve = artifacts.require("Reserve");
 const utils = require("./util");
 const m = require('mocha-logger');
 
@@ -26,17 +29,19 @@ module.exports = async function (deployer, network, accounts) {
     let adminCtr = Timelock.address;
     //ole
     await deployer.deploy(OLEToken, adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
+    //airdrop
+    await deployer.deploy(Airdrop, OLEToken.address, utils.deployOption(accounts));
     //dexAgg
     switch (network) {
         case utils.kovan:
-        case utils.ethIntegrationTest:
+        case utils.mainnet:
             await deployer.deploy(EthDexAggregatorV1, utils.deployOption(accounts));
-            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(), utils.uniswapV3Address(), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
             break;
         case utils.bscIntegrationTest:
         case utils.bscTestnet:
             await deployer.deploy(BscDexAggregatorV1, utils.deployOption(accounts));
-            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(), utils.uniswapV3Address(), adminCtr, BscDexAggregatorV1.address, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, BscDexAggregatorV1.address, utils.deployOption(accounts));
             break;
         default:
             m.error("unkown network");
@@ -48,7 +53,8 @@ module.exports = async function (deployer, network, accounts) {
     await deployer.deploy(xOLEDelegator, OLEToken.address, DexAggregatorDelegator.address, 3000, dev, adminCtr, xOLE.address, utils.deployOption(accounts));
     //gov
     await deployer.deploy(Gov, Timelock.address, xOLEDelegator.address, adminAccount, utils.deployOption(accounts));
-    // await deployer.deploy(Reserve, Timelock.address, OLEToken.address, toWei(100000), 1621612800, 1623254400, utils.deployOption(accounts));
+    //reserve
+    await deployer.deploy(Reserve, adminCtr, OLEToken.address, utils.deployOption(accounts));
     //controller
     await deployer.deploy(LPool, utils.deployOption(accounts));
     await deployer.deploy(ControllerV1, utils.deployOption(accounts));
@@ -58,7 +64,7 @@ module.exports = async function (deployer, network, accounts) {
             await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x03', adminCtr, ControllerV1.address, utils.deployOption(accounts));
             break;
         default:
-            await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02', adminCtr, ControllerV1.address, utils.deployOption(accounts));
+            await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02000bb8', adminCtr, ControllerV1.address, utils.deployOption(accounts));
     }
     //openLev
     await deployer.deploy(OpenLevV1, utils.deployOption(accounts));
@@ -70,6 +76,8 @@ module.exports = async function (deployer, network, accounts) {
         default:
             await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [1, 2], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
     }
+    //lpoolDepositor
+    await deployer.deploy(LPoolDepositor, utils.deployOption(accounts));
     //set openLev address
     m.log("Waiting controller setOpenLev......");
     await (await Timelock.at(Timelock.address)).executeTransaction(ControllerDelegator.address, 0, 'setOpenLev(address)', encodeParameters(['address'], [OpenLevDelegator.address]), 0);

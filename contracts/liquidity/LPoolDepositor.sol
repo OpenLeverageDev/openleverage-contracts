@@ -18,7 +18,7 @@ contract LPoolDepositor is ReentrancyGuard {
         LPoolInterface(pool).mintTo(msg.sender);
     }
 
-    function depositEth(address payable pool) external payable nonReentrant() {
+    function depositNative(address payable pool) external payable nonReentrant() {
         LPoolInterface(pool).mintTo{value : msg.value}(msg.sender);
     }
 
