@@ -18,8 +18,8 @@ contract("xOLE", async accounts => {
     let TOL = 120 / WEEK;
 
     let decimals = "000000000000000000";
-    let _1000 = "1000000000000000000000"; // 10000
-    let _500 = "500000000000000000000"; // 10000
+    let _1000 = "1000000000000000000000";
+    let _500 = "500000000000000000000";
 
     let bob = accounts[0];
     let alice = accounts[1];
@@ -88,29 +88,6 @@ contract("xOLE", async accounts => {
             m.log("Skipping this test for FAST Mode");
             return;
         }
-        /*
-        Test voting power in the following scenario.
-        Alice:
-        ~~~~~~~
-        ^sona
-        | *       *
-        | | \     |  \
-        | |  \    |    \
-        +-+---+---+------+---> t
-        Bob:
-        ~~~~~~~
-        ^
-        |         *
-        |         | \
-        |         |  \
-        +-+---+---+---+--+---> t
-        Alice has 100% of voting power in the first period.
-        She has 2/3 power at the start of 2nd period, with Bob having 1/2 power
-        (due to smaller locktime).
-        Alice's power grows to 100% by Bob's unlock.
-        Checking that totalSupply is appropriate.
-        After the test is done, check all over again with balanceOfAt / totalSupplyAt
-        */
 
         await ole.approve(xole.address, _1000 + "0", {"from": alice});
         await ole.approve(xole.address, _1000 + "0", {"from": bob});

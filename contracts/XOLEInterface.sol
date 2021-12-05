@@ -36,7 +36,7 @@ contract XOLEStorage {
         uint256 end;
     }
 
-    uint constant oneWeekExtraRaise = 208;// 2.08%*192=400%(4years raise)
+    uint constant oneWeekExtraRaise = 208;// 2.08% * 210 = 436% (4 years raise)
 
     int128 constant DEPOSIT_FOR_TYPE = 0;
     int128 constant CREATE_LOCK_TYPE = 1;
