@@ -54,7 +54,7 @@ contract("OpenLev UniV2", async accounts => {
 
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
         delegatee = await OpenLevV1.new();
-        openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, accounts[0], delegatee.address);
+        openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, [1, 2], accounts[0], delegatee.address);
         openLev = await OpenLevV1.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
         await controller.setOpenLev(openLev.address);
@@ -219,8 +219,33 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Trade.held:", tradeAfter.held);
         assert.equal(tradeAfter.held, 0);
     })
+    it("LONG Token0, Price Diffience>10%, Not update pirce, Long Again", async () => {
+        let pairId = 0;
+        await printBlockNum();
+        // provide some funds for trader and saver
+        await utils.mint(token1, trader, 10000);
+        checkAmount(await token1.symbol() + " Trader " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(trader), 18);
+        await utils.mint(token1, saver, 10000);
+        checkAmount(await token1.symbol() + " Saver " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(saver), 18);
+        // Trader to approve openLev to spend
+        let deposit = utils.toWei(400);
+        await token1.approve(openLev.address, utils.toWei(100000), {from: trader});
+        // Saver deposit to pool1
+        let saverSupply = utils.toWei(2000);
+        let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
+        await token1.approve(await pool1.address, saverSupply, {from: saver});
+        await pool1.mint(saverSupply, {from: saver});
+        let borrow = utils.toWei(500);
+        await advanceMultipleBlocksAndTime(70);
+        await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+        //set price 1.2
+        await gotPair.setPrice(token0.address, token1.address, 120);
+        await advanceMultipleBlocksAndTime(70);
+        //needn't update price
+        await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
 
-    it("LONG Token0, Price Diffience>10%,Long Again", async () => {
+    })
+    it("LONG Token0, Price Diffience>10%,Update price Long Again", async () => {
         let pairId = 0;
         await printBlockNum();
         // provide some funds for trader and saver
@@ -304,7 +329,7 @@ contract("OpenLev UniV2", async accounts => {
         // should update price first
         try {
             await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
-            assert.fail("should thrown  MPT error");
+            assert.fail("should thrown MPT error");
         } catch (error) {
             assert.include(error.message, 'MPT', 'throws exception with MPT');
         }

@@ -76,7 +76,7 @@ async function initializeToken(accounts) {
  */
 async function initializeLenderPool(accounts, network) {
 
-  switch (netwrok){
+  switch (network){
     case utils.kovan, utils.ethIntegrationTest:
       m.log("waiting controller create FEI - WETH market ......");
       await intializeMarket(accounts, network, '0x4E9d5268579ae76f390F232AEa29F016bD009aAB', '0xC58854ce3a7d507b1CA97Fa7B28A411956c07782', 3000);

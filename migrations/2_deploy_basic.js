@@ -45,7 +45,7 @@ module.exports = async function (deployer, network, accounts) {
 
   //xole
   await deployer.deploy(xOLE, utils.deployOption(accounts));
-  await deployer.deploy(xOLEDelegator, OLEToken.address, DexAggregatorDelegator.address, 5000, dev, adminCtr, xOLE.address, utils.deployOption(accounts));
+  await deployer.deploy(xOLEDelegator, OLEToken.address, DexAggregatorDelegator.address, 3000, dev, adminCtr, xOLE.address, utils.deployOption(accounts));
   //gov
   await deployer.deploy(Gov, Timelock.address, xOLEDelegator.address, adminAccount, utils.deployOption(accounts));
   // reserve begin 2021-05-22 00:00:00, end 2021-06-10 00:00:00, vestingAmount 100000

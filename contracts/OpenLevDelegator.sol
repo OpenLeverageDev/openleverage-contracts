@@ -17,17 +17,19 @@ contract OpenLevDelegator is DelegatorInterface, Adminable {
         address[] memory _depositTokens,
         address _wETH,
         address _xOLE,
+        uint8[] memory _supportDexs,
         address payable _admin,
         address implementation_){
         admin = msg.sender;
         // Creator of the contract is admin during initialization
         // First delegate gets to initialize the delegator (i.e. storage contract)
-        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address[],address,address)",
+        delegateTo(implementation_, abi.encodeWithSignature("initialize(address,address,address[],address,address,uint8[])",
             _controller,
             _dexAggregator,
             _depositTokens,
             _wETH,
-            _xOLE
+            _xOLE,
+            _supportDexs
             ));
         implementation = implementation_;
 

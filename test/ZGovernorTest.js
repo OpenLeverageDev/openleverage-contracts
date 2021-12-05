@@ -15,6 +15,7 @@ const m = require('mocha-logger');
 
 const timeMachine = require('ganache-time-traveler');
 const EIP712 = require("./utils/EIP712");
+const {zeroAddress} = require("../migrations/util");
 
 contract("GovernorAlphaTest", async accounts => {
     let xole;
@@ -26,7 +27,7 @@ contract("GovernorAlphaTest", async accounts => {
     let proposeAccount = accounts[3];
     let timeloc;
     let DAY = 86400;
-    let WEEK = 4 * 7 * DAY;
+    let WEEK_4 = 4 * 7 * DAY;
     beforeEach(async () => {
         ole = await OLEToken.new(admin, admin, 'OLE', 'OLE');
         timelock = await Timelock.new(admin, 180 + '');
@@ -59,7 +60,7 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         let lastBlockNum = await web3.eth.getBlockNumber();
         await advanceMultipleBlocksAndTime(1);
         let vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
@@ -88,8 +89,8 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.approve(xole.address, toWei(200000), {from: delegateAcc});
 
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100), lastbk.timestamp + WEEK, {from: proposeAccount});
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc});
+        await xole.create_lock(toWei(100), lastbk.timestamp + WEEK_4, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: delegateAcc});
         await xole.delegate(proposeAccount, {from: delegateAcc});
 
         let lastBlockNum = await web3.eth.getBlockNumber();
@@ -133,7 +134,7 @@ contract("GovernorAlphaTest", async accounts => {
         assert.equal("104368320000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
         // delegatorAcc withraw all
-        await advanceBlockAndSetTime(lastbk.timestamp + 2 * WEEK);
+        await advanceBlockAndSetTime(lastbk.timestamp + 2 * WEEK_4);
         await xole.withdraw({from: delegateAcc});
         assert.equal("104160000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
@@ -143,6 +144,28 @@ contract("GovernorAlphaTest", async accounts => {
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
     });
 
+    it('delegate vote to address 0', async () => {
+        await ole.mint(proposeAccount, toWei(300));
+        let delegateAcc = accounts[4];
+        await ole.mint(delegateAcc, toWei(200000));
+
+        await ole.approve(xole.address, toWei(300), {from: proposeAccount});
+        await ole.approve(xole.address, toWei(200000), {from: delegateAcc});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        await xole.create_lock(toWei(100), lastbk.timestamp + WEEK_4, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: delegateAcc});
+        await xole.delegate(zeroAddress, {from: delegateAcc});
+        let delegateAccVote = await xole.getCurrentVotes(delegateAcc);
+        assert.equal("0", delegateAccVote.toString());
+        let proposeAccountVote = await xole.getCurrentVotes(proposeAccount);
+        assert.equal("104160000000000000000", proposeAccountVote.toString());
+        await xole.delegate(proposeAccount, {from: delegateAcc});
+        delegateAccVote = await xole.getCurrentVotes(delegateAcc);
+        assert.equal("0", delegateAccVote.toString());
+        proposeAccountVote = await xole.getCurrentVotes(proposeAccount);
+        assert.equal("104264160000000000000000", proposeAccountVote.toString());
+    });
     it('delegate vote to other by more signatures', async () => {
         await ole.mint(proposeAccount, toWei(300));
         let delegateAcc1 = accounts[4];
@@ -156,9 +179,9 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.approve(xole.address, toWei(300000), {from: delegateAcc2});
 
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100), lastbk.timestamp + WEEK, {from: proposeAccount});
-        await xole.create_lock(toWei(200000), lastbk.timestamp + WEEK, {from: delegateAcc1});
-        await xole.create_lock(toWei(300000), lastbk.timestamp + WEEK, {from: delegateAcc2});
+        await xole.create_lock(toWei(100), lastbk.timestamp + WEEK_4, {from: proposeAccount});
+        await xole.create_lock(toWei(200000), lastbk.timestamp + WEEK_4, {from: delegateAcc1});
+        await xole.create_lock(toWei(300000), lastbk.timestamp + WEEK_4, {from: delegateAcc2});
 
         //delegate by sign
         const Domain = {
@@ -201,8 +224,8 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.approve(xole.address, toWei(100000), {from: delegateAcc});
 
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(2000), lastbk.timestamp + WEEK, {from: proposeAccount});
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc});
+        await xole.create_lock(toWei(2000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: delegateAcc});
         // await xole.delegate(proposeAccount, {from: delegateAcc});
 
         let lastBlockNum = await web3.eth.getBlockNumber();
@@ -246,9 +269,9 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.approve(xole.address, toWei(100000), {from: delegateAcc2});
 
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK, {from: proposeAccount});
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc1});
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: delegateAcc2});
+        await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: delegateAcc1});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: delegateAcc2});
 
         let lastBlockNum = await web3.eth.getBlockNumber();
         await advanceMultipleBlocksAndTime(1);
@@ -285,11 +308,11 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         //mint other
         await ole.mint(admin, toWei(500000));
         await ole.approve(xole.address, toWei(500000), {from: admin});
-        await xole.create_lock(toWei(500000), lastbk.timestamp + WEEK, {from: admin});
+        await xole.create_lock(toWei(500000), lastbk.timestamp + WEEK_4, {from: admin});
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
         //delay 1 block
         await ole.transfer(accounts[1], 0);
@@ -304,8 +327,8 @@ contract("GovernorAlphaTest", async accounts => {
 
     it('Propose to cancel', async () => {
         let lastbk = await web3.eth.getBlock('latest');
-        let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
-        m.log("Move time to start of the week", new Date(timeToMove));
+        let timeToMove = lastbk.timestamp + (WEEK_4 - lastbk.timestamp % WEEK_4);
+        m.log("Move time to start of the WEEK_4", new Date(timeToMove));
         await advanceBlockAndSetTime(timeToMove);
         await ole.mint(proposeAccount, toWei(240000));
         await ole.approve(xole.address, toWei(240000), {from: proposeAccount});
@@ -335,11 +358,11 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         //mint other
         await ole.mint(againsAccount, toWei(100001));
         await ole.approve(xole.address, toWei(100001), {from: againsAccount});
-        await xole.create_lock(toWei(100001), lastbk.timestamp + WEEK, {from: againsAccount});
+        await xole.create_lock(toWei(100001), lastbk.timestamp + WEEK_4, {from: againsAccount});
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
         //delay 1 block
         await ole.transfer(accounts[1], 0);
@@ -361,7 +384,7 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
         //delay 1 block
         await ole.transfer(accounts[1], 0);
@@ -388,7 +411,7 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount});
         //delay 1 block
         await ole.transfer(accounts[1], 0);
@@ -412,7 +435,7 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(100000));
         await ole.approve(xole.address, toWei(100000), {from: proposeAccount});
         let lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK, {from: proposeAccount});
+        await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         let pendingAdmin = accounts[7];
         await gov.propose([timelock.address], [0], ['setPendingAdmin(address)'], [web3.eth.abi.encodeParameters(['address'], [pendingAdmin])], 'proposal 1', {from: proposeAccount});
         //delay 1 block

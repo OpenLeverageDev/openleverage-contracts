@@ -19,8 +19,8 @@ contract("OLEToken", async accounts => {
     //approve
     await oleToken.approve(accounts[1], 1);
     // m.log("acc1 getPriorVotes  ", await oleToken.getPriorVotes(accounts[1], blockNum));
-    assert.equal("100000001000000000000000000", balanceOfAcc0.toString());
-    assert.equal("100000001000000000000000000", totalSupply.toString());
+    assert.equal("1000000001000000000000000000", balanceOfAcc0.toString());
+    assert.equal("1000000001000000000000000000", totalSupply.toString());
     // assert.equal("10000001000000000000000000", (await oleToken.getPriorVotes(accounts[1], blockNum)).toString());
     //burn
     await oleToken.burn("1000000000000000000");
@@ -28,8 +28,8 @@ contract("OLEToken", async accounts => {
     await oleToken.approve(accounts[1], 1);
     balanceOfAcc0 = await oleToken.balanceOf(accounts[0]);
     totalSupply = await oleToken.totalSupply();
-    assert.equal("100000000000000000000000000", balanceOfAcc0.toString());
-    assert.equal("100000000000000000000000000", totalSupply.toString());
+    assert.equal("1000000000000000000000000000", balanceOfAcc0.toString());
+    assert.equal("1000000000000000000000000000", totalSupply.toString());
     // m.log("acc1 getPriorVotes  ", await oleToken.getPriorVotes(accounts[1], blockNum));
     // assert.equal("10000000000000000000000000", (await oleToken.getPriorVotes(accounts[1], blockNum)).toString());
     //transfer
@@ -37,7 +37,7 @@ contract("OLEToken", async accounts => {
     await oleToken.transferFrom(accounts[0], accounts[1], 1, {
       from: accounts[1]
     });
-    assert.equal("100000000000000000000000000", (await oleToken.balanceOf(accounts[0])).toString());
+    assert.equal("1000000000000000000000000000", (await oleToken.balanceOf(accounts[0])).toString());
     assert.equal("1", (await oleToken.balanceOf(accounts[1])).toString());
 
   })

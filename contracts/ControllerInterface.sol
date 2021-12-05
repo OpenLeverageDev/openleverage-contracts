@@ -139,7 +139,7 @@ interface ControllerInterface {
 
     function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external;
 
-    function distributeExtraRewards2Market(uint marketId, bool isDistribution) external;
+    function distributeExtraRewards2Markets(uint[] memory marketIds, bool isDistribution) external;
 
     /***Distribution Functions ***/
 

@@ -106,6 +106,7 @@ exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) =
         depositTokens ? depositTokens : [],
         zeroAddr,
         xOLE,
+        [1,2],
         admin,
         delegate.address);
     return await OpenLevV1.at(openLev.address);

@@ -354,8 +354,10 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
             lpoolDistributions[LPoolInterface(pool)][isBorrowMore].duration, oleTokenDistribution.supplyBorrowBalance);
     }
 
-    function distributeExtraRewards2Market(uint marketId, bool isDistribution) external override onlyAdminOrDeveloper {
-        marketExtraDistribution[marketId] = isDistribution;
+    function distributeExtraRewards2Markets(uint[] memory marketIds, bool isDistribution) external override onlyAdminOrDeveloper {
+        for (uint i = 0; i < marketIds.length; i++) {
+            marketExtraDistribution[marketIds[i]] = isDistribution;
+        }
     }
 
     function setLPoolImplementation(address _lpoolImplementation) external override onlyAdmin {

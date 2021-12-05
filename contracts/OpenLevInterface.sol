@@ -9,6 +9,7 @@ import "./liquidity/LPoolInterface.sol";
 import "./ControllerInterface.sol";
 import "./dex/DexAggregatorInterface.sol";
 import "./OpenLevInterface.sol";
+import "./lib/DexData.sol";
 
 abstract contract OpenLevStorage {
     using SafeMath for uint;
@@ -41,13 +42,15 @@ abstract contract OpenLevStorage {
     mapping(uint16 => Types.Market) public markets;
 
     // owner => marketId => long0(true)/long1(false) => Trades
-    mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades; 
+    mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
     mapping(address => bool) public allowedDepositTokens;
 
     CalculateConfig internal calculateConfig;
 
     AddressConfig public addressConfig;
+
+    uint8[] public supportDexs;
 
     event MarginTrade(
         address trader,
@@ -133,7 +136,7 @@ interface OpenLevInterface {
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
-    function updatePrice(uint16 marketId,bytes memory dexData) external;
+    function updatePrice(uint16 marketId, bytes memory dexData) external;
 
     function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
 
@@ -152,6 +155,8 @@ interface OpenLevInterface {
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
     function setAllowedDepositTokens(address[] memory tokens, bool allowed) external;
+
+    function setSupportDexs(uint8[] memory _dexs) external;
 
 
 }

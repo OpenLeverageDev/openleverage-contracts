@@ -85,7 +85,7 @@ exports.tokenName = function (network) {
     case bscTestnet: 
       return "ELO";
     default:   
-      return "Open Leverage";
+      return "OpenLeverage";
   }
 }
 

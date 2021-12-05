@@ -137,7 +137,7 @@ contract("ControllerV1", async accounts => {
         let {controller, tokenA, tokenB, oleToken, pair, openLev} = await instanceController();
         await oleToken.mint(controller.address, utils.toWei(700));
         await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), 0, utils.toWei(100), 300, 0, 0);
-        await controller.distributeExtraRewards2Market(0, true);
+        await controller.distributeExtraRewards2Markets([0], true);
         let transaction = await createMarket(controller, tokenA, tokenB);
         let pool0 = transaction.logs[0].args.pool0;
         let pool1 = transaction.logs[0].args.pool1;
@@ -758,13 +758,14 @@ contract("ControllerV1", async accounts => {
         }
     });
 
-    it("Admin distributeExtraRewards2Market test", async () => {
+    it("Admin distributeExtraRewards2Markets test", async () => {
         let {controller, timeLock} = await instanceSimpleController();
-        await timeLock.executeTransaction(controller.address, 0, 'distributeExtraRewards2Market(uint256,bool)',
-            web3.eth.abi.encodeParameters(['uint256', 'bool'], [1, true]), 0)
+        await timeLock.executeTransaction(controller.address, 0, 'distributeExtraRewards2Markets(uint256[],bool)',
+            web3.eth.abi.encodeParameters(['uint256[]', 'bool'], [[1, 2], true]), 0)
         assert.equal(true, await controller.marketExtraDistribution(1));
+        assert.equal(true, await controller.marketExtraDistribution(2));
         try {
-            await controller.distributeExtraRewards2Market(1, true, {from: accounts[3]});
+            await controller.distributeExtraRewards2Markets([1], true, {from: accounts[3]});
             assert.fail("should thrown caller must be admin or developer error");
         } catch (error) {
             assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');

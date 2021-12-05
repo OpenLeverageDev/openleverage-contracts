@@ -34,7 +34,6 @@ contract Airdrop is Ownable {
     function newTranche(bytes32 merkleRoot, uint64 startTime, uint64 endTime, uint256 totalAmount) external onlyOwner
     {
         require(endTime > block.timestamp, 'Incorrect endtime');
-        token.safeTransferFrom(msg.sender, address(this), totalAmount);
         uint trancheId = trancheIdx;
         tranches[trancheId] = Tranche(merkleRoot, startTime, endTime, totalAmount, 0);
         trancheIdx = trancheIdx.add(1);

@@ -9,7 +9,6 @@ import "./OpenLevInterface.sol";
 import "./Types.sol";
 import "./Adminable.sol";
 import "./DelegateInterface.sol";
-import "./lib/DexData.sol";
 import "./ControllerInterface.sol";
 import "./IWETH.sol";
 import "./XOLEInterface.sol";
@@ -33,13 +32,15 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         DexAggregatorInterface _dexAggregator,
         address[] memory depositTokens,
         address _wETH,
-        address _xOLE
+        address _xOLE,
+        uint8[] memory _supportDexs
     ) public {
         require(msg.sender == admin, "NAD");
         addressConfig.controller = _controller;
         addressConfig.dexAggregator = _dexAggregator;
         addressConfig.wETH = _wETH;
         addressConfig.xOLE = _xOLE;
+        supportDexs = _supportDexs;
         setAllowedDepositTokensInternal(depositTokens, true);
         setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 300, 5, 60);
     }
@@ -69,7 +70,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         numPairs ++;
         // Init price oracle
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData);
+            updatePriceInternal(token0, token1, dexData);
         } else if (dex == DexData.DEX_UNIV3) {
             addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
         }
@@ -89,6 +90,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         Types.MarketVars memory vars = toMarketVar(marketId, longToken, true);
         verifyTrade(vars, marketId, longToken, depositToken, deposit, borrow, dexData);
         (ControllerInterface(addressConfig.controller)).marginTradeAllowed(marketId);
+        if (dexData.isUniV2Class()) {
+            updatePriceInternal(address(vars.buyToken), address(vars.sellToken), dexData);
+        }
         Types.TradeVars memory tv;
         tv.dexDetail = dexData.toDexDetail();
         // if deposit token is NOT the same as the long token
@@ -131,12 +135,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         trade.deposited = trade.deposited.add(tv.depositAfterFees);
         trade.held = trade.held.add(tv.newHeld);
         //verify
-        verifyOpenAfter(marketId, trade.held, vars, dexData);
+        require(isPositionHealthy(msg.sender, true, trade.held, vars, dexData), "PNH");
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.token0Price, tv.dexDetail);
     }
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
-        //verify
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
         //verify
@@ -180,8 +183,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             delete activeTrades[msg.sender][closeTradeVars.marketId][closeTradeVars.longToken];
         }
         closeTradeVars.token0Price = longToken ? closeTradeVars.sellAmount.mul(1e18).div(closeTradeVars.receiveAmount) : closeTradeVars.receiveAmount.mul(1e18).div(closeTradeVars.sellAmount);
-        //verify
-        verifyCloseAfter(marketId, address(marketVars.buyToken), address(marketVars.sellToken), dexData);
+        if (dexData.isUniV2Class()) {
+            updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
+        }
         emit TradeClosed(msg.sender, closeTradeVars.marketId, closeTradeVars.longToken, closeTradeVars.depositToken, closeAmount, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
             closeTradeVars.token0Price, closeTradeVars.dexDetail);
     }
@@ -190,6 +194,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     function liquidate(address owner, uint16 marketId, bool longToken, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
+        if (dexData.isUniV2Class()) {
+            updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
+        }
         //verify
         verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, marketVars.dexs, dexData.toDexDetail());
         //controller
@@ -248,9 +255,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
         liquidateVars.token0Price = longToken ? liquidateVars.sellAmount.mul(1e18).div(liquidateVars.receiveAmount) : liquidateVars.receiveAmount.mul(1e18).div(liquidateVars.sellAmount);
 
-        //verify
-        verifyLiquidateAfter(marketId, address(marketVars.buyToken), address(marketVars.sellToken), dexData);
-
         emit Liquidation(owner, liquidateVars.marketId, longToken, trade.depositToken, trade.held, liquidateVars.outstandingAmount, msg.sender,
             liquidateVars.depositDecrease, liquidateVars.depositReturn, liquidateVars.fees, liquidateVars.token0Price, liquidateVars.penalty, liquidateVars.dexDetail);
         delete activeTrades[owner][marketId][longToken];
@@ -299,7 +303,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     function updatePrice(uint16 marketId, bytes memory dexData) external override {
         Types.Market memory market = markets[marketId];
         bool shouldUpdate = shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData);
-        bool updateResult = updatePriceInternal(marketId, market.token0, market.token1, dexData);
+        bool updateResult = updatePriceInternal(market.token0, market.token1, dexData);
         if (updateResult) {
             //Discount
             markets[marketId].priceUpdater = tx.origin;
@@ -323,9 +327,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         return calculateConfig;
     }
 
-    function updatePriceInternal(uint16 marketId, address token0, address token1, bytes memory dexData) internal returns (bool){
-        // Shh - currently unused
-        marketId;
+    function updatePriceInternal(address token0, address token1, bytes memory dexData) internal returns (bool){
         return addressConfig.dexAggregator.updatePriceOracle(token0, token1, calculateConfig.twapDuration, dexData);
     }
 
@@ -554,6 +556,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         setAllowedDepositTokensInternal(tokens, allowed);
     }
 
+    function setSupportDexs(uint8[] memory dexs) external override onlyAdmin() {
+        require(dexs.length > 0, 'EPY');
+        supportDexs = dexs;
+    }
+
     function setAllowedDepositTokensInternal(address[] memory tokens, bool allowed) internal {
         for (uint i = 0; i < tokens.length; i++) {
             allowedDepositTokens[tokens[i]] = allowed;
@@ -586,23 +593,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
     }
 
-    function verifyOpenAfter(uint16 marketId, uint held, Types.MarketVars memory vars, bytes memory dexData) internal {
-        require(isPositionHealthy(msg.sender, true, held, vars, dexData), "PNH");
-        if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, address(vars.buyToken), address(vars.sellToken), dexData);
-        }
-    }
-
     function verifyCloseBefore(Types.Trade memory trade, Types.MarketVars memory vars, uint closeAmount, bytes memory dexData) internal view {
         verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, vars.dexs, dexData.toDexDetail());
         require(closeAmount <= trade.held, "CBH");
     }
 
-    function verifyCloseAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
-        if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData);
-        }
-    }
 
     function verifyCloseOrLiquidateBefore(uint held, uint lastBlockNumber, uint32[] memory dexs, uint32 dex) internal view {
         require(held != 0, "HI0");
@@ -610,14 +605,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         require(isInSupportDex(dexs, dex), "DNS");
     }
 
-    function verifyLiquidateAfter(uint16 marketId, address token0, address token1, bytes memory dexData) internal {
-        if (dexData.isUniV2Class()) {
-            updatePriceInternal(marketId, token0, token1, dexData);
-        }
-    }
 
-    function isSupportDex(uint8 dex) internal pure returns (bool){
-        return dex == DexData.DEX_UNIV3 || dex == DexData.DEX_UNIV2;
+    function isSupportDex(uint8 dex) internal view returns (bool supported){
+        for (uint i = 0; i < supportDexs.length; i++) {
+            if (supportDexs[i] == dex) {
+                supported = true;
+                break;
+            }
+        }
     }
 
     function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){

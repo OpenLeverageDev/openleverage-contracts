@@ -55,7 +55,7 @@ contract("OpenLev UniV3", async accounts => {
 
 
         let delegatee = await OpenLevV1.new();
-        openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, accounts[0], delegatee.address);
+        openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, [1, 2], accounts[0], delegatee.address);
         openLev = await OpenLevV1.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
         await controller.setOpenLev(openLev.address);
@@ -445,6 +445,19 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(true, await openLev.allowedDepositTokens(accounts[1]));
         try {
             await openLev.setAllowedDepositTokens([accounts[1]], true);
+            assert.fail("should thrown caller must be admin error");
+        } catch (error) {
+            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
+        }
+    })
+    it("Admin setSupportDexs test", async () => {
+        let {timeLock, openLev} = await instanceSimpleOpenLev();
+        await timeLock.executeTransaction(openLev.address, 0, 'setSupportDexs(uint8[])',
+            web3.eth.abi.encodeParameters(['uint8[]'], [[1, 2]]), 0);
+        assert.equal(1, await openLev.supportDexs(0));
+        assert.equal(2, await openLev.supportDexs(1));
+        try {
+            await openLev.setSupportDexs([1, 2]);
             assert.fail("should thrown caller must be admin error");
         } catch (error) {
             assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');

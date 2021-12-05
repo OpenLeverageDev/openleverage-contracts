@@ -45,7 +45,7 @@ contract("Airdrop", async accounts => {
         token = await TestToken.new("T", "T");
         airdrop = await Airdrop.new(token.address, {from: admin});
         await token.mint(admin, toWei(10000000));
-        await token.approve(airdrop.address, toWei(10000000));
+        await token.transfer(airdrop.address, toWei(10000000), {from: admin});
     });
     it("should claim successfully for valid proof", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
@@ -183,7 +183,7 @@ contract("Airdrop", async accounts => {
         await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
         await timeMachine.advanceTime(lastbk.timestamp + 10001);
         await airdrop.expireTranche(0);
-        assert.equal("9999980000000000000000000", (await token.balanceOf(admin)).toString());
+        assert.equal("55000000000000000000", (await token.balanceOf(admin)).toString());
     });
 
     it("should expire tranche error for not admin", async () => {
