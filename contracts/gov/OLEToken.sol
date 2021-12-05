@@ -19,7 +19,7 @@ contract OLEToken is Adminable {
     uint8 public constant decimals = 18;
 
     // Total number of tokens in circulation
-    uint public totalSupply = 100000000e18; // 100 million OLE
+    uint public totalSupply = 1000000000e18; // 1 billion OLE
 
     // Allowance amounts on behalf of others
     mapping(address => mapping(address => uint)) internal allowances;
