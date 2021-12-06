@@ -4,7 +4,7 @@ const {
     advanceBlockAndSetTime,
     unlockedAccount
 } = require("./utils/EtheUtil");
-const {toWei, createXOLE} = require("./utils/OpenLevUtil");
+const {toWei, createXOLE, assertThrows} = require("./utils/OpenLevUtil");
 
 const OLEToken = artifacts.require("OLEToken");
 const Timelock = artifacts.require("Timelock");
@@ -47,12 +47,8 @@ contract("GovernorAlphaTest", async accounts => {
 
 
     it('not enough votes to initiate a proposal', async () => {
-        try {
-            await gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount})
-            assert.equal("message", 'TokenTimeLock: not time to unlock');
-        } catch (error) {
-            assert.include(error.message, 'GovernorAlpha::propose: proposer votes below proposal threshold');
-        }
+        await assertThrows(gov.propose([tlAdmin.address], [0], ['changeDecimal(uint256)'], [web3.eth.abi.encodeParameters(['uint256'], [10])], 'proposal 1', {from: proposeAccount}),
+            'GovernorAlpha::propose: proposer votes below proposal threshold');
     });
 
 
@@ -71,12 +67,7 @@ contract("GovernorAlphaTest", async accounts => {
 
         await gov.castVote(1, true, {from: proposeAccount});
 
-        try {
-            await gov.castVote(1, false, {from: proposeAccount});
-            assert.equal("message", 'voter success');
-        } catch (error) {
-            assert.include(error.message, 'Voter already voted');
-        }
+        await assertThrows(gov.castVote(1, false, {from: proposeAccount}), 'Voter already voted');
 
     });
 
@@ -317,12 +308,7 @@ contract("GovernorAlphaTest", async accounts => {
         //delay 1 block
         await ole.transfer(accounts[1], 0);
         await gov.castVote(1, true, {from: proposeAccount});
-        try {
-            await gov.queue(1);
-            assert.equal("message", 'add queue success');
-        } catch (error) {
-            assert.include(error.message, 'GovernorAlpha::queue: proposal can only be queued if it is succeeded');
-        }
+        await assertThrows(gov.queue(1), 'GovernorAlpha::queue: proposal can only be queued if it is succeeded');
     });
 
     it('Propose to cancel', async () => {
@@ -392,12 +378,7 @@ contract("GovernorAlphaTest", async accounts => {
         await advanceMultipleBlocks(17280);
         await gov.queue(1);
         await timeMachine.advanceTime(15 * 24 * 60 * 60);
-        try {
-            await gov.execute(1);
-            assert.equal("message", 'add queue success');
-        } catch (error) {
-            assert.include(error.message, 'GovernorAlpha::execute: proposal can only be executed if it is queued.');
-        }
+        await assertThrows(gov.execute(1), 'GovernorAlpha::execute: proposal can only be executed if it is queued.');
 
     });
 

@@ -1,6 +1,6 @@
 const {toBN} = require("./utils/EtheUtil");
 
-const {toWei, lastBlockTime, toETH, firstStr} = require("./utils/OpenLevUtil");
+const {toWei, lastBlockTime, toETH, firstStr, assertThrows} = require("./utils/OpenLevUtil");
 const TimeLock = artifacts.require("OLETokenLock");
 const OLEToken = artifacts.require("OLEToken");
 
@@ -29,25 +29,14 @@ contract("OLETokenLock", async accounts => {
         let oleToken = await OLEToken.new(accounts[0], accounts[0], 'TEST', 'TEST');
         let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], ['1599372311'], [(parseInt(await lastBlockTime()))]);
         await oleToken.transfer(timeLock.address, toWei(100000));
-        try {
-            await timeLock.release(accounts[2]);
-            assert.equal("message", 'not time to unlock');
-        } catch (error) {
-            assert.include(error.message, 'beneficiary does not exist');
-        }
-
+        await assertThrows(timeLock.release(accounts[2]), 'beneficiary does not exist');
     });
 
     it("Cash withdrawal before start time:", async () => {
         let oleToken = await OLEToken.new(accounts[0], accounts[0], 'TEST', 'TEST');
-        let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], [(new Date().getTime() + 30000).toString().substr(0, 10)], [(parseInt(await lastBlockTime()) + 60000) + ""]);
+        let timeLock = await TimeLock.new(oleToken.address, [accounts[1]], [toWei(100000)], [(parseInt(await lastBlockTime()) + 30000).toString().substr(0, 10)], [(parseInt(await lastBlockTime()) + 60000) + ""]);
         await oleToken.transfer(timeLock.address, toWei(100000));
-        try {
-            await timeLock.release(accounts[1]);
-            assert.equal("message", 'not time to unlock');
-        } catch (error) {
-            assert.include(error.message, 'not time to unlock');
-        }
+        await assertThrows(timeLock.release(accounts[1]), 'not time to unlock');
 
     });
 
@@ -103,13 +92,7 @@ contract("OLETokenLock", async accounts => {
         await timeLock.release(accounts[1]);
         // comparison of results
         assert.equal(toWei(100000).toString(), (await oleToken.balanceOf(accounts[1])).toString());
-
-        try {
-            await timeLock.release(accounts[1]);
-            assert.equal("message", 'not time to unlock');
-        } catch (error) {
-            assert.include(error.message, 'no amount available');
-        }
+        await assertThrows(timeLock.release(accounts[1]), 'no amount available');
     });
 
 
@@ -139,12 +122,7 @@ contract("OLETokenLock", async accounts => {
             [parseInt(await lastBlockTime())], [parseInt(await lastBlockTime()) + 10000]);
         await oleToken.transfer(timeLock.address, toWei(100000));
         await timeMachine.advanceTime(5000);
-        try {
-            await timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[1]});
-            assert.fail("should thrown beneficiary does not exist error");
-        } catch (error) {
-            assert.include(error.message, 'beneficiary does not exist', 'throws exception with beneficiary does not exist');
-        }
+        await assertThrows(timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[3]}), 'beneficiary does not exist');
     });
 
     it("transfer to A  error with locked end test", async () => {
@@ -153,12 +131,7 @@ contract("OLETokenLock", async accounts => {
             [parseInt(await lastBlockTime())], [parseInt(await lastBlockTime()) + 1000]);
         await oleToken.transfer(timeLock.address, toWei(100000));
         await timeMachine.advanceTime(1001);
-        try {
-            await timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[1]});
-            assert.fail("should thrown locked end error");
-        } catch (error) {
-            assert.include(error.message, 'locked end', 'throws exception with locked end');
-        }
+        await assertThrows(timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[1]}), 'locked end');
     });
 
     it("transfer to a exit account error with to is exist test", async () => {
@@ -167,12 +140,8 @@ contract("OLETokenLock", async accounts => {
             [parseInt(await lastBlockTime()),parseInt(await lastBlockTime())], [parseInt(await lastBlockTime()) + 1000,parseInt(await lastBlockTime()) + 1000]);
         await oleToken.transfer(timeLock.address, toWei(200000));
         await timeMachine.advanceTime(10);
-        try {
-            await timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[1]});
-            assert.fail("should thrown to is exist error");
-        } catch (error) {
-            assert.include(error.message, 'to is exist', 'throws exception with to is exist');
-        }
+        await assertThrows(timeLock.transferTo(accounts[2], toWei(20000), {from: accounts[1]}), 'to is exist');
+
     });
     it("transfer to A succeed test", async () => {
         let oleToken = await OLEToken.new(accounts[0], accounts[0], 'TEST', 'TEST');

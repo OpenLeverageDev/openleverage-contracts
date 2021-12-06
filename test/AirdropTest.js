@@ -6,7 +6,7 @@ const Airdrop = artifacts.require("Airdrop");
 const TestToken = artifacts.require("MockERC20");
 
 const m = require('mocha-logger');
-const {toWei} = require("./utils/OpenLevUtil");
+const {toWei, assertThrows} = require("./utils/OpenLevUtil");
 const timeMachine = require('ganache-time-traveler');
 const {awrap} = require("truffle/build/926.bundled");
 
@@ -84,12 +84,7 @@ contract("Airdrop", async accounts => {
         let lastbk = await web3.eth.getBlock('latest');
         await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75));
         let accountIdx = 2;
-        try {
-            await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[1]));
-            assert.fail("should thrown Incorrect merkle proof error");
-        } catch (error) {
-            assert.include(error.message, 'Incorrect merkle proof', 'throws exception with Incorrect merkle proof');
-        }
+        await assertThrows(airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[1])), 'Incorrect merkle proof');
     });
     it("should claim error for incorrect account", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
@@ -97,12 +92,7 @@ contract("Airdrop", async accounts => {
         let lastbk = await web3.eth.getBlock('latest');
         await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75));
         let accountIdx = 2;
-        try {
-            await airdrop.claim(users[3].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[1]));
-            assert.fail("should thrown Incorrect merkle proof error");
-        } catch (error) {
-            assert.include(error.message, 'Incorrect merkle proof', 'throws exception with Incorrect merkle proof');
-        }
+        await assertThrows(airdrop.claim(users[3].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[1])), 'Incorrect merkle proof');
     });
     it("should claim error for incorrect amount", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
@@ -110,12 +100,7 @@ contract("Airdrop", async accounts => {
         let lastbk = await web3.eth.getBlock('latest');
         await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75));
         let accountIdx = 2;
-        try {
-            await airdrop.claim(users[accountIdx].address, 0, 1000000, merkleTree.getHexProof(leaves[1]));
-            assert.fail("should thrown Incorrect merkle proof error");
-        } catch (error) {
-            assert.include(error.message, 'Incorrect merkle proof', 'throws exception with Incorrect merkle proof');
-        }
+        await assertThrows(airdrop.claim(users[accountIdx].address, 0, 1000000, merkleTree.getHexProof(leaves[1])), 'Incorrect merkle proof');
     });
     it("should claim error for double claim", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
@@ -124,12 +109,7 @@ contract("Airdrop", async accounts => {
         await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75));
         let accountIdx = 2;
         await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
-        try {
-            await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
-            assert.fail("should thrown Already claimed error");
-        } catch (error) {
-            assert.include(error.message, 'Already claimed', 'throws exception with Already claimed');
-        }
+        await assertThrows(airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx])), 'Already claimed');
     });
 
     it("should claim error for expire claim", async () => {
@@ -139,12 +119,7 @@ contract("Airdrop", async accounts => {
         await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75));
         await timeMachine.advanceTime(lastbk.timestamp + 10001);
         let accountIdx = 2;
-        try {
-            await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
-            assert.fail("should thrown Expire error");
-        } catch (error) {
-            assert.include(error.message, 'Expire', 'throws exception with Expire');
-        }
+        await assertThrows(airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx])), 'Expire');
     });
     it("should claim error for not start claim", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
@@ -152,12 +127,8 @@ contract("Airdrop", async accounts => {
         let lastbk = await web3.eth.getBlock('latest');
         await airdrop.newTranche(root, lastbk.timestamp + 100, lastbk.timestamp + 10000, toWei(75));
         let accountIdx = 2;
-        try {
-            await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
-            assert.fail("should thrown Not Start error");
-        } catch (error) {
-            assert.include(error.message, 'Not Start', 'throws exception with Not Start');
-        }
+        await assertThrows(airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx])), 'Not Start');
+
     });
     it("should claim error for expire claim", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
@@ -166,12 +137,7 @@ contract("Airdrop", async accounts => {
         await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75));
         await timeMachine.advanceTime(lastbk.timestamp + 10001);
         let accountIdx = 2;
-        try {
-            await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
-            assert.fail("should thrown Expire error");
-        } catch (error) {
-            assert.include(error.message, 'Expire', 'throws exception with Expire');
-        }
+        await assertThrows(airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx])), 'Expire');
     });
 
     it("should expire tranche successfully", async () => {
@@ -194,23 +160,13 @@ contract("Airdrop", async accounts => {
         let accountIdx = 2;
         await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
         await timeMachine.advanceTime(lastbk.timestamp + 10001);
-        try {
-            await airdrop.expireTranche(0, {from: accounts[2]});
-            assert.fail("should thrown caller is not the owner error");
-        } catch (error) {
-            assert.include(error.message, 'caller is not the owner', 'throws exception with caller is not the owner');
-        }
+        await assertThrows(airdrop.expireTranche(0, {from: accounts[2]}), 'caller is not the owner');
     });
 
     it("should new tranche error for not admin", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
         const root = merkleTree.getHexRoot();
         let lastbk = await web3.eth.getBlock('latest');
-        try {
-            await airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75), {from: accounts[2]});
-            assert.fail("should thrown caller is not the owner error");
-        } catch (error) {
-            assert.include(error.message, 'caller is not the owner', 'throws exception with caller is not the owner');
-        }
+        await assertThrows(airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75), {from: accounts[2]}), 'caller is not the owner');
     });
 })

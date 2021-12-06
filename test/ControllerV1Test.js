@@ -3,7 +3,7 @@ const m = require('mocha-logger');
 const LPool = artifacts.require("LPool");
 const {advanceBlockAndSetTime, toBN} = require("./utils/EtheUtil");
 const timeMachine = require('ganache-time-traveler');
-const {mint, Uni3DexData} = require("./utils/OpenLevUtil");
+const {mint, Uni3DexData, assertThrows} = require("./utils/OpenLevUtil");
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 
@@ -38,23 +38,13 @@ contract("ControllerV1", async accounts => {
 
     it("create lpool pair failed with same token test", async () => {
         let {controller, tokenA, tokenB} = await instanceController();
-        try {
-            await createMarket(controller, tokenA, tokenB);
-            assert.fail("should thrown identical address error");
-        } catch (error) {
-            assert.include(error.message, 'identical address', 'throws exception with identical address.');
-        }
+        await assertThrows(createMarket(controller, tokenA, tokenA), 'identical address');
     });
 
     it("create lpool pair failed with pool exists test", async () => {
         let {controller, tokenA, tokenB} = await instanceController();
         await createMarket(controller, tokenA, tokenB);
-        try {
-            await createMarket(controller, tokenA, tokenB);
-            assert.fail("should thrown pool pair exists error");
-        } catch (error) {
-            assert.include(error.message, 'pool pair exists', 'throws exception pool pair exists.');
-        }
+        await assertThrows(createMarket(controller, tokenA, tokenB), 'pool pair exists');
     });
 
 
@@ -214,12 +204,8 @@ contract("ControllerV1", async accounts => {
     it("Distribution more by not enough balance test", async () => {
         let {controller, tokenA, tokenB, oleToken} = await instanceController();
         await oleToken.mint(controller.address, utils.toWei(700));
-        try {
-            await controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(200), 0, utils.toWei(4), 300, 0, 0);
-            assert.fail("should thrown not enough balance error");
-        } catch (error) {
-            assert.include(error.message, 'not enough balance', 'throws exception with not enough balance');
-        }
+        await assertThrows(controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(500), 0, utils.toWei(4), 300, 0, 0), 'not enough balance');
+
     });
 
     it("Get all supply distribution test", async () => {
@@ -613,12 +599,8 @@ contract("ControllerV1", async accounts => {
         await pool0Ctr.mint(utils.toWei(5));
         await token0Ctr.approve(openLev.address, utils.toWei(10));
         await controller.setSuspend(true);
-        try {
-            await openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData);
-            assert.fail("should thrown Suspended! error");
-        } catch (error) {
-            assert.include(error.message, 'Suspended', 'throws exception Suspended');
-        }
+        await assertThrows(openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData), 'Suspended');
+
     });
     /*** Admin Test ***/
 
@@ -627,12 +609,7 @@ contract("ControllerV1", async accounts => {
         let {controller, timeLock} = await instanceSimpleController();
         await timeLock.executeTransaction(controller.address, 0, 'setLPoolImplementation(address)', web3.eth.abi.encodeParameters(['address'], [poolAddr]), 0)
         assert.equal(poolAddr, await controller.lpoolImplementation());
-        try {
-            await controller.setLPoolImplementation(poolAddr);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(controller.setLPoolImplementation(poolAddr), 'caller must be admin');
     });
 
     it("Admin setOpenLev test", async () => {
@@ -640,12 +617,7 @@ contract("ControllerV1", async accounts => {
         let {controller, timeLock} = await instanceSimpleController();
         await timeLock.executeTransaction(controller.address, 0, 'setOpenLev(address)', web3.eth.abi.encodeParameters(['address'], [address]), 0);
         assert.equal(address, await controller.openLev());
-        try {
-            await controller.setOpenLev(address);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(controller.setOpenLev(address), 'caller must be admin');
     });
     it("Admin setInterestParam test", async () => {
         let {controller, timeLock} = await instanceSimpleController();
@@ -655,13 +627,7 @@ contract("ControllerV1", async accounts => {
         assert.equal(2, await controller.multiplierPerBlock());
         assert.equal(3, await controller.jumpMultiplierPerBlock());
         assert.equal(4, await controller.kink());
-
-        try {
-            await controller.setInterestParam(1, 2, 3, 4);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(controller.setInterestParam(1, 2, 3, 4), 'caller must be admin');
     });
 
     it("Admin setLPoolUnAllowed test", async () => {
@@ -669,47 +635,28 @@ contract("ControllerV1", async accounts => {
         let {controller, timeLock} = await instanceSimpleController();
         await timeLock.executeTransaction(controller.address, 0, 'setLPoolUnAllowed(address,bool)', web3.eth.abi.encodeParameters(['address', 'bool'], [address, true]), 0);
         assert.equal(true, (await controller.lpoolUnAlloweds(address)), {from: accounts[2]});
-        try {
-            await controller.setLPoolUnAllowed(address, true);
-            assert.fail("should thrown caller must be admin or developer error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
-        }
+        await assertThrows(controller.setLPoolUnAllowed(address, true, {from: accounts[2]}), 'caller must be admin or developer');
     });
 
     it("Admin setSuspend test", async () => {
         let {controller, timeLock} = await instanceSimpleController();
         await timeLock.executeTransaction(controller.address, 0, 'setSuspend(bool)', web3.eth.abi.encodeParameters(['bool'], [true]), 0);
         assert.equal(true, (await controller.suspend()));
-        try {
-            await controller.setSuspend(false, {from: accounts[2]});
-            assert.fail("should thrown caller must be admin or developer error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
-        }
+        await assertThrows(controller.setSuspend(false, {from: accounts[2]}), 'caller must be admin or developer');
     });
     it("Admin setMarketSuspend test", async () => {
         let {controller, timeLock} = await instanceSimpleController();
         await timeLock.executeTransaction(controller.address, 0, 'setMarketSuspend(uint256,bool)', web3.eth.abi.encodeParameters(['uint256', 'bool'], [1, true]), 0);
         assert.equal(true, (await controller.marketSuspend(1)), {from: accounts[2]});
-        try {
-            await controller.setMarketSuspend(1, true);
-            assert.fail("should thrown caller must be admin or developer error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
-        }
+        await assertThrows(controller.setMarketSuspend(1, true, {from: accounts[2]}), 'caller must be admin or developer');
     });
 
     it("Admin setOleWethDexData test", async () => {
         let {controller, timeLock} = await instanceSimpleController();
         await timeLock.executeTransaction(controller.address, 0, 'setOleWethDexData(bytes)', web3.eth.abi.encodeParameters(['bytes'], ["0x03"]), 0);
         assert.equal("0x03", (await controller.oleWethDexData()), {from: accounts[2]});
-        try {
-            await controller.setOleWethDexData("0x03");
-            assert.fail("should thrown caller must be admin or developer error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
-        }
+        await assertThrows(controller.setOleWethDexData("0x03", {from: accounts[2]}), 'caller must be admin or developer');
+
     });
 
     it("Admin setOLETokenDistribution test", async () => {
@@ -724,13 +671,8 @@ contract("ControllerV1", async accounts => {
         assert.equal(5, (await controller.oleTokenDistribution()).xoleRaiseRatio);
         assert.equal(6, (await controller.oleTokenDistribution()).xoleRaiseMinAmount);
         assert.equal(9, (await controller.oleTokenDistribution()).updatePricePer);
+        await assertThrows(controller.setOLETokenDistribution(1, 2, 9, 3, 4, 5, 6), 'caller must be admin');
 
-        try {
-            await controller.setOLETokenDistribution(1, 2, 9, 3, 4, 5, 6);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
     });
 
     it("Admin distributeRewards2Pool test", async () => {
@@ -743,12 +685,8 @@ contract("ControllerV1", async accounts => {
 
         await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2Pool(address,uint256,uint256,uint64,uint64)',
             web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256', 'uint64', 'uint64'], [address, 1, 2, 3797020800, 3897020800]), 0)
-        try {
-            await controller.distributeRewards2Pool(address, 1, 2, 3797020800, 3897020800);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(controller.distributeRewards2Pool(address, 1, 2, 3797020800, 3897020800), 'caller must be admin');
+
     });
 
     it("Admin distributeRewards2PoolMore test", async () => {
@@ -763,12 +701,8 @@ contract("ControllerV1", async accounts => {
         await timeMachine.advanceTime(10);
         await timeLock.executeTransaction(controller.address, 0, 'distributeRewards2PoolMore(address,uint256,uint256)',
             web3.eth.abi.encodeParameters(['address', 'uint256', 'uint256'], [address, 1, 2]), 0)
-        try {
-            await controller.distributeRewards2PoolMore(address, 1, 2);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(controller.distributeRewards2PoolMore(address, 1, 2), 'caller must be admin');
+
     });
 
     it("Admin distributeExtraRewards2Markets test", async () => {
@@ -777,12 +711,7 @@ contract("ControllerV1", async accounts => {
             web3.eth.abi.encodeParameters(['uint256[]', 'bool'], [[1, 2], true]), 0)
         assert.equal(true, await controller.marketExtraDistribution(1));
         assert.equal(true, await controller.marketExtraDistribution(2));
-        try {
-            await controller.distributeExtraRewards2Markets([1], true, {from: accounts[3]});
-            assert.fail("should thrown caller must be admin or developer error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin or developer', 'throws exception with caller must be admin or developer');
-        }
+        await assertThrows(controller.distributeExtraRewards2Markets([1], true, {from: accounts[3]}), 'caller must be admin or developer');
     });
 
     it("Admin setImplementation test", async () => {
@@ -792,12 +721,8 @@ contract("ControllerV1", async accounts => {
         await timeLock.executeTransaction(controller.address, 0, 'setImplementation(address)',
             web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
         assert.equal(instance.address, await controller.implementation());
-        try {
-            await controller.setImplementation(instance.address);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(controller.setImplementation(instance.address), 'caller must be admin');
+
     });
 
     async function createMarket(controller, token0, token1) {

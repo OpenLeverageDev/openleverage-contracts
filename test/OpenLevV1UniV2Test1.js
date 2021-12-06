@@ -4,7 +4,7 @@ const {
     checkAmount,
     printBlockNum,
     Uni2DexData,
-    assertPrint,
+    assertPrint, assertThrows,
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
@@ -140,13 +140,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("PriceData0: \t", JSON.stringify(priceData0));
         let borrow = utils.toWei(500);
         m.log("toBorrow from Pool 1: \t", borrow);
-        try {
-            await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
-            assert.fail("should thrown  PNH error");
-        } catch (error) {
-            assert.include(error.message, 'PNH', 'throws exception with  PNH');
-        }
-
+        await assertThrows(openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader}), 'PNH');
     })
     it("LONG Token0, Not Init Price ,60s later Succeed ", async () => {
         let pairId = 0;
@@ -327,12 +321,8 @@ contract("OpenLev UniV2", async accounts => {
         let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
         assert.equal(shouldUpatePrice, true);
         // should update price first
-        try {
-            await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
-            assert.fail("should thrown MPT error");
-        } catch (error) {
-            assert.include(error.message, 'MPT', 'throws exception with MPT');
-        }
+        await assertThrows(openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2}), 'MPT');
+
         await advanceMultipleBlocksAndTime(3000);
         await gotPair.sync();
         let priceData1 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
@@ -387,12 +377,7 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(shouldUpatePrice, true);
 
         // should update price first
-        try {
-            await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
-            assert.fail("should thrown  MPT error");
-        } catch (error) {
-            assert.include(error.message, 'MPT', 'throws exception with MPT');
-        }
+        await assertThrows(openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2}), 'MPT');
         await advanceMultipleBlocksAndTime(1000);
         let updatePriceTx = await openLev.updatePrice(pairId, Uni2DexData, {from: accounts[2]});
         m.log("V2 UpdatePrice Gas Used: ", updatePriceTx.receipt.gasUsed);

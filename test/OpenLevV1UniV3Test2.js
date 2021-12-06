@@ -5,7 +5,7 @@ const {
   checkAmount,
   printBlockNum,
   Uni3DexData,
-  assertPrint,
+  assertPrint, assertThrows,
 } = require("./utils/OpenLevUtil");
 const {toBN} = require("./utils/EtheUtil");
 const OpenLevDelegate = artifacts.require("OpenLevV1");
@@ -374,12 +374,6 @@ contract("OpenLev UniV3", async accounts => {
     let trade = await openLev.activeTrades(trader, 0, 0);
     // Close trade
     m.log("trade.deposit=", trade.deposited);
-    try {
-      await openLev.closeTrade(0, 0, trade.held, 0, Uni3DexData, {from: trader});
-      assert.fail("should thrown ERC20: transfer amount exceeds balance error");
-    } catch (error) {
-      assert.include(error.message, 'ERC20: transfer amount exceeds balance', 'throws exception with ERC20: transfer amount exceeds balance');
-    }
-
+    await assertThrows(openLev.closeTrade(0, 0, trade.held, 0, Uni3DexData, {from: trader}), 'ERC20: transfer amount exceeds balance');
   })
 })

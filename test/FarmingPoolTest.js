@@ -1,6 +1,6 @@
 const {toBN, maxUint, advanceBlockAndSetTime} = require("./utils/EtheUtil");
 
-const {toWei, toETH,} = require("./utils/OpenLevUtil");
+const {toWei, toETH, assertThrows,} = require("./utils/OpenLevUtil");
 
 
 const MockERC20 = artifacts.require("MockERC20");
@@ -201,63 +201,38 @@ contract("FarmingPools", async accounts => {
     });
 
     it("Not start test", async () => {
-        try {
-            let lastTs = (await web3.eth.getBlock('latest')).timestamp;
-            await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
-            await oleToken.mint(farmingPools.address, toWei(10000));
-            await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(20000), {from: admin});
-            await stakeToken1.mint(stakeAcc2, toWei(1000));
-            await stakeToken1.approve(farmingPools.address, toWei(1000), {from: stakeAcc2});
-            await farmingPools.stake(stakeToken1.address, toWei(1000), {from: stakeAcc2});
-            assert.fail("should thrown not start error");
-        } catch (error) {
-            assert.include(error.message, 'not start', 'throws exception with not start');
-        }
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
+        await oleToken.mint(farmingPools.address, toWei(10000));
+        await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(20000), {from: admin});
+        await stakeToken1.mint(stakeAcc2, toWei(1000));
+        await stakeToken1.approve(farmingPools.address, toWei(1000), {from: stakeAcc2});
+        await assertThrows(farmingPools.stake(stakeToken1.address, toWei(1000), {from: stakeAcc2}), 'not start');
     })
 
     it("Init once test", async () => {
-        try {
-            let lastTs = (await web3.eth.getBlock('latest')).timestamp;
-            await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
-            await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
-            assert.fail("should thrown Init once error");
-        } catch (error) {
-            assert.include(error.message, 'Init once', 'throws exception with Init once');
-        }
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
+        await assertThrows(farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]), 'Init once');
     })
 
     // Admin Test
     it("Admin initDistributions test", async () => {
-        try {
-            let lastTs = (await web3.eth.getBlock('latest')).timestamp;
-            await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1], {from: stakeAcc1});
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        await assertThrows(farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1], {from: stakeAcc1}), 'caller must be admin');
     })
 
     it("Admin notifyRewardAmount test", async () => {
-        try {
-            let lastTs = (await web3.eth.getBlock('latest')).timestamp;
-            await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
-            await oleToken.mint(farmingPools.address, toWei(10000));
-            await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(20000), {from: stakeAcc1});
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
+        await oleToken.mint(farmingPools.address, toWei(10000));
+        await assertThrows(farmingPools.notifyRewardAmount(stakeToken1.address, toWei(20000), {from: stakeAcc1}), 'caller must be admin');
     })
     it("Admin notifyRewardAmounts test", async () => {
-        try {
-            let lastTs = (await web3.eth.getBlock('latest')).timestamp;
-            await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
-            await oleToken.mint(farmingPools.address, toWei(10000));
-            await farmingPools.notifyRewardAmounts([stakeToken1.address], [toWei(20000)], {from: stakeAcc1});
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
+        await oleToken.mint(farmingPools.address, toWei(10000));
+        await assertThrows(farmingPools.notifyRewardAmounts([stakeToken1.address], [toWei(20000)], {from: stakeAcc1}), 'caller must be admin');
     })
 
     function scaleEth(w, s) {

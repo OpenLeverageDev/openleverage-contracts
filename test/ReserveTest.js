@@ -1,6 +1,6 @@
 const Reserve = artifacts.require("Reserve");
 const OLEToken = artifacts.require("OLEToken");
-const {toWei} = require("./utils/OpenLevUtil");
+const {toWei, assertThrows, Uni3DexData} = require("./utils/OpenLevUtil");
 
 contract("Reserve", async accounts => {
 
@@ -16,12 +16,8 @@ contract("Reserve", async accounts => {
         await reserve.transfer(user, toWei(10), {from: admin});
         assert.equal(toWei(10).toString(), await oleToken.balanceOf(user));
         assert.equal(toWei(90).toString(), await oleToken.balanceOf(reserve.address));
-        try {
-            await reserve.transfer(user, toWei(10), {from: user});
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(reserve.transfer(user, toWei(10), {from: user}), 'caller must be admin');
+
     })
 
 })

@@ -4,7 +4,7 @@ const {
     checkAmount,
     printBlockNum,
     Uni2DexData,
-    assertPrint,
+    assertPrint, assertThrows,
 } = require("./utils/OpenLevUtil");
 const TestToken = artifacts.require("MockERC20");
 const m = require('mocha-logger');
@@ -46,13 +46,13 @@ contract("DexAggregator BSC", async accounts => {
     it("calulate Buy Amount", async () => {
         let swapIn = 1;
         r = await dexAgg.calBuyAmount(token1.address, token0.address, utils.toWei(swapIn), utils.PancakeDexData);
-        assert.equal(r, "997990040059400207", "sell exact amount");
+        assert.equal(r.toString(), "997490050036750883", "sell exact amount");
     })
 
     it("calulate Sell Amount", async () => {
         let swapOut = 1;
         r = await dexAgg.calSellAmount(token1.address, token0.address, utils.toWei(swapOut), utils.PancakeDexData);
-        assert.equal(r, "1002014028156313628", "buy exact amount");
+        assert.equal(r.toString(), "1002516290827068672", "buy exact amount");
     })
 
     it("get Price", async () => {
@@ -65,14 +65,14 @@ contract("DexAggregator BSC", async accounts => {
     it("sell exact amount", async () => {
         let swapIn = 1;
         let swapper = accounts[1];
-        let minOut = "997990040059400207";
+        let minOut = "997490050036750883";
 
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
 
         r = await dexAgg.sell(token1.address, token0.address, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper});     
         m.log("sell exact amount Gas Used:", r.receipt.gasUsed);
-        assert.equal(await token1.balanceOf(swapper), "997990040059400207", "sell exact amount");
+        assert.equal(await token1.balanceOf(swapper), "997490050036750883", "sell exact amount");
     })
 
     it ("sell exact amount, but over slippage", async () =>{
@@ -82,21 +82,14 @@ contract("DexAggregator BSC", async accounts => {
 
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
-
-        try {
-            r = await dexAgg.sell(token1.address, token0.address, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper});
-            assert.fail("should thrown revert buy amount less than min");
-        } catch (error) {
-            assert.include(error.message, 'buy amount less than min', 'throws an unexpected error');
-        }
-
+        await assertThrows(dexAgg.sell(token1.address, token0.address, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper}), 'buy amount less than min');
         assert.equal(await token1.balanceOf(swapper), "0", "sell exact amount, but failed");
     })
 
     it("sell exact amount through path", async () => {
         let swapIn = 1;
         let swapper = accounts[1];
-        let minOut = "997990040059400207";
+        let minOut = "997490050036750883";
 
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
@@ -104,32 +97,24 @@ contract("DexAggregator BSC", async accounts => {
         let path = utils.PancakeDexData + token0.address.slice(2) + token1.address.slice(2);
         r = await dexAgg.sellMul(utils.toWei(swapIn), minOut, path, {from: swapper});     
         m.log("sell exact amount through path Gas Used:", r.receipt.gasUsed);
-        assert.equal(await token1.balanceOf(swapper), "997990040059400207", "sell exact amount failed");
+        assert.equal(await token1.balanceOf(swapper), "997490050036750883", "sell exact amount failed");
     })
 
     it("sell exact amount through path. but over slippage", async () => {
         let swapIn = 1;
         let swapper = accounts[1];
         let minOut = "997990040059400208";
-
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
-
-        try {
-            let path = utils.PancakeDexData + token0.address.slice(2) + token1.address.slice(2);
-            r = await dexAgg.sellMul(utils.toWei(swapIn), minOut, path, {from: swapper}); 
-            assert.fail("should thrown revert buy amount less than min");
-        } catch (error) {
-            assert.include(error.message, ' buy amount less than min', 'throws an unexpected error');
-        }
-
+        let path = utils.PancakeDexData + token0.address.slice(2) + token1.address.slice(2);
+        await assertThrows(dexAgg.sellMul(utils.toWei(swapIn), minOut, path, {from: swapper}), 'buy amount less than min');
         assert.equal(await token1.balanceOf(swapper), "0", "sell exact amount failed");
     })
 
     it("buy exact amount", async () => {
         let swapOut = 1;
         let swapper = accounts[1];
-        let maxIn = "1002014028156313628";
+        let maxIn = "1002516290827068672";
 
         await utils.mint(token0, swapper, 2);
         await token0.approve(dexAgg.address, maxIn, {from: swapper});
@@ -146,14 +131,7 @@ contract("DexAggregator BSC", async accounts => {
 
         await utils.mint(token0, swapper, 2);
         await token0.approve(dexAgg.address, maxIn, {from: swapper});
-
-        try {
-            r = await dexAgg.buy(token1.address, token0.address, utils.toWei(swapOut), maxIn, utils.PancakeDexData, {from: swapper});     
-            assert.fail("should thrown revert sell amount not enough");
-        } catch (error) {
-            assert.include(error.message, 'sell amount not enough', 'throws an unexpected error');
-        }
-
+        await assertThrows(dexAgg.buy(token1.address, token0.address, utils.toWei(swapOut), maxIn, utils.PancakeDexData, {from: swapper}), 'sell amount not enough');
         m.log(utils.toWei(2), await token0.balanceOf(swapper));
         assert.equal(await token1.balanceOf(swapper), "0", "buy exact amount, but failed");
     })

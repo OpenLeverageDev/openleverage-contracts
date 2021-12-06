@@ -44,7 +44,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             supportDexs[_supportDexs[i]] = true;
         }
         setAllowedDepositTokensInternal(depositTokens, true);
-        setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 300, 5, 60);
+        setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 500, 5, 60);
     }
 
     function addMarket(
@@ -525,7 +525,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
 
     function setAddressConfig(address controller,
-        DexAggregatorInterface dexAggregator) external override {
+        DexAggregatorInterface dexAggregator) external override onlyAdmin(){
         require(controller != address(0) && address(dexAggregator) != address(0), 'CD0');
         addressConfig.controller = controller;
         addressConfig.dexAggregator = dexAggregator;

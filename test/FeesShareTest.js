@@ -10,7 +10,7 @@ const {
     Uni2DexData,
     addressToBytes,
     step,
-    resetStep
+    resetStep, assertThrows
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocksAndTime, toBN, advanceBlockAndSetTime} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
@@ -139,14 +139,8 @@ contract("XOLE", async accounts => {
         m.log("totalRewarded:", await xole.totalRewarded());
         m.log("withdrewReward:", await xole.withdrewReward());
         m.log("devFund:", await xole.devFund());
+        await assertThrows(xole.convertToSharingToken(toWei(1), 0, '0x'), 'Exceed OLE balance');
 
-
-        try {
-            await xole.convertToSharingToken(toWei(1), 0, '0x');
-            assert.fail("should thrown Exceed available balance error");
-        } catch (error) {
-            assert.include(error.message, 'Exceed OLE balance', 'throws exception with Exceed available balance');
-        }
     })
 
     it("Convert Sharing Token correct", async () => {
@@ -184,12 +178,8 @@ contract("XOLE", async accounts => {
         assert.equal('987158034397061298850', (await xole.totalRewarded()).toString());
 
         //Exceed available balance
-        try {
-            await xole.convertToSharingToken(toWei(1001), 0, usdtOLEDexData);
-            assert.fail("should thrown Exceed available balance error");
-        } catch (error) {
-            assert.include(error.message, 'Exceed available balance', 'throws exception with Exceed available balance');
-        }
+        await assertThrows(xole.convertToSharingToken(toWei(20001), 0, usdtOLEDexData), 'Exceed available balance');
+
     })
     it("Convert DAI to USDT", async () => {
         await dai.mint(xole.address, toWei(1000));
@@ -474,12 +464,8 @@ contract("XOLE", async accounts => {
         await timeLock.executeTransaction(xole0.address, 0, 'setDevFundRatio(uint256)',
             web3.eth.abi.encodeParameters(['uint256'], [1]), 0)
         assert.equal(1, await xole0.devFundRatio());
-        try {
-            await xole0.setDevFundRatio(1);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(xole0.setDevFundRatio(1), 'caller must be admin');
+
     })
 
     it("Admin setDev test", async () => {
@@ -489,14 +475,13 @@ contract("XOLE", async accounts => {
         await timeLock.executeTransaction(xole0.address, 0, 'setDev(address)',
             web3.eth.abi.encodeParameters(['address'], [newDev]), 0)
         assert.equal(newDev, await xole0.dev());
-        try {
-            await xole0.setDev(newDev);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(xole0.setDev(newDev), 'caller must be admin');
+
     })
 
+    it("Admin convertToSharingToken test", async () => {
+        await assertThrows(xole.convertToSharingToken(toWei(1), 0, daiOLEDexData, {from: accounts[3]}), 'caller must be admin or developer');
+    })
     it("Admin setImplementation test", async () => {
         let timeLock = await utils.createTimelock(admin);
         let xole0 = await utils.createXOLE(ole.address, timeLock.address, dev, dexAgg.address, accounts[0]);
@@ -505,11 +490,6 @@ contract("XOLE", async accounts => {
         await timeLock.executeTransaction(xole0.address, 0, 'setImplementation(address)',
             web3.eth.abi.encodeParameters(['address'], [instance]), 0)
         assert.equal(instance, await xole0.implementation());
-        try {
-            await xole0.setImplementation(instance);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(xole0.setImplementation(instance), 'caller must be admin');
     });
 })

@@ -5,7 +5,7 @@ const {
     checkAmount,
     printBlockNum,
     Uni3DexData,
-    assertPrint,
+    assertPrint, assertThrows, Uni2DexData,
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocks, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
@@ -297,12 +297,7 @@ contract("OpenLev UniV3", async accounts => {
         await dexAgg.sell(token1.address, token0.address, utils.toWei(108000), 0, Uni3DexData, {from: saver});
         await gotPair.setPreviousPrice(token0.address, token1.address, 10);
         m.log("Liquidating trade ... ");
-        try {
-            await openLev.liquidate(trader, 0, 0, utils.maxUint(), Uni3DexData, {from: liquidator2});
-            assert.fail("should thrown MPT error");
-        } catch (error) {
-            assert.include(error.message, 'MPT', 'throws exception with MPT');
-        }
+        await assertThrows(openLev.liquidate(trader, 0, 0, utils.maxUint(), Uni3DexData, {from: liquidator2}), 'MPT');
         await gotPair.setPreviousPrice(token0.address, token1.address, 1);
         let priceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 25, Uni3DexData);
         m.log("priceData: \t", JSON.stringify(priceData));
@@ -395,13 +390,7 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(8, calculateConfig.penaltyRatio);
         assert.equal(9, calculateConfig.maxLiquidationPriceDiffientRatio);
         assert.equal(10, calculateConfig.twapDuration);
-
-        try {
-            await openLev.setCalculateConfig(1, 2, 3, 4, 7, 5, 6, 8, 9, 10);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.setCalculateConfig(1, 2, 3, 4, 7, 5, 6, 8, 9, 10), 'caller must be admin');
     })
 
     it("Admin setAddressConfig test", async () => {
@@ -411,12 +400,7 @@ contract("OpenLev UniV3", async accounts => {
         let addressConfig = await openLev.addressConfig();
         assert.equal(accounts[0], addressConfig.controller);
         assert.equal(accounts[1], addressConfig.dexAggregator);
-        try {
-            await openLev.setAddressConfig(accounts[0], accounts[1]);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.setAddressConfig(accounts[0], accounts[1]), 'caller must be admin');
     })
 
     it("Admin setMarketConfig test", async () => {
@@ -429,12 +413,8 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(4, market.priceDiffientRatio);
         let dexes = await openLev.getMarketSupportDexs(1);
         assert.equal(1, dexes[0]);
-        try {
-            await openLev.setMarketConfig(1, 2, 3, 4, [1]);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.setMarketConfig(1, 2, 3, 4, [1]), 'caller must be admin');
+
     })
 
 
@@ -443,24 +423,15 @@ contract("OpenLev UniV3", async accounts => {
         await timeLock.executeTransaction(openLev.address, 0, 'setAllowedDepositTokens(address[],bool)',
             web3.eth.abi.encodeParameters(['address[]', 'bool'], [[accounts[1]], true]), 0)
         assert.equal(true, await openLev.allowedDepositTokens(accounts[1]));
-        try {
-            await openLev.setAllowedDepositTokens([accounts[1]], true);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.setAllowedDepositTokens([accounts[1]], true), 'caller must be admin');
+
     })
     it("Admin setSupportDexs test", async () => {
         let {timeLock, openLev} = await instanceSimpleOpenLev();
         await timeLock.executeTransaction(openLev.address, 0, 'setSupportDex(uint8,bool)',
             web3.eth.abi.encodeParameters(['uint8', 'bool'], [1, true]), 0);
         assert.equal(true, await openLev.supportDexs(1));
-        try {
-            await openLev.setSupportDex(1, true);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.setSupportDex(1, true), 'caller must be admin');
     })
 
     it("Admin moveInsurance test", async () => {
@@ -492,12 +463,8 @@ contract("OpenLev UniV3", async accounts => {
 
         assert.equal("0", (await openLev.markets(pairId)).pool1Insurance);
         assert.equal(pool1Insurance, (await token1.balanceOf(accounts[5])).toString());
-        try {
-            await openLev.moveInsurance(pairId, 1, accounts[5], pool1Insurance);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.moveInsurance(pairId, 1, accounts[5], pool1Insurance), 'caller must be admin');
+
     })
 
     it("Admin setImplementation test", async () => {
@@ -507,12 +474,7 @@ contract("OpenLev UniV3", async accounts => {
         await timeLock.executeTransaction(openLev.address, 0, 'setImplementation(address)',
             web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
         assert.equal(instance.address, await openLev.implementation());
-        try {
-            await openLev.setImplementation(instance.address);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(openLev.setImplementation(instance.address), 'caller must be admin');
     });
 
     async function instanceSimpleOpenLev() {

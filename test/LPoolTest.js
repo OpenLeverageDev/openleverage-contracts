@@ -1,5 +1,5 @@
 const utils = require("./utils/OpenLevUtil");
-const {toWei, assertPrint} = require("./utils/OpenLevUtil");
+const {toWei, assertPrint, assertThrows} = require("./utils/OpenLevUtil");
 
 const {toBN, maxUint, advanceMultipleBlocks} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
@@ -179,37 +179,33 @@ contract("LPoolDelegator", async accounts => {
         let maxBorrow = await erc20Pool.availableForBorrow();
         m.log('maxBorrow', maxBorrow.toString());
         //Maximum borrowing amount + 1
-        try {
-            await erc20Pool.borrowBehalf(accounts[0], maxBorrow.add(toBN('1')));
-            assert.fail("should thrown Borrow out of range error");
-        } catch (error) {
-            assert.include(error.message, 'Borrow out of range', 'throws exception with Borrow out of range');
-        }
+        await assertThrows(erc20Pool.borrowBehalf(accounts[0], maxBorrow.add(toBN('1'))), 'Borrow out of range');
+
     }),
 
-    it("mint redeem eth test", async () => {
-        let weth = await utils.createWETH();
-        let controller = await utils.createController(accounts[0]);
-        let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
-        let erc20Pool = createPoolResult.pool;
-        let mintAmount = toWei(1);
-        //deposit 1
-        let ethBegin = await web3.eth.getBalance(admin);
-        m.log("ethBegin=", ethBegin);
-        let tx = await erc20Pool.mintEth({value: mintAmount});
-        m.log("MintEth Gas Used: ", tx.receipt.gasUsed);
-        assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
-        assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
-        //redeem
-        let ethBefore = await web3.eth.getBalance(admin);
-        await erc20Pool.redeemUnderlying(mintAmount);
-        assert.equal(await erc20Pool.getCash(), 0);
-        assert.equal(await erc20Pool.totalSupply(), 0);
-        let ethAfter = await web3.eth.getBalance(admin);
-        m.log("ethBefore=", ethBefore);
-        m.log("ethAfter=", ethAfter);
-        assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
-    })
+        it("mint redeem eth test", async () => {
+            let weth = await utils.createWETH();
+            let controller = await utils.createController(accounts[0]);
+            let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
+            let erc20Pool = createPoolResult.pool;
+            let mintAmount = toWei(1);
+            //deposit 1
+            let ethBegin = await web3.eth.getBalance(admin);
+            m.log("ethBegin=", ethBegin);
+            let tx = await erc20Pool.mintEth({value: mintAmount});
+            m.log("MintEth Gas Used: ", tx.receipt.gasUsed);
+            assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
+            assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
+            //redeem
+            let ethBefore = await web3.eth.getBalance(admin);
+            await erc20Pool.redeemUnderlying(mintAmount);
+            assert.equal(await erc20Pool.getCash(), 0);
+            assert.equal(await erc20Pool.totalSupply(), 0);
+            let ethAfter = await web3.eth.getBalance(admin);
+            m.log("ethBefore=", ethBefore);
+            m.log("ethAfter=", ethAfter);
+            assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
+        })
     it("Depositor deposit eth redeem test", async () => {
         let weth = await utils.createWETH();
         let controller = await utils.createController(accounts[0]);
@@ -264,12 +260,7 @@ contract("LPoolDelegator", async accounts => {
         //deposit 10000
         await testToken.approve(erc20Pool.address, maxUint());
         controller.setLPoolUnAllowed(await erc20Pool.address, true);
-        try {
-            await erc20Pool.mint(10000 * 1e10);
-            assert.fail("should thrown LPool paused error");
-        } catch (error) {
-            assert.include(error.message, 'LPool paused', 'throws exception with LPool paused');
-        }
+        await assertThrows(erc20Pool.mint(10000 * 1e10), 'LPool paused');
     }),
         it("pool change admin test", async () => {
             let controller = await utils.createController(accounts[0]);
@@ -419,12 +410,7 @@ contract("LPoolDelegator", async accounts => {
         await timeLock.executeTransaction(erc20Pool.address, 0, 'setController(address)',
             web3.eth.abi.encodeParameters(['address'], [newController.address]), 0)
         assert.equal(newController.address, await erc20Pool.controller());
-        try {
-            await erc20Pool.setController(newController.address);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(erc20Pool.setController(newController.address), 'caller must be admin');
     })
 
     it("Admin setBorrowCapFactorMantissa test", async () => {
@@ -436,12 +422,8 @@ contract("LPoolDelegator", async accounts => {
         await timeLock.executeTransaction(erc20Pool.address, 0, 'setBorrowCapFactorMantissa(uint256)',
             web3.eth.abi.encodeParameters(['uint256'], [1]), 0)
         assert.equal(1, await erc20Pool.borrowCapFactorMantissa());
-        try {
-            await erc20Pool.setBorrowCapFactorMantissa(1);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows(erc20Pool.setBorrowCapFactorMantissa(1), 'caller must be admin');
+
     })
 
     it("Admin setInterestParams test", async () => {
@@ -456,14 +438,7 @@ contract("LPoolDelegator", async accounts => {
         assert.equal(1, await erc20Pool.multiplierPerBlock());
         assert.equal(2, await erc20Pool.jumpMultiplierPerBlock());
         assert.equal(3, await erc20Pool.kink());
-
-        try {
-            await erc20Pool.setInterestParams(0, 1, 2, 3);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
-
+        await assertThrows(erc20Pool.setInterestParams(0, 1, 2, 3), 'caller must be admin');
     })
 
     it("Admin setReserveFactor test", async () => {
@@ -475,13 +450,7 @@ contract("LPoolDelegator", async accounts => {
         await timeLock.executeTransaction(erc20Pool.address, 0, 'setReserveFactor(uint256)',
             web3.eth.abi.encodeParameters(['uint256'], [3]), 0)
         assert.equal(3, await erc20Pool.reserveFactorMantissa());
-        try {
-            await erc20Pool.setReserveFactor(3);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
-
+        await assertThrows(erc20Pool.setReserveFactor(3), 'caller must be admin');
     })
 
     it("Admin reduceReserves test", async () => {
@@ -492,13 +461,7 @@ contract("LPoolDelegator", async accounts => {
 
         await timeLock.executeTransaction(erc20Pool.address, 0, 'reduceReserves(address,uint256)',
             web3.eth.abi.encodeParameters(['address', 'uint256'], [accounts[1], 0]), 0)
-        try {
-            await erc20Pool.reduceReserves(accounts[1], 0);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
-
+        await assertThrows(erc20Pool.reduceReserves(accounts[1], 0), 'caller must be admin');
     })
 
     it("Admin setImplementation test", async () => {
@@ -510,12 +473,7 @@ contract("LPoolDelegator", async accounts => {
         await timeLock.executeTransaction(erc20Pool.address, 0, 'setImplementation(address)',
             web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
         assert.equal(instance.address, await erc20Pool.implementation());
-        try {
-            await (await LPoolDelegator.at(erc20Pool.address)).setImplementation(instance.address);
-            assert.fail("should thrown caller must be admin error");
-        } catch (error) {
-            assert.include(error.message, 'caller must be admin', 'throws exception with caller must be admin');
-        }
+        await assertThrows((await LPoolDelegator.at(erc20Pool.address)).setImplementation(instance.address), 'caller must be admin');
     });
 
 })
