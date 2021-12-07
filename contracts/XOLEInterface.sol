@@ -135,6 +135,15 @@ contract XOLEStorage {
         address paidTo,
         uint256 amount
     );
+
+    event FailedDelegateBySig(
+        address indexed delegatee,
+        uint indexed nonce, 
+        uint expiry,
+        uint8 v, 
+        bytes32 r, 
+        bytes32 s
+    );
 }
 
 
