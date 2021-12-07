@@ -167,14 +167,11 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         totalSupply = totalSupply.add(amount);
         balances[account] = balances[account].add(amount);
         emit Transfer(address(0), account, amount);
-
         if (delegates[account] == address(0)) {
             delegates[account] = account;
         }
         _moveDelegates(address(0), delegates[account], amount);
-        uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
-        totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
-        totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
+        _updateTotalSupplyCheckPoints();
     }
 
     function _burn(address account) internal {
@@ -183,6 +180,10 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         balances[account] = 0;
         emit Transfer(account, address(0), burnAmount);
         _moveDelegates(delegates[account], address(0), burnAmount);
+        _updateTotalSupplyCheckPoints();
+    }
+
+    function _updateTotalSupplyCheckPoints() internal {
         uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
         totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
         totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
@@ -333,6 +334,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
  * @param delegatee The address to delegate votes to
  */
     function delegate(address delegatee) public {
+        nonces[msg.sender]++;
         return _delegate(msg.sender, delegatee);
     }
 
@@ -421,12 +423,11 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     }
 
     function _delegate(address delegator, address delegatee) internal {
+        require(delegatee != address(0), 'delegatee:0x');
         address currentDelegate = delegates[delegator];
         uint delegatorBalance = balances[delegator];
         delegates[delegator] = delegatee;
-
         emit DelegateChanged(delegator, currentDelegate, delegatee);
-
         _moveDelegates(currentDelegate, delegatee, delegatorBalance);
     }
 

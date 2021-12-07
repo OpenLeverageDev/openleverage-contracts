@@ -114,18 +114,21 @@ contract("GovernorAlphaTest", async accounts => {
         };
         const {v, r, s} = EIP712.sign(Domain, 'Delegation', {
             delegatee: proposeAccount,
-            nonce: 0,
+            nonce: 2,
             expiry: 10e9
         }, Types, "0x08c0b9cfd6bf5a970a26456bf5db7b46d22d91f406f64931cde609f457fa0b29");
-        await xole.delegateBySig(proposeAccount, 0, 10e9, v, r, s);
+        await xole.delegateBySig(proposeAccount, 2, 10e9, v, r, s);
         assert.equal("104264160000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
         // delegatorAcc lock more
         await xole.increase_amount(toWei(100), {from: delegateAcc});
         assert.equal("104368320000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
+        await xole.increase_unlock_time(lastbk.timestamp + 4 * WEEK_4, {from: delegateAcc});
+        assert.equal("129353280000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
+        assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
         // delegatorAcc withraw all
-        await advanceBlockAndSetTime(lastbk.timestamp + 2 * WEEK_4);
+        await advanceBlockAndSetTime(lastbk.timestamp + 4 * WEEK_4);
         await xole.withdraw({from: delegateAcc});
         assert.equal("104160000000000000000", (await xole.getCurrentVotes(proposeAccount)).toString());
         assert.equal("0", (await xole.getCurrentVotes(delegateAcc)).toString());
@@ -146,16 +149,17 @@ contract("GovernorAlphaTest", async accounts => {
         let lastbk = await web3.eth.getBlock('latest');
         await xole.create_lock(toWei(100), lastbk.timestamp + WEEK_4, {from: proposeAccount});
         await xole.create_lock(toWei(100000), lastbk.timestamp + WEEK_4, {from: delegateAcc});
-        await xole.delegate(zeroAddress, {from: delegateAcc});
+        await assertThrows(xole.delegate(zeroAddress, {from: delegateAcc}),'delegatee:0x');
+        await xole.increase_amount(toWei(100000), {from: delegateAcc});
         let delegateAccVote = await xole.getCurrentVotes(delegateAcc);
-        assert.equal("0", delegateAccVote.toString());
+        assert.equal("208320000000000000000000", delegateAccVote.toString());
         let proposeAccountVote = await xole.getCurrentVotes(proposeAccount);
         assert.equal("104160000000000000000", proposeAccountVote.toString());
         await xole.delegate(proposeAccount, {from: delegateAcc});
         delegateAccVote = await xole.getCurrentVotes(delegateAcc);
         assert.equal("0", delegateAccVote.toString());
         proposeAccountVote = await xole.getCurrentVotes(proposeAccount);
-        assert.equal("104264160000000000000000", proposeAccountVote.toString());
+        assert.equal("208424160000000000000000", proposeAccountVote.toString());
     });
     it('delegate vote to other by more signatures', async () => {
         await ole.mint(proposeAccount, toWei(300));
