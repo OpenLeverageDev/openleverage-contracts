@@ -58,6 +58,7 @@ contract XOLEStorage {
     // user => reward
     mapping(address => uint256) public rewards;
 
+    // useless
     uint public totalStaked;
 
     // total to shared

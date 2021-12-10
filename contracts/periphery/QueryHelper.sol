@@ -93,8 +93,8 @@ contract QueryHelper {
         uint256 timestamp;
         bytes dexData;
     }
-
-    function getTraderLiqs(IOpenLev openLev, uint16 marketId, address[] calldata traders, bool[] calldata longTokens, bytes calldata dexData) external view returns (LiqVars[] memory results){
+    //offchain call
+    function getTraderLiqs(IOpenLev openLev, uint16 marketId, address[] calldata traders, bool[] calldata longTokens, bytes calldata dexData) external returns (LiqVars[] memory results){
         results = new LiqVars[](traders.length);
         LiqReqVars memory reqVar;
         reqVar.openLev = openLev;
@@ -103,7 +103,9 @@ contract QueryHelper {
         IOpenLev.MarketVar memory market = reqVar.openLev.markets(reqVar.marketId);
         IOpenLev.AddressConfig memory adrConf = reqVar.openLev.addressConfig();
         IOpenLev.CalculateConfig memory calConf = reqVar.openLev.getCalculateConfig();
-        (reqVar.token0price, reqVar.token0cAvgPrice,,,reqVar.timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
+        (,,,, reqVar.timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
+        openLev.updatePrice(marketId, dexData);
+        (reqVar.token0price, reqVar.token0cAvgPrice,,,) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
         (reqVar.token1price, reqVar.token1cAvgPrice,,,) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token1, market.token0, calConf.twapDuration, reqVar.dexData);
 
         for (uint i = 0; i < traders.length; i++) {
@@ -153,6 +155,14 @@ contract QueryHelper {
         }
         return results;
     }
+    // offchain call
+    function calPriceCAvgPriceHAvgPrice(IOpenLev openLev, uint16 marketId, address desToken, address quoteToken, uint32 secondsAgo, bytes memory dexData) external
+    returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
+        IOpenLev.AddressConfig memory adrConf = openLev.addressConfig();
+        (,,,, timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, dexData);
+        openLev.updatePrice(marketId, dexData);
+        (price, cAvgPrice, hAvgPrice, decimals,) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(desToken, quoteToken, secondsAgo, dexData);
+    }
 
     struct LiqCallVars {
         uint defaultFees;
@@ -164,7 +174,7 @@ contract QueryHelper {
         uint currentSellAmount;
         bool canRepayBorrows;
     }
-    //slippage 10%=>100
+    //offchain call slippage 10%=>100
     function getLiqCallData(IOpenLev openLev, IV3Quoter v3Quoter, uint16 marketId, uint16 slippage, address trader, bool longToken, bytes memory dexData) external returns (uint minOrMaxAmount,
         bytes memory callDexData)
     {
@@ -264,6 +274,7 @@ interface DexAggregatorInterface {
     function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view returns (uint);
 
     function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory dexData) external view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp);
+
 }
 
 interface IV3Quoter {
@@ -330,5 +341,6 @@ interface IOpenLev {
 
     function getCalculateConfig() external view returns (CalculateConfig memory);
 
+    function updatePrice(uint16 marketId, bytes memory dexData) external;
 
 }
