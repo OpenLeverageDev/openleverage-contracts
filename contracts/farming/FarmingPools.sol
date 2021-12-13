@@ -19,7 +19,6 @@ contract FarmingPools is Adminable {
         uint64 lastUpdateTime;
         uint256 rewardRate;
         uint256 rewardPerTokenStored;
-        uint256 userRewardPerTokenPaid;
         uint256 totalStaked;
     }
 
@@ -128,7 +127,7 @@ contract FarmingPools is Adminable {
     function initDistributions(address[] memory stakeTokens, uint64[] memory startTimes, uint64[] memory durations) external onlyAdmin {
         for (uint256 i = 0; i < stakeTokens.length; i++) {
             require(distributions[stakeTokens[i]].starttime == 0, 'Init once');
-            distributions[stakeTokens[i]] = Distribution(durations[i], startTimes[i], 0, 0, 0, 0, 0, 0);
+            distributions[stakeTokens[i]] = Distribution(durations[i], startTimes[i], 0, 0, 0, 0, 0);
         }
     }
 
