@@ -185,8 +185,19 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
     function _updateTotalSupplyCheckPoints() internal {
         uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
-        totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
-        totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
+        if (totalSupplyNumCheckpoints == 0) {
+            totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
+            totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
+            return;
+        }
+        if (totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].fromBlock == blockNumber) {
+            totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].votes = totalSupply;
+        }
+        else {
+            totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
+            totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
+        }
+
     }
 
     function balanceOf(address addr) external view override returns (uint256){
@@ -364,7 +375,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     function delegateBySigInternal(address delegatee, uint nonce, uint expiry, uint8 v, bytes32 r, bytes32 s) internal {
         require(delegatee != address(0), 'delegatee:0x');
         require(block.timestamp <= expiry, "delegateBySig: signature expired");
-        
+
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(name)), getChainId(), address(this)));
         bytes32 structHash = keccak256(abi.encode(DELEGATION_TYPEHASH, delegatee, nonce, expiry));
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
