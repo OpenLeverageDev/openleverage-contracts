@@ -435,7 +435,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
         uint newInsurance = newFees.mul(config.insuranceRatio).div(100);
 
-        IERC20(token).transfer(addressConfig.xOLE, newFees.sub(newInsurance));
+        IERC20(token).safeTransfer(addressConfig.xOLE, newFees.sub(newInsurance));
         if (token == market.token1) {
             market.pool1Insurance = market.pool1Insurance.add(newInsurance);
         } else {

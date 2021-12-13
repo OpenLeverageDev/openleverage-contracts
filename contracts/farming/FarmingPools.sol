@@ -152,6 +152,8 @@ contract FarmingPools is Adminable {
             distribution.periodFinish = distribution.starttime + distribution.duration;
             require(distribution.periodFinish >= distribution.starttime);
         }
+        // max rate 10000 ole a block
+        require(distribution.rewardRate < 1e23, 'overflow');
         emit RewardAdded(stakeToken, reward);
     }
 

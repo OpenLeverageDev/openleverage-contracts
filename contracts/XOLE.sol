@@ -137,7 +137,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     }
 
     function getReward() internal updateReward(msg.sender) returns (uint) {
-        uint reward = earnedInternal(msg.sender);
+        uint reward = rewards[msg.sender];
         if (reward > 0) {
             rewards[msg.sender] = 0;
             withdrewReward = withdrewReward.add(reward);
