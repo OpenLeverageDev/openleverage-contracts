@@ -35,8 +35,8 @@ Truffle contract tests are provided under the [tests directory](https://github.c
 
 Audits
 ----------
-- [Certik - June 2021](/audits/REP-OpenLeverage-Protocol-2021-06-24.pdf)
-- Peckshield audit report is expected to arrive in Nov 2021
+- [Certik](/audits/REP-OpenLeverage-Protocol-2021-06-24.pdf)
+- [PeckShield](/audits/PeckShield-Audit-Report-OpenLeverage-v1.0.pdf)
 
 Licensing
 ----------
