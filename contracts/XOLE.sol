@@ -288,7 +288,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     @param unlock_time New time when to unlock the tokens, or 0 if unchanged
     @param locked_balance Previous locked amount / timestamp
     */
-    function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal updateReward(msg.sender) {
+    function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal updateReward(_addr) {
         uint256 locked_before = totalLocked;
         totalLocked = locked_before.add(_value);
         // Adding to existing lock, or if a lock is expired - creating a new one
@@ -300,7 +300,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         locked[_addr] = _locked;
 
         if (_value != 0) {
-            assert(IERC20(oleToken).transferFrom(_addr, address(this), _value));
+            assert(IERC20(oleToken).transferFrom(msg.sender, address(this), _value));
         }
 
         uint calExtraValue = _value;
