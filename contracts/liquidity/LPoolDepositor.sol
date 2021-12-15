@@ -14,7 +14,7 @@ contract LPoolDepositor is ReentrancyGuard {
     }
 
     function deposit(address pool, uint amount) external payable nonReentrant() {
-        IERC20(LPoolInterface(pool).underlying()).transferFrom(msg.sender, pool, amount);
+        IERC20(LPoolInterface(pool).underlying()).safeTransferFrom(msg.sender, pool, amount);
         LPoolInterface(pool).mintTo(msg.sender);
     }
 

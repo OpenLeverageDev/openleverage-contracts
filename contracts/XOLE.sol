@@ -185,12 +185,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
     function _updateTotalSupplyCheckPoints() internal {
         uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
-        if (totalSupplyNumCheckpoints == 0) {
-            totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
-            totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
-            return;
-        }
-        if (totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].fromBlock == blockNumber) {
+        if (totalSupplyNumCheckpoints > 0 && totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].fromBlock == blockNumber) {
             totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].votes = totalSupply;
         }
         else {
@@ -365,10 +360,10 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     function delegateBySigs(address delegatee, uint[] memory nonce, uint[] memory expiry, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) public {
         require(nonce.length == expiry.length && nonce.length == v.length && nonce.length == r.length && nonce.length == s.length);
         for (uint i = 0; i < nonce.length; i++) {
-            (bool success, ) = address(this).call(
+            (bool success,) = address(this).call(
                 abi.encodeWithSignature("delegateBySig(address,uint256,uint256,uint8,bytes32,bytes32)", delegatee, nonce[i], expiry[i], v[i], r[i], s[i])
             );
-            if (!success) emit FailedDelegateBySig( delegatee, nonce[i], expiry[i], v[i], r[i], s[i]);
+            if (!success) emit FailedDelegateBySig(delegatee, nonce[i], expiry[i], v[i], r[i], s[i]);
         }
     }
 
