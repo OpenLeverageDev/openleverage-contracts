@@ -46,7 +46,7 @@ The primary license for OpenLeverage is the Business Source License 1.1 (`BUSL-1
 Discussion
 ----------
 
-For questions about the protocol, visit us on [Discord](https://discord.gg/WGZMHQW68G) to discuss.
+For questions about the protocol, visit us on [Discord](https://discord.gg/openleverage) to discuss.
 
 For security concerns, please visit [OpenLeverage Security](https://docs.openleverage.finance/main/dev/security) or email [security@openleverage.finance](mailto:security@openleverage.finance).
 
