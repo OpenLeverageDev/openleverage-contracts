@@ -35,8 +35,9 @@ Truffle contract tests are provided under the [tests directory](https://github.c
 
 Audits
 ----------
-- [Certik](/audits/REP-OpenLeverage-Protocol-2021-06-24.pdf)
-- [PeckShield](/audits/PeckShield-Audit-Report-OpenLeverage-v1.0.pdf)
+- [Certik Jun 2021](/audits/REP-OpenLeverage-Protocol-2021-06-24.pdf)
+- [PeckShield Sep 2021](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-v1.0.pdf)
+- [PeckShield Dec 2021](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-1.0.1.pdf)
 
 Licensing
 ----------
