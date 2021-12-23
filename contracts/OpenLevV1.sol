@@ -61,8 +61,10 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         // Approve the max number for pools
-        IERC20(token0).approve(address(pool0), uint256(- 1));
-        IERC20(token1).approve(address(pool1), uint256(- 1));
+        IERC20(token0).safeApprove(address(pool0), 0);
+        IERC20(token0).safeApprove(address(pool0), uint256(- 1));
+        IERC20(token1).safeApprove(address(pool1), 0);
+        IERC20(token1).safeApprove(address(pool1), uint256(- 1));
         //Create Market
         uint16 marketId = numPairs;
         uint32[] memory dexs = new uint32[](1);
@@ -446,14 +448,16 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
     function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) internal returns (uint){
         DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
-        IERC20(sellToken).approve(address(dexAggregator), sellAmount);
+        IERC20(sellToken).safeApprove(address(dexAggregator), 0);
+        IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
         uint buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
         return buyAmount;
     }
 
     function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) internal returns (uint){
         DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
-        IERC20(sellToken).approve(address(dexAggregator), maxSellAmount);
+        IERC20(sellToken).safeApprove(address(dexAggregator), 0);
+        IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
         return dexAggregator.buy(buyToken, sellToken, buyAmount, maxSellAmount, data);
     }
 

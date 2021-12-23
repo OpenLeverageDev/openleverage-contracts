@@ -87,7 +87,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
             newReward = toShare;
         } else {
             require(IERC20(fromToken).balanceOf(address(this)) >= amount, "Exceed available balance");
-            (IERC20(fromToken)).approve(address(dexAgg), amount);
+            (IERC20(fromToken)).safeApprove(address(dexAgg), 0);
+            (IERC20(fromToken)).safeApprove(address(dexAgg), amount);
             newReward = dexAgg.sellMul(amount, minBuyAmount, dexData);
         }
         //fromToken or toToken equal OLE ,update reward
