@@ -192,7 +192,7 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function mint(uint mintAmount) external virtual;
 
-    function mintTo(address to) external payable virtual;
+    function mintTo(address to, uint amount) external payable virtual;
 
     function mintEth() external payable virtual;
 
@@ -200,9 +200,9 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function redeemUnderlying(uint redeemAmount) external virtual;
 
-    function borrowBehalf(address borrower, uint borrowAmount) external virtual;
+    function borrowBehalf(address borrower, uint borrowAmount) external virtual returns(uint amountReceived);
 
-    function repayBorrowBehalf(address borrower, uint repayAmount) external virtual;
+    function repayBorrowBehalf(address borrower, uint repayAmount) external virtual returns (uint repayedAmount);
 
     function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external virtual;
 

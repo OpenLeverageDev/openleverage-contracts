@@ -3,10 +3,11 @@ pragma solidity 0.7.6;
 
 
 import "./LPoolInterface.sol";
+import "./LpoolDepositor.sol";
 import "../lib/Exponential.sol";
 import "../Adminable.sol";
 import "../lib/CarefulMath.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "../lib/TransferHelper.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import "../DelegateInterface.sol";
@@ -19,7 +20,7 @@ import "../IWETH.sol";
  * @author OpenLeverage
  */
 contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+    using TransferHelper for IERC20;
     using SafeMath for uint;
 
     constructor() {
@@ -196,6 +197,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @return The amount of underlying owned by `owner`
      */
     function balanceOfUnderlying(address owner) external override returns (uint) {
+        sync();
         Exp memory exchangeRate = Exp({mantissa : exchangeRateCurrent()});
         (MathError mErr, uint balance) = mulScalarTruncate(exchangeRate, accountTokens[owner]);
         require(mErr == MathError.NO_ERROR, "calc failed");
@@ -214,12 +216,12 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         mintFresh(msg.sender, mintAmount, false);
     }
 
-    function mintTo(address to) external payable override nonReentrant {
+    function mintTo(address to, uint amount) external payable override nonReentrant {
         accrueInterest();
         if (isWethPool) {
             mintFresh(to, msg.value, false);
         } else {
-            mintFresh(to, 0, true);
+            mintFresh(to, amount, true);
         }
     }
 
@@ -251,10 +253,12 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         redeemFresh(msg.sender, 0, redeemAmount);
     }
 
-    function borrowBehalf(address borrower, uint borrowAmount) external override nonReentrant {
+    function borrowBehalf(address borrower, uint borrowAmount) external override nonReentrant returns (uint amountReceived){
+        uint balanceBefore = IERC20(underlying).balanceOf(msg.sender);
         accrueInterest();
         // borrowFresh emits borrow-specific logs on errors, so we don't need to
         borrowFresh(payable(borrower), msg.sender, borrowAmount);
+        return IERC20(underlying).balanceOf(msg.sender).sub(balanceBefore);
     }
 
     /**
@@ -262,10 +266,12 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @param borrower the account with the debt being payed off
      * @param repayAmount The amount to repay
      */
-    function repayBorrowBehalf(address borrower, uint repayAmount) external override nonReentrant {
+    function repayBorrowBehalf(address borrower, uint repayAmount) external override nonReentrant returns (uint repayedAmount) {
+        uint balanceBefore = getCashPrior();
         accrueInterest();
         // repayBorrowFresh emits repay-borrow-specific logs on errors, so we don't need to
         repayBorrowFresh(msg.sender, borrower, repayAmount, false);
+        return IERC20(underlying).balanceOf(address(this)).sub(balanceBefore);
     }
 
     function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external override nonReentrant {
@@ -285,7 +291,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @return The quantity of underlying tokens owned by this contract
      */
     function getCashPrior() internal view returns (uint) {
-        return totalCash;
+        return IERC20(underlying).balanceOf(address(this));
     }
 
 
@@ -598,7 +604,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @return The quantity of underlying asset owned by this contract
      */
     function getCash() external override view returns (uint) {
-        return totalCash;
+        return IERC20(underlying).balanceOf(address(this));
     }
 
     function calCurrentBorrowIndex() internal view returns (MathError, uint) {
@@ -628,6 +634,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *   up to the current block and writes new checkpoint to storage.
      */
     function accrueInterest() public override {
+        /* Always obtain the latest balance */
+        sync();
         /* Remember the initial block number */
         uint currentBlockNumber = getBlockNumber();
         uint accrualBlockNumberPrior = accrualBlockNumber;
@@ -724,6 +732,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          */
         if (isDelegete) {
             uint priorCash = getCashPrior();
+            LPoolDepositor(msg.sender).transferToPool(minter, mintAmount);
             sync();
             require(totalCash > priorCash, 'mint 0');
             vars.actualMintAmount = totalCash - priorCash;
@@ -925,6 +934,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
         RepayBorrowLocalVars memory vars;
 
+        vars.repayAmount = doTransferIn(payer, vars.repayAmount, false);
+
         /* We remember the original borrowerIndex for verification purposes */
         vars.borrowerIndex = accountBorrows[borrower].interestIndex;
 
@@ -971,8 +982,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
          *   it returns the amount actually transferred, in case of a fee.
          */
-        vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount, false);
-        require(vars.actualRepayAmount == vars.repayAmount, 'repay amount incorrect');
+        // require(vars.actualRepayAmount == vars.repayAmount, 'repay amount incorrect');
 
 
         /* We emit a RepayBorrow event */
@@ -1051,6 +1061,5 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         require(accrualBlockNumber == getBlockNumber(), 'not same block');
         _;
     }
-
 }
 

@@ -14,6 +14,7 @@ import "../../Adminable.sol";
 contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2Dex, UniV3Dex {
     using DexData for bytes;
     using SafeMath for uint;
+    
     mapping(IUniswapV2Pair => V2PriceOracle)  public uniV2PriceOracle;
     IUniswapV2Factory public uniV2Factory;
     address public openLev;
@@ -61,11 +62,12 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     }
 
     function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
+        uint24[] memory transferFeeRate = data.toTransferFeeRates();
         if (data.toDex() == DexData.DEX_UNIV2) {
-            sellAmount = uniV2Buy(uniV2Factory, buyToken, sellToken, buyAmount, maxSellAmount);
+            sellAmount = uniV2Buy(uniV2Factory, buyToken, sellToken, buyAmount, maxSellAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true);
+            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true, transferFeeRate[0]);
         }
         else {
             revert('Unsupported dex');
@@ -84,7 +86,8 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_UNIV2) {
-            sellAmount = uniV2CalSellAmount(uniV2Factory, buyToken, sellToken, buyAmount);
+            uint24[] memory transferFeeRate = data.toTransferFeeRates();
+            sellAmount = uniV2CalSellAmount(uniV2Factory, buyToken, sellToken, buyAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
         }
         else {
             revert('Unsupported dex');
@@ -170,6 +173,4 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
             increaseV3Observation(desToken, quoteToken, data.toFee());
         }
     }
-
-
 }

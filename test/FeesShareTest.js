@@ -54,9 +54,9 @@ contract("XOLE", async accounts => {
         uniswapFactory = await utils.createUniswapV2Factory(admin);
         m.log("Created UniswapFactory", last8(uniswapFactory.address));
 
-        ole = await TestToken.new('OpenLevERC20', 'OLE');
-        usdt = await TestToken.new('Tether', 'USDT');
-        dai = await TestToken.new('DAI', 'DAI');
+        ole = await TestToken.new('OpenLevERC20', 'OLE', 0);
+        usdt = await TestToken.new('Tether', 'USDT', 0);
+        dai = await TestToken.new('DAI', 'DAI', 0);
 
         let pair = await MockUniswapV2Pair.new(usdt.address, dai.address, toWei(10000), toWei(10000));
         let oleUsdtPair = await MockUniswapV2Pair.new(usdt.address, ole.address, toWei(100000), toWei(100000));

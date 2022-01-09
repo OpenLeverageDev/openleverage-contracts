@@ -12,6 +12,7 @@ import "../../Adminable.sol";
 contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, PancakeDex {
     using DexData for bytes;
     using SafeMath for uint;
+    
     mapping(IUniswapV2Pair => V2PriceOracle) public pancakePriceOracle;
     IUniswapV2Factory public pancakeFactory;
     address public openLev;
@@ -28,7 +29,6 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         _unsedFactory;
         pancakeFactory = _pancakeFactory;
     }
-
 
     function setOpenLev(address _openLev) external onlyAdmin {
         require(address(0) != _openLev, '0x');
@@ -54,7 +54,8 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_PANCAKE) {
-            sellAmount = pancakeBuy(pancakeFactory, buyToken, sellToken, buyAmount, maxSellAmount);
+            uint24[] memory transferFeeRate = data.toTransferFeeRates();
+            sellAmount = pancakeBuy(pancakeFactory, buyToken, sellToken, buyAmount, maxSellAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
         }else {
             revert('Unsupported dex');
         }
@@ -72,7 +73,8 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_PANCAKE) {
-            sellAmount = pancakeCalSellAmount(pancakeFactory, buyToken, sellToken, buyAmount);
+            uint24[] memory transferFeeRate = data.toTransferFeeRates();
+            sellAmount = pancakeCalSellAmount(pancakeFactory, buyToken, sellToken, buyAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
         }
         else {
             revert('Unsupported dex');

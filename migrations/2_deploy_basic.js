@@ -10,6 +10,7 @@ const ControllerV1 = artifacts.require("ControllerV1");
 const ControllerDelegator = artifacts.require("ControllerDelegator");
 const LPool = artifacts.require("LPool");
 const OpenLevV1 = artifacts.require("OpenLevV1");
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const Airdrop = artifacts.require("Airdrop");
 const LPoolDepositor = artifacts.require("LPoolDepositor");
@@ -67,6 +68,8 @@ module.exports = async function (deployer, network, accounts) {
             await deployer.deploy(ControllerDelegator, OLEToken.address, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02000bb8', adminCtr, ControllerV1.address, utils.deployOption(accounts));
     }
     //openLev
+    await deployer.deploy(OpenLevV1Lib);
+    await deployer.link(OpenLevV1Lib, OpenLevV1);
     await deployer.deploy(OpenLevV1, utils.deployOption(accounts));
     switch (network) {
         case utils.bscIntegrationTest:

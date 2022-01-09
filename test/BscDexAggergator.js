@@ -28,8 +28,8 @@ contract("DexAggregator BSC", async accounts => {
     let token1;
 
     beforeEach(async () => {
-        token0 = await TestToken.new('TokenA', 'TKA');
-        token1 = await TestToken.new('TokenB', 'TKB');
+        token0 = await TestToken.new('TokenA', 'TKA', 0);
+        token1 = await TestToken.new('TokenB', 'TKB', 0);
         pancakeFactory = await utils.createUniswapV2Factory();
         pair = await utils.createUniswapV2Pool(pancakeFactory, token0, token1);
         dexAgg = await utils.createBscDexAgg(pancakeFactory.address, "0x0000000000000000000000000000000000000000", accounts[0]);
@@ -94,7 +94,7 @@ contract("DexAggregator BSC", async accounts => {
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
 
-        let path = utils.PancakeDexData + token0.address.slice(2) + token1.address.slice(2);
+        let path = utils.PancakeDexData + "000000000000" + token0.address.slice(2) + token1.address.slice(2);
         r = await dexAgg.sellMul(utils.toWei(swapIn), minOut, path, {from: swapper});     
         m.log("sell exact amount through path Gas Used:", r.receipt.gasUsed);
         assert.equal(await token1.balanceOf(swapper), "997490050036750883", "sell exact amount failed");
@@ -106,7 +106,7 @@ contract("DexAggregator BSC", async accounts => {
         let minOut = "997990040059400208";
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
-        let path = utils.PancakeDexData + token0.address.slice(2) + token1.address.slice(2);
+        let path = utils.PancakeDexData + "000000000000" + token0.address.slice(2) + token1.address.slice(2);
         await assertThrows(dexAgg.sellMul(utils.toWei(swapIn), minOut, path, {from: swapper}), 'buy amount less than min');
         assert.equal(await token1.balanceOf(swapper), "0", "sell exact amount failed");
     })

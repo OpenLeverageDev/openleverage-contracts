@@ -42,7 +42,7 @@ contract("Airdrop", async accounts => {
     let token;
     let admin = accounts[0];
     beforeEach(async () => {
-        token = await TestToken.new("T", "T");
+        token = await TestToken.new("T", "T", 0);
         airdrop = await Airdrop.new(token.address, {from: admin});
         await token.mint(admin, toWei(10000000));
         await token.transfer(airdrop.address, toWei(10000000), {from: admin});

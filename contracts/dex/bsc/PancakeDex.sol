@@ -6,11 +6,13 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "../../lib/TransferHelper.sol";
+import "../../lib/DexData.sol";
 
 contract PancakeDex {
     using SafeMath for uint;
-    using SafeERC20 for IERC20;
+    using DexData for uint;
+    using TransferHelper for IERC20;
 
     struct V2PriceOracle {
         uint32 blockTimestampLast;  // Last block timestamp when price updated
@@ -30,18 +32,21 @@ contract PancakeDex {
     ) internal returns (uint buyAmount){
         address pair = getPancakeClassPair(buyToken, sellToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves);
-            require(buyAmount >= minBuyAmount, 'buy amount less than min');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
+        uint amountReceivedByPancake = transferOut(IERC20(sellToken), payer, pair, sellAmount);
+        uint balanceBefore = IERC20(buyToken).balanceOf(payee);
+
+        if (buyToken < sellToken) {
+            buyAmount = getAmountOut(amountReceivedByPancake, token1Reserves, token0Reserves);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
         } else {
-            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves);
-            require(buyAmount >= minBuyAmount, 'buy amount less than min');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
+            buyAmount = getAmountOut(amountReceivedByPancake, token0Reserves, token1Reserves);
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
+        
+        require(buyAmount >= minBuyAmount, 'buy amount less than min');
+        uint bought = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
+        require(buyAmount <= bought, "wrong amount bought");
+        return bought;
     }
 
     function pancakeSellMul(IUniswapV2Factory factory, uint sellAmount, uint minBuyAmount, address[] memory tokens)
@@ -60,23 +65,36 @@ contract PancakeDex {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-    function pancakeBuy(IUniswapV2Factory factory, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount)
-    internal returns (uint sellAmount){
+    function pancakeBuy(
+        IUniswapV2Factory factory, 
+        address buyToken, 
+        address sellToken, 
+        uint buyAmount, 
+        uint maxSellAmount, 
+        uint24 buyTokenFeeRate,
+        uint24 sellTokenFeeRate
+    )internal returns (uint sellAmount){
         address payer = msg.sender;
         address pair = getPancakeClassPair(buyToken, sellToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves);
+        uint balanceBefore = IERC20(buyToken).balanceOf(payer);
+
+       if (buyToken < sellToken) {
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves);
+            sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
         } else {
-            sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves);
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves);
+            sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
         }
+            
+        uint balanceAfter = IERC20(buyToken).balanceOf(payer);
+        require(buyAmount <= balanceAfter.sub(balanceBefore), "wrong amount bought");
     }
 
     function pancakeCalBuyAmount(IUniswapV2Factory factory, address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
@@ -90,15 +108,22 @@ contract PancakeDex {
         }
     }
 
-    function pancakeCalSellAmount(IUniswapV2Factory factory, address buyToken, address sellToken, uint buyAmount) internal view returns (uint) {
+    // not eaact value for coin with dynamic balances
+    function pancakeCalSellAmount(
+        IUniswapV2Factory factory, 
+        address buyToken, 
+        address sellToken, 
+        uint buyAmount,
+        uint24 buyTokenFeeRate,
+        uint24 sellTokenFeeRate
+    ) internal view returns (uint sellAmount) {
         address pair = getPancakeClassPair(buyToken, sellToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            return getAmountIn(buyAmount, token1Reserves, token0Reserves);
-        } else {
-            return getAmountIn(buyAmount, token0Reserves, token1Reserves);
-        }
+        sellAmount = buyToken < sellToken ?
+            getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves) :
+            getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves);
+        
+        return sellAmount.toAmountBeforeTax(sellTokenFeeRate);
     }
 
     function pancakeGetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
@@ -185,13 +210,12 @@ contract PancakeDex {
         amountIn = (numerator / denominator).add(1);
     }
 
-    function transferOut(IERC20 token, address payer, address to, uint amount) private {
+    function transferOut(IERC20 token, address payer, address to, uint amount) private returns (uint256 amountReceived) {
         if (payer == address(this)) {
-            token.safeTransfer(to, amount);
+            amountReceived = token.safeTransfer(to, amount);
         } else {
-            token.safeTransferFrom(payer, to, amount);
+            amountReceived = token.safeTransferFrom(payer, to, amount);
         }
-
     }
 
     function getPancakeClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){

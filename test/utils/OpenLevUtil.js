@@ -27,9 +27,9 @@ const Timelock = artifacts.require('Timelock');
 
 const m = require('mocha-logger');
 const zeroAddr = "0x0000000000000000000000000000000000000000";
-exports.Uni2DexData = "0x01";
-exports.Uni3DexData = "0x02" + "000bb8" + "01";
-exports.PancakeDexData = "0x03";
+exports.Uni2DexData = "0x01" + "000000" + "02";
+exports.Uni3DexData = "0x02" + "000bb8" + "02";
+exports.PancakeDexData = "0x03"+ "000000" + "02";
 
 exports.createLPoolImpl = async () => {
     return await LPool.new();
@@ -83,7 +83,7 @@ exports.createBscDexAgg = async (_uniV2Factory, _uniV3Factory, admin) => {
 }
 
 exports.createToken = async (tokenSymbol) => {
-    return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+    return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol, 0);
 }
 exports.createWETH = async () => {
     return await WETH.new();
@@ -125,7 +125,7 @@ exports.createTimelock = async (admin) => {
 }
 
 exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
-    let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+    let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol, 0);
     let erc20Delegate = await LPool.new();
     let pool = await LPoolDelegator.new();
     await pool.initialize(testToken.address, wethToken ? true : false,

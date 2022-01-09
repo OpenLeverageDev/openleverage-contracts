@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.7.6;
 
-
 import "./liquidity/LPoolInterface.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-
+import "./lib/TransferHelper.sol";
 
 library Types {
-    using SafeERC20 for IERC20;
+    using TransferHelper for IERC20;
 
     struct Market {// Market info
         LPoolInterface pool0;       // Lending Pool 0
@@ -78,7 +76,7 @@ library Types {
         uint borrowed;              // Total borrowed balance of trade
         uint fees;                  // Fees for liquidation process
         uint penalty;               // Penalty
-        uint remainHeldAfterFees;   // Held-fees-penalty
+        uint remainAmountAfterFees;   // Held-fees-penalty
         bool isSellAllHeld;         // Is need sell all held
         uint depositDecrease;       // Deposit decrease
         uint depositReturn;         // Deposit actual returns

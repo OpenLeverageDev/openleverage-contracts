@@ -20,10 +20,10 @@ contract("FarmingPools", async accounts => {
     let stakeAcc2 = accounts[2];
     let day1 = 24 * 60 * 60;
     beforeEach(async () => {
-        oleToken = await MockERC20.new('OLEToken', 'OLE');
-        stakeToken1 = await MockERC20.new('StakeToken1', 'ST1');
-        stakeToken2 = await MockERC20.new('StakeToken2', 'ST2');
-        stakeToken3 = await MockERC20.new('StakeToken3', 'ST3');
+        oleToken = await MockERC20.new('OLEToken', 'OLE', 0);
+        stakeToken1 = await MockERC20.new('StakeToken1', 'ST1', 0);
+        stakeToken2 = await MockERC20.new('StakeToken2', 'ST2', 0);
+        stakeToken3 = await MockERC20.new('StakeToken3', 'ST3', 0);
         farmingPools = await FarmingPool.new(oleToken.address, admin);
         await oleToken.mint(admin, toWei(10000));
 
