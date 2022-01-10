@@ -94,5 +94,10 @@ library Types {
         uint held;
         bytes dexData;
         uint16 multiplier;
+        uint price;
+        uint cAvgPrice;
+        uint hAvgPrice; 
+        uint8 decimals;
+        uint lastUpdateTime;
     }
 }

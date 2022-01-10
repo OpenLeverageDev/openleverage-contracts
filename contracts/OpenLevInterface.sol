@@ -38,8 +38,6 @@ abstract contract OpenLevStorage {
     // number of markets
     uint16 public numPairs;
 
-    mapping(address => uint) totalHelds;
-
     // marketId => Pair
     mapping(uint16 => Types.Market) public markets;
 
@@ -51,6 +49,8 @@ abstract contract OpenLevStorage {
     AddressConfig public addressConfig;
 
     mapping(uint8 => bool) public supportDexs;
+
+    mapping(address => uint) totalHelds;
 
     event MarginTrade(
         address trader,
@@ -138,9 +138,9 @@ interface OpenLevInterface {
 
     function updatePrice(uint16 marketId, bytes memory dexData) external;
 
-    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
+    // function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
 
-    // function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
+    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
     // function getCalculateConfig() external view returns (OpenLevStorage.CalculateConfig memory);
 
