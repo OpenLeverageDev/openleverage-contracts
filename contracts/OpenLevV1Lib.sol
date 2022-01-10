@@ -1,6 +1,10 @@
 pragma solidity 0.7.6;
 
 import "./OpenLevInterface.sol";
+import "./Adminable.sol";
+import "./XOLEInterface.sol";
+import "./IWETH.sol";
+
 pragma experimental ABIEncoderV2;
 
 
@@ -9,15 +13,45 @@ library OpenLevV1Lib {
     using TransferHelper for IERC20;
     using DexData for bytes;
 
-    struct PricesVar{
+    struct PricesVar {
         uint current;
         uint cAvg;
-        uint hAvg; 
-        uint price; 
+        uint hAvg;
+        uint price;
         uint cAvgPrice;
     }
 
-   function setCalculateConfigInternal(
+    function addMarket(
+        LPoolInterface pool0,
+        LPoolInterface pool1,
+        uint16 marginLimit,
+        bytes memory dexData,
+        uint16 marketId,
+        mapping(uint16 => Types.Market) storage markets,
+        OpenLevStorage.CalculateConfig storage config,
+        OpenLevStorage.AddressConfig storage addressConfig,
+        mapping(uint8 => bool) storage _supportDexs
+    ) external {
+        uint8 dex = dexData.toDex();
+        require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
+        address token0 = pool0.underlying();
+        address token1 = pool1.underlying();
+        // Approve the max number for pools
+        IERC20(token0).safeApprove(address(pool0), uint256(- 1));
+        IERC20(token1).safeApprove(address(pool1), uint256(- 1));
+        //Create Market
+        uint32[] memory dexs = new uint32[](1);
+        dexs[0] = dexData.toDexDetail();
+        markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
+        // Init price oracle
+        if (dexData.isUniV2Class()) {
+            OpenLevV1Lib.updatePriceInternal(token0, token1, dexData);
+        } else if (dex == DexData.DEX_UNIV3) {
+            addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
+        }
+    }
+
+    function setCalculateConfigInternal(
         uint16 defaultFeesRate,
         uint8 insuranceRatio,
         uint16 defaultMarginLimit,
@@ -55,9 +89,9 @@ library OpenLevV1Lib {
     }
 
     function setMarketConfigInternal(
-        uint16 feesRate, 
-        uint16 marginLimit, 
-        uint16 priceDiffientRatio, 
+        uint16 feesRate,
+        uint16 marginLimit,
+        uint16 priceDiffientRatio,
         uint32[] memory dexs,
         Types.Market storage market
     ) external {
@@ -69,24 +103,24 @@ library OpenLevV1Lib {
     }
 
     function marginRatio(
-        address owner, 
-        uint held, 
-        address heldToken, 
-        address sellToken, 
-        LPoolInterface borrowPool, 
-        bool isOpen, 
+        address owner,
+        uint held,
+        address heldToken,
+        address sellToken,
+        LPoolInterface borrowPool,
+        bool isOpen,
         bytes memory dexData
-    )external view returns (uint, uint, uint, uint, uint){
+    ) external view returns (uint, uint, uint, uint, uint){
         return marginRatioPrivate(owner, held, heldToken, sellToken, borrowPool, isOpen, dexData);
     }
 
     function marginRatioPrivate(
-        address owner, 
-        uint held, 
-        address heldToken, 
-        address sellToken, 
-        LPoolInterface borrowPool, 
-        bool isOpen, 
+        address owner,
+        uint held,
+        address heldToken,
+        address sellToken,
+        LPoolInterface borrowPool,
+        bool isOpen,
         bytes memory dexData
     ) private view returns (uint, uint, uint, uint, uint){
         Types.MarginRatioVars memory ratioVars;
@@ -120,10 +154,10 @@ library OpenLevV1Lib {
     }
 
     function isPositionHealthy(
-        address owner, 
-        bool isOpen, 
-        uint amount, 
-        Types.MarketVars memory vars, 
+        address owner,
+        bool isOpen,
+        uint amount,
+        Types.MarketVars memory vars,
         bytes memory dexData
     ) external view returns (bool){
         PricesVar memory prices;
@@ -132,7 +166,7 @@ library OpenLevV1Lib {
             isOpen ? address(vars.buyToken) : address(vars.sellToken),
             isOpen ? address(vars.sellToken) : address(vars.buyToken),
             isOpen ? vars.sellPool : vars.buyPool,
-            isOpen, 
+            isOpen,
             dexData
         );
 
@@ -159,16 +193,13 @@ library OpenLevV1Lib {
         (IERC20(market.token1)).safeTransfer(to, amount);
     }
 
-    function updatePriceInternal(address token0, address token1, bytes memory dexData) external returns (bool){
+    function updatePriceInternal(address token0, address token1, bytes memory dexData) internal returns (bool){
         (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
         (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
         return dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
     }
 
-    function shouldUpdatePriceInternal(uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) external view returns (bool){
-        (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
-        (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
-
+    function shouldUpdatePriceInternal(DexAggregatorInterface dexAggregator, uint16 twapDuration, uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) private view returns (bool){
         if (!dexData.isUniV2Class()) {
             return false;
         }
@@ -189,9 +220,23 @@ library OpenLevV1Lib {
         return false;
     }
 
+    function updatePrice(uint16 marketId, Types.Market storage market, OpenLevStorage.AddressConfig storage addressConfig,
+        OpenLevStorage.CalculateConfig storage calculateConfig, bytes memory dexData) external {
+        bool shouldUpdate = shouldUpdatePriceInternal(addressConfig.dexAggregator, calculateConfig.twapDuration, market.priceDiffientRatio, market.token1, market.token0, dexData);
+        bool updateResult = updatePriceInternal(market.token0, market.token1, dexData);
+        if (updateResult) {
+            //Discount
+            market.priceUpdater = tx.origin;
+            //Reward OLE
+            if (shouldUpdate) {
+                (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId);
+            }
+        }
+    }
+
     function reduceInsurance(
-        uint totalRepayment, 
-        uint remaining, 
+        uint totalRepayment,
+        uint remaining,
         bool longToken,
         Types.Market storage market
     ) external returns (uint maxCanRepayAmount) {
@@ -214,28 +259,65 @@ library OpenLevV1Lib {
         }
     }
 
-    function toMarketVar(bool longToken, bool open, Types.Market memory market) external view returns (Types.MarketVars memory) {
-        return open == longToken ?
-            Types.MarketVars(
-                market.pool1, 
-                market.pool0,
-                IERC20(market.token1),
-                IERC20(market.token0),
-                market.pool1Insurance,
-                market.pool0Insurance,
-                market.marginLimit,
-                market.priceDiffientRatio,
-                market.dexs) :
-            Types.MarketVars(
-                market.pool0, 
-                market.pool1,
-                IERC20(market.token0),
-                IERC20(market.token1),
-                market.pool0Insurance,
-                market.pool1Insurance,
-                market.marginLimit,
-                market.priceDiffientRatio,
-                market.dexs);
+
+    function feesAndInsurance(Types.Market storage market, OpenLevStorage.CalculateConfig storage config, address xole, address trader, uint tradeSize, address token) external returns (uint) {
+        uint balanceBefore = IERC20(token).balanceOf(address(this));
+        uint defaultFees = tradeSize.mul(market.feesRate).div(10000);
+        uint newFees = defaultFees;
+        // if trader holds more xOLE, then should enjoy trading discount.
+        if (XOLEInterface(xole).balanceOf(trader) > config.feesDiscountThreshold) {
+            newFees = defaultFees.sub(defaultFees.mul(config.feesDiscount).div(100));
+        }
+        // if trader update price, then should enjoy trading discount.
+        if (market.priceUpdater == trader) {
+            newFees = newFees.sub(defaultFees.mul(config.updatePriceDiscount).div(100));
+        }
+        uint newInsurance = newFees.mul(config.insuranceRatio).div(100);
+
+        IERC20(token).safeTransfer(xole, newFees.sub(newInsurance));
+        if (token == market.token1) {
+            market.pool1Insurance = market.pool1Insurance.add(newInsurance);
+        } else {
+            market.pool0Insurance = market.pool0Insurance.add(newInsurance);
+        }
+        return newFees;
+    }
+
+    function transferIn(address from, IERC20 token, address weth, uint amount) external returns (uint) {
+        uint balanceBefore = token.balanceOf(address(this));
+        if (address(token) == weth) {
+            IWETH(weth).deposit{value : msg.value}();
+        } else {
+            token.safeTransferFrom(from, address(this), amount);
+        }
+        // Calculate the amount that was *actually* transferred
+        uint balanceAfter = token.balanceOf(address(this));
+        return balanceAfter.sub(balanceBefore);
+    }
+
+    function doTransferOut(address to, IERC20 token, address weth, uint amount) external {
+        if (address(token) == weth) {
+            IWETH(weth).withdraw(amount);
+            payable(to).transfer(amount);
+        } else {
+            token.safeTransfer(to, amount);
+        }
+    }
+
+    function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){
+        for (uint i = 0; i < dexs.length; i++) {
+            if (dexs[i] == 0) {
+                break;
+            }
+            if (dexs[i] == dex) {
+                supported = true;
+                break;
+            }
+        }
+    }
+
+    function isSupportDex(mapping(uint8 => bool) storage _supportDexs, uint8 dex) internal view returns (bool){
+        return _supportDexs[dex];
     }
 
 }
