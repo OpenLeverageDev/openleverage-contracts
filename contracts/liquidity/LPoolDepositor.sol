@@ -12,19 +12,19 @@ import "../IWETH.sol";
 contract LPoolDepositor is ReentrancyGuard {
     using TransferHelper for IERC20;
 
-    mapping(address => uint) allowedToTransfer; 
+    mapping(address => mapping(address => uint)) allowedToTransfer;
 
     constructor() {
     }
 
     function deposit(address pool, uint amount) external {
-        allowedToTransfer[pool] = amount;
+        allowedToTransfer[pool][msg.sender] = amount;
         LPoolInterface(pool).mintTo(msg.sender, amount);
     }
 
     function transferToPool(address from, uint amount) external{
-        require(allowedToTransfer[msg.sender] == amount, "for recall only");
-        delete allowedToTransfer[msg.sender];
+        require(allowedToTransfer[msg.sender][from] == amount, "for recall only");
+        delete allowedToTransfer[msg.sender][from];
         IERC20(LPoolInterface(msg.sender).underlying()).safeTransferFrom(from, msg.sender, amount);
     }
 

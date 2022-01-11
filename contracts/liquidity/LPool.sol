@@ -197,7 +197,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @return The amount of underlying owned by `owner`
      */
     function balanceOfUnderlying(address owner) external override returns (uint) {
-        sync();
         Exp memory exchangeRate = Exp({mantissa : exchangeRateCurrent()});
         (MathError mErr, uint balance) = mulScalarTruncate(exchangeRate, accountTokens[owner]);
         require(mErr == MathError.NO_ERROR, "calc failed");
@@ -253,12 +252,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         redeemFresh(msg.sender, 0, redeemAmount);
     }
 
-    function borrowBehalf(address borrower, uint borrowAmount) external override nonReentrant returns (uint amountReceived){
-        uint balanceBefore = IERC20(underlying).balanceOf(msg.sender);
+    function borrowBehalf(address borrower, uint borrowAmount) external override nonReentrant {
         accrueInterest();
         // borrowFresh emits borrow-specific logs on errors, so we don't need to
         borrowFresh(payable(borrower), msg.sender, borrowAmount);
-        return IERC20(underlying).balanceOf(msg.sender).sub(balanceBefore);
     }
 
     /**
@@ -266,12 +263,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      * @param borrower the account with the debt being payed off
      * @param repayAmount The amount to repay
      */
-    function repayBorrowBehalf(address borrower, uint repayAmount) external override nonReentrant returns (uint repayedAmount) {
-        uint balanceBefore = getCashPrior();
+    function repayBorrowBehalf(address borrower, uint repayAmount) external override nonReentrant {
         accrueInterest();
         // repayBorrowFresh emits repay-borrow-specific logs on errors, so we don't need to
         repayBorrowFresh(msg.sender, borrower, repayAmount, false);
-        return IERC20(underlying).balanceOf(address(this)).sub(balanceBefore);
     }
 
     function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external override nonReentrant {
@@ -279,9 +274,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         repayBorrowFresh(msg.sender, borrower, repayAmount, true);
     }
 
-    function sync() public override {
-        totalCash = IERC20(underlying).balanceOf(address(this));
-    }
 
     /*** Safe Token ***/
 
@@ -309,10 +301,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
             actualAmount = msg.value;
             IWETH(underlying).deposit{value : actualAmount}();
         } else {
-            actualAmount = amount;
-            IERC20(underlying).safeTransferFrom(from, address(this), amount);
+            actualAmount = IERC20(underlying).safeTransferFrom(from, address(this), amount);
         }
-        sync();
     }
 
     /**
@@ -331,7 +321,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         } else {
             IERC20(underlying).safeTransfer(to, amount);
         }
-        sync();
     }
 
     function availableForBorrow() external view override returns (uint){
@@ -580,12 +569,12 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
              * Otherwise:
              *  exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply
              */
-            uint totalCash = getCashPrior();
+            uint _totalCash = getCashPrior();
             uint cashPlusBorrowsMinusReserves;
             Exp memory exchangeRate;
             MathError mathErr;
 
-            (mathErr, cashPlusBorrowsMinusReserves) = addThenSubUInt(totalCash, totalBorrows, totalReserves);
+            (mathErr, cashPlusBorrowsMinusReserves) = addThenSubUInt(_totalCash, totalBorrows, totalReserves);
             if (mathErr != MathError.NO_ERROR) {
                 return (mathErr, 0);
             }
@@ -634,8 +623,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
      *   up to the current block and writes new checkpoint to storage.
      */
     function accrueInterest() public override {
-        /* Always obtain the latest balance */
-        sync();
         /* Remember the initial block number */
         uint currentBlockNumber = getBlockNumber();
         uint accrualBlockNumberPrior = accrualBlockNumber;
@@ -731,11 +718,11 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
          *  of cash.
          */
         if (isDelegete) {
-            uint priorCash = getCashPrior();
+            uint balanceBefore = getCashPrior();
             LPoolDepositor(msg.sender).transferToPool(minter, mintAmount);
-            sync();
-            require(totalCash > priorCash, 'mint 0');
-            vars.actualMintAmount = totalCash - priorCash;
+            uint balanceAfter = getCashPrior();
+            require(balanceAfter > balanceBefore, 'mint 0');
+            vars.actualMintAmount = balanceAfter - balanceBefore;
         } else {
             vars.actualMintAmount = doTransferIn(minter, mintAmount, true);
         }
@@ -917,8 +904,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint accountBorrowsNew;
         uint totalBorrowsNew;
         uint actualRepayAmount;
-        uint subBorrowsAmount;
-        uint outstandingAmount;
         uint badDebtsAmount;
     }
 
@@ -934,8 +919,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
         RepayBorrowLocalVars memory vars;
 
-        vars.repayAmount = doTransferIn(payer, vars.repayAmount, false);
-
         /* We remember the original borrowerIndex for verification purposes */
         vars.borrowerIndex = accountBorrows[borrower].interestIndex;
 
@@ -949,25 +932,37 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         } else {
             vars.repayAmount = repayAmount;
         }
+        vars.actualRepayAmount = doTransferIn(payer, vars.repayAmount, false);
 
-        vars.subBorrowsAmount = isEnd ? vars.accountBorrows : vars.repayAmount;
-        // If trader's position is liquidated, may be can't repay all borrows
-        (vars.mathErr, vars.outstandingAmount) = subUInt(vars.accountBorrows, vars.repayAmount);
-        require(vars.mathErr == MathError.NO_ERROR, 'calc osamount error');
-        vars.badDebtsAmount = isEnd ? vars.outstandingAmount : 0;
+
+        if (isEnd && vars.accountBorrows > vars.actualRepayAmount) {
+            vars.badDebtsAmount = vars.accountBorrows - vars.actualRepayAmount;
+        }
+
         /*
-         * We calculate the new borrower and total borrow balances, failing on underflow:
-         *  accountBorrowsNew = accountBorrows - repayAmount
-         *  totalBorrowsNew = totalBorrows - repayAmount
-         */
-        (vars.mathErr, vars.accountBorrowsNew) = subUInt(vars.accountBorrows, vars.subBorrowsAmount);
-
-        require(vars.mathErr == MathError.NO_ERROR, "calc acc borrows error");
+        *  We calculate the new borrower and total borrow balances, failing on underflow:
+        *  accountBorrowsNew = accountBorrows - repayAmount
+        *  totalBorrowsNew = totalBorrows - repayAmount
+        */
+        if (vars.accountBorrows < vars.actualRepayAmount) {
+            require(vars.actualRepayAmount.mul(1e18).div(vars.accountBorrows) <= 105e16, 'repay more than 5%');
+            vars.accountBorrowsNew = 0;
+        } else {
+            if (isEnd) {
+                vars.accountBorrowsNew = 0;
+            } else {
+                vars.accountBorrowsNew = vars.accountBorrows - vars.actualRepayAmount;
+            }
+        }
         //Avoid mantissa errors
-        if (vars.subBorrowsAmount > totalBorrows) {
+        if (vars.actualRepayAmount > totalBorrows) {
             vars.totalBorrowsNew = 0;
         } else {
-            vars.totalBorrowsNew = totalBorrows - vars.subBorrowsAmount;
+            if (isEnd) {
+                vars.totalBorrowsNew = totalBorrows.sub(vars.accountBorrows);
+            } else {
+                vars.totalBorrowsNew = totalBorrows - vars.actualRepayAmount;
+            }
         }
 
         /* We write the previously calculated values into storage */
@@ -975,22 +970,12 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         accountBorrows[borrower].interestIndex = borrowIndex;
         totalBorrows = vars.totalBorrowsNew;
 
-        /*
-         * We call doTransferIn for the payer and the repayAmount
-         *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the cToken holds an additional repayAmount of cash.
-         *  doTransferIn reverts if anything goes wrong, since we can't be sure if side effects occurred.
-         *   it returns the amount actually transferred, in case of a fee.
-         */
-        // require(vars.actualRepayAmount == vars.repayAmount, 'repay amount incorrect');
-
-
         /* We emit a RepayBorrow event */
-        emit RepayBorrow(payer, borrower, vars.repayAmount, vars.badDebtsAmount, vars.accountBorrowsNew, vars.totalBorrowsNew);
+        emit RepayBorrow(payer, borrower, vars.actualRepayAmount, vars.badDebtsAmount, vars.accountBorrowsNew, vars.totalBorrowsNew);
 
         /* We call the defense hook */
 
-        return vars.repayAmount;
+        return vars.actualRepayAmount;
     }
 
     /*** Admin Functions ***/

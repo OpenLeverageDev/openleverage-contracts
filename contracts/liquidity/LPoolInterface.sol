@@ -66,6 +66,7 @@ abstract contract LPoolStorage {
      */
     uint public totalBorrows;
 
+    //useless
     uint internal totalCash;
 
     /**
@@ -200,9 +201,9 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function redeemUnderlying(uint redeemAmount) external virtual;
 
-    function borrowBehalf(address borrower, uint borrowAmount) external virtual returns(uint amountReceived);
+    function borrowBehalf(address borrower, uint borrowAmount) external virtual;
 
-    function repayBorrowBehalf(address borrower, uint repayAmount) external virtual returns (uint repayedAmount);
+    function repayBorrowBehalf(address borrower, uint repayAmount) external virtual;
 
     function repayBorrowEndByOpenLev(address borrower, uint repayAmount) external virtual;
 
@@ -227,8 +228,6 @@ abstract contract LPoolInterface is LPoolStorage {
     function getCash() external view virtual returns (uint);
 
     function accrueInterest() public virtual;
-
-    function sync() public virtual;
 
     /*** Admin Functions ***/
 
