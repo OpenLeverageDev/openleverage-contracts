@@ -18,28 +18,28 @@ contract("LPoolDelegator", async accounts => {
     });
 
     it("Allowed Repay all more than 0%-5% test", async () => {
-        let weth = await utils.createWETH();
+        let supplyer = accounts[0];
+        let borrower = accounts[1];
         let controller = await utils.createController(accounts[0]);
-        let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
+        let createPoolResult = await utils.createPool(accounts[0], controller, admin);
         let erc20Pool = createPoolResult.pool;
-        let poolDepositor = await LPoolDepositor.new();
-        let mintAmount = toWei(1);
-        //deposit 1
-        let ethBegin = await web3.eth.getBalance(admin);
-        m.log("ethBegin=", ethBegin);
-        let tx = await poolDepositor.depositNative(erc20Pool.address, {value: mintAmount});
-        m.log("DepositEth Gas Used: ", tx.receipt.gasUsed);
-        assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
-        assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
-        //redeem
-        let ethBefore = await web3.eth.getBalance(admin);
-        await erc20Pool.redeemUnderlying(mintAmount);
-        assert.equal(await erc20Pool.getCash(), 0);
-        assert.equal(await erc20Pool.totalSupply(), 0);
-        let ethAfter = await web3.eth.getBalance(admin);
-        m.log("ethBefore=", ethBefore);
-        m.log("ethAfter=", ethAfter);
-        assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
+        let testToken = createPoolResult.token;
+        await utils.mint(testToken, admin, 20000);
+        //deposit 9000
+        await testToken.approve(erc20Pool.address, maxUint());
+        await erc20Pool.mint(toWei(9000));
+        //borrow 1000
+        await erc20Pool.borrowBehalf(borrower, toWei(1000), {from: borrower});
+        // repay error with more than 5%
+        await assertThrows(erc20Pool.repayBorrowBehalf(borrower, toWei(1051), {from: supplyer}), 'repay more than 5');
+        // repay more than 1% succeed
+        await erc20Pool.repayBorrowBehalf(borrower, toWei(1010), {from: supplyer});
+        let borrowed = await erc20Pool.borrowBalanceCurrent(borrower);
+        let totalBorrowed = await erc20Pool.totalBorrowsCurrent();
+        let totalCash = await erc20Pool.getCash();
+        assert.equal(borrowed, 0);
+        assert.equal(totalBorrowed, 0);
+        assert.equal(totalCash, "9010000000000000000000");
     })
 
 })
