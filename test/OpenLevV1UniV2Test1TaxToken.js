@@ -44,8 +44,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Created Controller", last8(controller.address));
 
         ole = await TestToken.new('OpenLevERC20', 'OLE', 0);
-        token0 = await TestToken.new('TokenA', 'TKA', 0);
-        token1 = await TestToken.new('TokenB', 'TKB', 0);
+        token0 = await TestToken.new('TokenA', 'TKA', 1000);
+        token1 = await TestToken.new('TokenB', 'TKB', 500);
         weth = await utils.createWETH();
 
         uniswapFactory = await utils.createUniswapV2Factory();

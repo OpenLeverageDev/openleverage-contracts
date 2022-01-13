@@ -138,7 +138,7 @@ interface OpenLevInterface {
 
     function updatePrice(uint16 marketId, bytes memory dexData) external;
 
-    // function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
+    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
 
     function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 

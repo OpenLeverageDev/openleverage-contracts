@@ -199,7 +199,7 @@ library OpenLevV1Lib {
         return dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
     }
 
-    function shouldUpdatePriceInternal(DexAggregatorInterface dexAggregator, uint16 twapDuration, uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) private view returns (bool){
+    function shouldUpdatePriceInternal(DexAggregatorInterface dexAggregator, uint16 twapDuration, uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) public view returns (bool){
         if (!dexData.isUniV2Class()) {
             return false;
         }
@@ -234,65 +234,13 @@ library OpenLevV1Lib {
         }
     }
 
-    function reduceInsurance(
-        uint totalRepayment,
-        uint remaining,
-        bool longToken,
-        Types.Market storage market
-    ) external returns (uint maxCanRepayAmount) {
-        uint needed = totalRepayment.sub(remaining);
-        maxCanRepayAmount = totalRepayment;
-        if (longToken) {
-            if (market.pool0Insurance >= needed) {
-                market.pool0Insurance = market.pool0Insurance - needed;
-            } else {
-                maxCanRepayAmount = market.pool0Insurance.add(remaining);
-                market.pool0Insurance = 0;
-            }
-        } else {
-            if (market.pool1Insurance >= needed) {
-                market.pool1Insurance = market.pool1Insurance - needed;
-            } else {
-                maxCanRepayAmount = market.pool1Insurance.add(remaining);
-                market.pool1Insurance = 0;
-            }
-        }
-    }
-
-
-    function feesAndInsurance(Types.Market storage market, OpenLevStorage.CalculateConfig storage config, address xole, address trader, uint tradeSize, address token) external returns (uint) {
-        uint balanceBefore = IERC20(token).balanceOf(address(this));
-        uint defaultFees = tradeSize.mul(market.feesRate).div(10000);
-        uint newFees = defaultFees;
-        // if trader holds more xOLE, then should enjoy trading discount.
-        if (XOLEInterface(xole).balanceOf(trader) > config.feesDiscountThreshold) {
-            newFees = defaultFees.sub(defaultFees.mul(config.feesDiscount).div(100));
-        }
-        // if trader update price, then should enjoy trading discount.
-        if (market.priceUpdater == trader) {
-            newFees = newFees.sub(defaultFees.mul(config.updatePriceDiscount).div(100));
-        }
-        uint newInsurance = newFees.mul(config.insuranceRatio).div(100);
-
-        IERC20(token).safeTransfer(xole, newFees.sub(newInsurance));
-        if (token == market.token1) {
-            market.pool1Insurance = market.pool1Insurance.add(newInsurance);
-        } else {
-            market.pool0Insurance = market.pool0Insurance.add(newInsurance);
-        }
-        return newFees;
-    }
-
     function transferIn(address from, IERC20 token, address weth, uint amount) external returns (uint) {
-        uint balanceBefore = token.balanceOf(address(this));
         if (address(token) == weth) {
             IWETH(weth).deposit{value : msg.value}();
+            return msg.value;
         } else {
-            token.safeTransferFrom(from, address(this), amount);
+            return token.safeTransferFrom(from, address(this), amount);
         }
-        // Calculate the amount that was *actually* transferred
-        uint balanceAfter = token.balanceOf(address(this));
-        return balanceAfter.sub(balanceBefore);
     }
 
     function doTransferOut(address to, IERC20 token, address weth, uint amount) external {
@@ -320,4 +268,13 @@ library OpenLevV1Lib {
         return _supportDexs[dex];
     }
 
+    function amountToShare(uint amount, uint totalShare, uint reserve) internal pure returns (uint share){
+        share = totalShare > 0 && reserve > 0 ? totalShare.mul(amount) / reserve : amount;
+    }
+
+    function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
+        if (totalShare > 0 && reserve > 0){
+            amount = reserve.mul(share) / totalShare;
+        }
+    }
 }

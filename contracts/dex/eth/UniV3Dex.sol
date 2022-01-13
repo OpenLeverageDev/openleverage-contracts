@@ -17,8 +17,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeMath for uint;
     using TransferHelper for IERC20;
     using SafeCast for uint256;
-    using DexData for uint;
-
+    using DexData for uint256;
     IUniswapV3Factory public  uniV3Factory;
     uint16 private constant observationSize = 12;
 
@@ -35,6 +34,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         address tokenOut;
         uint24 fee;
         address payer;
+        uint24 transferFeeRate;
     }
 
     function initializeUniV3(
@@ -44,8 +44,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
     }
 
     function uniV3Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, uint24 fee, bool checkPool, address payer, address payee) internal returns (uint amountOut){
-        uint balanceBefore = IERC20(buyToken).balanceOf(payee);
-        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : payer});
+        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : payer, transferFeeRate: 0});
         SwapCallData memory callData;
         callData.zeroForOne = data.tokenIn < data.tokenOut;
         callData.recipient = payee;
@@ -63,8 +62,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
             callData.sqrtPriceLimitX96,
             abi.encode(data)
         );
-
-        amountOut = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
+        amountOut = uint256(- (callData.zeroForOne ? amount1 : amount0));
         require(amountOut >= minBuyAmount, 'buy amount less than min');
         require(sellAmount == uint256(callData.zeroForOne ? amount0 : amount1), 'Cannot sell all');
     }
@@ -85,39 +83,31 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-    function uniV3Buy(
-        address buyToken, 
-        address sellToken, 
-        uint buyAmount, 
-        uint maxSellAmount, 
-        uint24 fee, 
-        bool checkPool,
-        uint24 buyTokenFeeRate
-    ) internal returns (uint amountIn){
-        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
-
-        uint buyBalanceBefore = IERC20(buyToken).balanceOf(data.payer);
-        uint sellBalanceBefore = IERC20(sellToken).balanceOf(data.payer);
-
+    function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool, uint24 buyTokenFeeRate, uint24 sellTokenFeeRate) internal returns (uint amountIn){
+        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender, transferFeeRate: sellTokenFeeRate});
         bool zeroForOne = data.tokenIn < data.tokenOut;
-        buyAmount = buyAmount.toAmountBeforeTax(buyTokenFeeRate);
-
         IUniswapV3Pool pool = getPool(data.tokenIn, data.tokenOut, fee);
         if (checkPool) {
             require(isPoolObservationsEnough(pool), "Pool observations not enough");
         }
 
+        buyAmount = buyAmount.toAmountBeforeTax(buyTokenFeeRate);
+        int buyAmountInt = - buyAmount.toInt256();
+
+        (int256 amount0Delta, int256 amount1Delta) =
         pool.swap(
             data.payer,
             zeroForOne,
-            - buyAmount.toInt256(),
+            buyAmountInt,
             getSqrtPriceLimitX96(zeroForOne),
             abi.encode(data)
         );
 
-        uint256 amountOutReceived = IERC20(buyToken).balanceOf(data.payer).sub(buyBalanceBefore);
-        amountIn = sellBalanceBefore.sub(IERC20(sellToken).balanceOf(data.payer));
-        require(amountOutReceived >= buyAmount, 'Cannot buy enough');
+        uint256 amountOutReceived;
+        (amountIn, amountOutReceived) = zeroForOne
+        ? (uint256(amount0Delta), uint256(- amount1Delta))
+        : (uint256(amount1Delta), uint256(- amount0Delta));
+        require(amountOutReceived == buyAmount, 'Cannot buy enough');
         require(amountIn <= maxSellAmount, 'sell amount not enough');
     }
 
@@ -171,7 +161,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         require(amount0Delta > 0 || amount1Delta > 0);
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
         require(msg.sender == address(getPool(data.tokenIn, data.tokenOut, data.fee)), "V3 call back invalid");
-        uint256 amountToPay = uint256(amount0Delta > 0 ? amount0Delta : amount1Delta);
+        uint256 amountToPay = uint256(amount0Delta > 0 ? amount0Delta : amount1Delta).toAmountBeforeTax(data.transferFeeRate);
         if (data.payer == address(this)) {
             IERC20(data.tokenIn).safeTransfer(msg.sender, amountToPay);
         } else {

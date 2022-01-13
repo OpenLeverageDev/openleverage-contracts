@@ -33,6 +33,8 @@ library Types {
         LPoolInterface sellPool;    // Lending pool address of the token to sell. It's a calculated field on open or close trade.
         IERC20 buyToken;            // Token to buy
         IERC20 sellToken;           // Token to sell
+        uint reserveBuyToken;
+        uint reserveSellToken;
         uint buyPoolInsurance;      // Insurance balance of token to buy
         uint sellPoolInsurance;     // Insurance balance of token to sell
         uint16 marginLimit;         // Margin Ratio Limit for specific trading pair.
@@ -50,6 +52,7 @@ library Types {
         uint borrowValue;
         uint token0Price;
         uint32 dexDetail;
+        uint totalHeld;
     }
 
     struct CloseTradeVars {// A variables holder for close trade info
@@ -84,6 +87,7 @@ library Types {
         uint receiveAmount;
         uint token0Price;
         uint outstandingAmount;
+        uint finalRepayAmount;
         uint32 dexDetail;
     }
 

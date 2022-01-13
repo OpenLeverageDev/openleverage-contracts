@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + byte3[arrayLength](trasferFeeRate) + path
+// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + byte3[arrayLength](trasferFeeRate) + byte3[arrayLength](trasferFeeRateDex) + path
 // uniV2Path = bytes20[arraylength](address)
 // uniV3Path = bytes20(address)+ bytes20[arraylength-1](address + fee)
 library DexData {
@@ -80,13 +80,17 @@ library DexData {
         }
     }
 
-    function toTransferFeeRates(bytes memory data) internal pure returns (uint24[] memory transferFeeRates){
+    function toTransferFeeRates(bytes memory data, bool beforeSwap) internal pure returns (uint24[] memory transferFeeRates){
         uint8 length = toArrayLength(data);
+        uint start;
+        if (beforeSwap){
+            start = TRANSFERFEE_INDEX + FEE_SIZE * length;
+        }else{
+            start = TRANSFERFEE_INDEX;
+        }
 
         transferFeeRates = new uint24[](length);
         for (uint i = 0; i < length; i++){
-            uint start = TRANSFERFEE_INDEX + FEE_SIZE * i;
-            
             // use default value
             if (data.length <= start){
                 transferFeeRates[i] = 0;
@@ -100,15 +104,16 @@ library DexData {
             }
 
             transferFeeRates[i] = uint24(temp >> (256 - FEE_SIZE * 8));
+            start += FEE_SIZE;
         }
     }
 
     function toUniV2Path(bytes memory data) internal pure returns (address[] memory path) {
         uint8 length = toArrayLength(data);
-        uint end = TRANSFERFEE_INDEX + (FEE_SIZE + ADDRESS_SIZE) * length;
+        uint end = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE + ADDRESS_SIZE) * length;
         require(data.length >= end, "DexData: toUniV2Path wrong data format");
 
-        uint start = TRANSFERFEE_INDEX + FEE_SIZE * length ;
+        uint start = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE)  * length ;
         path = new address[](length);
         for (uint i = 0; i < length; i++) {
             uint startIndex = start + ADDRESS_SIZE * i;
@@ -127,12 +132,12 @@ library DexData {
 
     function toUniV3Path(bytes memory data) internal pure returns (V3PoolData[] memory path) {
         uint8 length = toArrayLength(data);
-        uint end = TRANSFERFEE_INDEX + (FEE_SIZE + ADDRESS_SIZE) * length - FEE_SIZE;
+        uint end = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE  + ADDRESS_SIZE) * length - FEE_SIZE;
         require(data.length >= end, "DexData: toUniV3Path wrong data format");
         require(length > 1, "DexData: toUniV3Path path too short");
 
         uint temp;
-        uint index = TRANSFERFEE_INDEX + FEE_SIZE * length ;
+        uint index = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE) * length ;
         path = new V3PoolData[](length - 1);
 
         for (uint i = 0; i < length - 1; i++) {

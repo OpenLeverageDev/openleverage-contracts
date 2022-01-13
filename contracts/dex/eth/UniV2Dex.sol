@@ -43,8 +43,9 @@ contract UniV2Dex {
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
         
+        require(buyAmount >= minBuyAmount, 'buy amount less than min');
         uint bought = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
-        require(bought >= minBuyAmount, 'buy amount less than min');
+        require(buyAmount <= bought, "wrong amount bought");
         return bought;
     }
 
@@ -123,6 +124,7 @@ contract UniV2Dex {
         
         return sellAmount.toAmountBeforeTax(sellTokenFeeRate);
     }
+    
     function uniV2GetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
         address pair = getUniV2ClassPair(desToken, quoteToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();

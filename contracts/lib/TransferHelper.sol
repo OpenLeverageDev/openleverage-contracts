@@ -13,20 +13,25 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  library TransferHelper{
     // using SafeMath for uint;
 
-    function safeTransfer(IERC20 _token, address _to, uint _amount) internal returns (uint){
-        uint balanceBefore = _token.balanceOf(_to);
-        address(_token).call(abi.encodeWithSelector(_token.transfer.selector, _to, _amount));
-        uint balanceAfter = _token.balanceOf(_to);
-        require(balanceAfter > balanceBefore, "TF");
-        return balanceAfter - balanceBefore;
+    function safeTransfer(IERC20 _token, address _to, uint _amount) internal returns (uint amountReceived){
+        if (_amount > 0){
+            uint balanceBefore = _token.balanceOf(_to);
+            address(_token).call(abi.encodeWithSelector(_token.transfer.selector, _to, _amount));
+            uint balanceAfter = _token.balanceOf(_to);
+            require(balanceAfter > balanceBefore, "TF");
+            amountReceived = balanceAfter - balanceBefore;
+        }
     }
 
-    function safeTransferFrom(IERC20 _token, address _from, address _to, uint _amount) internal returns (uint){
-        uint balanceBefore = _token.balanceOf(_to);
-        address(_token).call(abi.encodeWithSelector(_token.transferFrom.selector, _from, _to, _amount));
-        uint balanceAfter = _token.balanceOf(_to);
-        require(balanceAfter > balanceBefore, "TFF");
-        return balanceAfter - balanceBefore;
+    function safeTransferFrom(IERC20 _token, address _from, address _to, uint _amount) internal returns (uint amountReceived){
+        if (_amount > 0){
+            uint balanceBefore = _token.balanceOf(_to);
+            address(_token).call(abi.encodeWithSelector(_token.transferFrom.selector, _from, _to, _amount));
+            // _token.transferFrom(_from, _to, _amount);
+            uint balanceAfter = _token.balanceOf(_to);
+            require(balanceAfter > balanceBefore, "TFF");
+            amountReceived = balanceAfter - balanceBefore;
+        }
     }
 
     function safeApprove(IERC20 _token, address _spender, uint256 _amount) internal returns (uint) {

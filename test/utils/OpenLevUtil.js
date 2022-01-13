@@ -14,6 +14,7 @@ const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 
 const UniswapV2Router = artifacts.require("IUniswapV2Router");
 const uniRouterV2Address_kovan = exports.uniRouterV2Address_kovan = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib")
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
@@ -100,6 +101,8 @@ exports.tokenAt = async (address) => {
     return await TestToken.at(address);
 }
 exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) => {
+    let openLevV1Lib = await OpenLevV1Lib.new();
+    await OpenLevV1.link("OpenLevV1Lib", openLevV1Lib.address);
     let delegate = await OpenLevV1.new();
     let openLev = await OpenLevDelegator.new(
         controller,
