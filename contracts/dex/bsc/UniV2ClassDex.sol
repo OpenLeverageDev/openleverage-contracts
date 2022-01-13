@@ -8,7 +8,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
-contract PancakeDex {
+contract UniV2ClassDex {
     using SafeMath for uint;
     using SafeERC20 for IERC20;
 
@@ -20,7 +20,12 @@ contract PancakeDex {
         uint price1CumulativeLast; // Cumulative TWAP for token1
     }
 
-    function pancakeSell(IUniswapV2Factory factory,
+    struct DexInfo {
+        IUniswapV2Factory factory;
+        uint16 fees;//30->0.3%
+    }
+
+    function uniClassSell(DexInfo memory dexInfo,
         address buyToken,
         address sellToken,
         uint sellAmount,
@@ -28,23 +33,23 @@ contract PancakeDex {
         address payer,
         address payee
     ) internal returns (uint buyAmount){
-        address pair = getPancakeClassPair(buyToken, sellToken, factory);
+        address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = buyToken < sellToken;
         if (isToken0) {
-            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves);
+            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
         } else {
-            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves);
+            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
     }
 
-    function pancakeSellMul(IUniswapV2Factory factory, uint sellAmount, uint minBuyAmount, address[] memory tokens)
+    function uniClassSellMul(DexInfo memory dexInfo, uint sellAmount, uint minBuyAmount, address[] memory tokens)
     internal returns (uint buyAmount){
         for (uint i = 1; i < tokens.length; i++) {
             address sellToken = tokens[i - 1];
@@ -52,7 +57,7 @@ contract PancakeDex {
             bool isLast = i == tokens.length - 1;
             address payer = i == 1 ? msg.sender : address(this);
             address payee = isLast ? msg.sender : address(this);
-            buyAmount = pancakeSell(factory, buyToken, sellToken, sellAmount, 0, payer, payee);
+            buyAmount = uniClassSell(dexInfo, buyToken, sellToken, sellAmount, 0, payer, payee);
             if (!isLast) {
                 sellAmount = buyAmount;
             }
@@ -60,62 +65,62 @@ contract PancakeDex {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-    function pancakeBuy(IUniswapV2Factory factory, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount)
+    function uniClassBuy(DexInfo memory dexInfo, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount)
     internal returns (uint sellAmount){
         address payer = msg.sender;
-        address pair = getPancakeClassPair(buyToken, sellToken, factory);
+        address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = buyToken < sellToken;
         if (isToken0) {
-            sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves);
+            sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves, dexInfo.fees);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
         } else {
-            sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves);
+            sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves, dexInfo.fees);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
         }
     }
 
-    function pancakeCalBuyAmount(IUniswapV2Factory factory, address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
-        address pair = getPancakeClassPair(buyToken, sellToken, factory);
+    function uniClassCalBuyAmount(DexInfo memory dexInfo, address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
+        address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = buyToken < sellToken;
         if (isToken0) {
-            return getAmountOut(sellAmount, token1Reserves, token0Reserves);
+            return getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
         } else {
-            return getAmountOut(sellAmount, token0Reserves, token1Reserves);
+            return getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
         }
     }
 
-    function pancakeCalSellAmount(IUniswapV2Factory factory, address buyToken, address sellToken, uint buyAmount) internal view returns (uint) {
-        address pair = getPancakeClassPair(buyToken, sellToken, factory);
+    function uniClassCalSellAmount(DexInfo memory dexInfo, address buyToken, address sellToken, uint buyAmount) internal view returns (uint) {
+        address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         bool isToken0 = buyToken < sellToken;
         if (isToken0) {
-            return getAmountIn(buyAmount, token1Reserves, token0Reserves);
+            return getAmountIn(buyAmount, token1Reserves, token0Reserves, dexInfo.fees);
         } else {
-            return getAmountIn(buyAmount, token0Reserves, token1Reserves);
+            return getAmountIn(buyAmount, token0Reserves, token1Reserves, dexInfo.fees);
         }
     }
 
-    function pancakeGetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
-        address pair = getPancakeClassPair(desToken, quoteToken, factory);
+    function uniClassGetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
+        address pair = getUniClassPair(desToken, quoteToken, factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         return desToken == IUniswapV2Pair(pair).token0() ?
         token1Reserves.mul(10 ** decimals).div(token0Reserves) :
         token0Reserves.mul(10 ** decimals).div(token1Reserves);
     }
 
-    function pancakeGetAvgPrice(address desToken, address quoteToken, V2PriceOracle memory priceOracle) internal pure returns (uint256 price, uint256 timestamp){
+    function uniClassGetAvgPrice(address desToken, address quoteToken, V2PriceOracle memory priceOracle) internal pure returns (uint256 price, uint256 timestamp){
         timestamp = priceOracle.blockTimestampLast;
         price = desToken < quoteToken ? uint(priceOracle.price0) : uint(priceOracle.price1);
     }
 
 
-    function pancakeGetPriceCAvgPriceHAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, address quoteToken, uint8 decimals)
+    function uniClassGetPriceCAvgPriceHAvgPrice(address pair, V2PriceOracle memory priceOracle, address desToken, address quoteToken, uint8 decimals)
     internal view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint256 timestamp){
         bool isToken0 = desToken < quoteToken;
         (uint256 token0Reserves, uint256 token1Reserves, uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
@@ -136,7 +141,7 @@ contract PancakeDex {
         }
     }
 
-    function pancakeUpdatePriceOracle(address pair, V2PriceOracle memory priceOracle, uint32 timeWindow, uint8 decimals) internal returns (V2PriceOracle memory, bool updated) {
+    function uniClassUpdatePriceOracle(address pair, V2PriceOracle memory priceOracle, uint32 timeWindow, uint8 decimals) internal returns (V2PriceOracle memory, bool updated) {
         uint32 currentBlockTime = toUint32(block.timestamp);
         if (currentBlockTime < (priceOracle.blockTimestampLast + timeWindow)) {
             return (priceOracle, false);
@@ -167,21 +172,21 @@ contract PancakeDex {
         require((z = uint32(y)) == y);
     }
 
-    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) private pure returns (uint amountOut)
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut, uint16 fees) private pure returns (uint amountOut)
     {
         require(amountIn > 0, 'INSUFFICIENT_INPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
-        uint amountInWithFee = amountIn.mul(9975);
+        uint amountInWithFee = amountIn.mul(uint(10000).sub(fees));
         uint numerator = amountInWithFee.mul(reserveOut);
         uint denominator = reserveIn.mul(10000).add(amountInWithFee);
         amountOut = numerator / denominator;
     }
 
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) private pure returns (uint amountIn) {
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut, uint16 fees) private pure returns (uint amountIn) {
         require(amountOut > 0, 'INSUFFICIENT_OUTPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint numerator = reserveIn.mul(amountOut).mul(10000);
-        uint denominator = reserveOut.sub(amountOut).mul(9975);
+        uint denominator = reserveOut.sub(amountOut).mul(uint(10000).sub(fees));
         amountIn = (numerator / denominator).add(1);
     }
 
@@ -194,7 +199,7 @@ contract PancakeDex {
 
     }
 
-    function getPancakeClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){
+    function getUniClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         if (address(factory) == 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73) {
             return address(uint(keccak256(abi.encodePacked(
