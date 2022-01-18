@@ -10,6 +10,7 @@ import "./dex/DexAggregatorInterface.sol";
 import "./OpenLevInterface.sol";
 import "./lib/DexData.sol";
 import "./lib/TransferHelper.sol";
+import "./lib/Utils.sol";
 
 abstract contract OpenLevStorage {
     using SafeMath for uint;
@@ -50,8 +51,10 @@ abstract contract OpenLevStorage {
 
     mapping(uint8 => bool) public supportDexs;
 
-    mapping(address => uint) totalHelds;
+    mapping(address => uint) public totalHelds;
 
+    mapping(address => mapping(uint => uint24)) public taxes;
+    
     event MarginTrade(
         address trader,
         uint16 marketId,

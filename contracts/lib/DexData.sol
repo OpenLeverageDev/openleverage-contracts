@@ -1,20 +1,18 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.7.6;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
-
-// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + byte3[arrayLength](trasferFeeRate) + byte3[arrayLength](trasferFeeRateDex) + path
+// DexDataFormat add pair = byte(dexID) + bytes3(feeRate) + bytes(arrayLength) + byte3[arrayLength](trasferFeeRate Lpool <-> openlev) + byte3[arrayLength](transferFeeRate openLev -> Dex) + byte3[arrayLength](Dex -> transferFeeRate openLev)
+// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + path
 // uniV2Path = bytes20[arraylength](address)
 // uniV3Path = bytes20(address)+ bytes20[arraylength-1](address + fee)
 library DexData {
-    using SafeMath for uint;
-
     // in byte
     uint constant DEX_INDEX = 0;
     uint constant FEE_INDEX = 1;
     uint constant ARRYLENTH_INDEX = 4;
     uint constant TRANSFERFEE_INDEX = 5;
+    uint constant PATH_INDEX = 5;
     uint constant FEE_SIZE = 3;
     uint constant ADDRESS_SIZE = 20;
     uint constant NEXT_OFFSET = ADDRESS_SIZE + FEE_SIZE;
@@ -30,8 +28,6 @@ library DexData {
     uint8 constant DEX_SHIBA = 9;
     uint8 constant DEX_APE = 10;
     
-    uint constant feeRatePrecision = 10**6;
-
     struct V3PoolData {
         address tokenA;
         address tokenB;
@@ -80,8 +76,9 @@ library DexData {
         }
     }
 
+    // only for add pair
     function toTransferFeeRates(bytes memory data, bool beforeSwap) internal pure returns (uint24[] memory transferFeeRates){
-        uint8 length = toArrayLength(data);
+        uint8 length = toArrayLength(data) * 3;
         uint start;
         if (beforeSwap){
             start = TRANSFERFEE_INDEX + FEE_SIZE * length;
@@ -110,10 +107,10 @@ library DexData {
 
     function toUniV2Path(bytes memory data) internal pure returns (address[] memory path) {
         uint8 length = toArrayLength(data);
-        uint end = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE + ADDRESS_SIZE) * length;
+        uint end =  PATH_INDEX + ADDRESS_SIZE * length;
         require(data.length >= end, "DexData: toUniV2Path wrong data format");
 
-        uint start = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE)  * length ;
+        uint start = PATH_INDEX;
         path = new address[](length);
         for (uint i = 0; i < length; i++) {
             uint startIndex = start + ADDRESS_SIZE * i;
@@ -132,12 +129,12 @@ library DexData {
 
     function toUniV3Path(bytes memory data) internal pure returns (V3PoolData[] memory path) {
         uint8 length = toArrayLength(data);
-        uint end = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE  + ADDRESS_SIZE) * length - FEE_SIZE;
+        uint end = PATH_INDEX + (FEE_SIZE  + ADDRESS_SIZE) * length - FEE_SIZE;
         require(data.length >= end, "DexData: toUniV3Path wrong data format");
         require(length > 1, "DexData: toUniV3Path path too short");
 
         uint temp;
-        uint index = TRANSFERFEE_INDEX + (FEE_SIZE + FEE_SIZE) * length ;
+        uint index = PATH_INDEX;
         path = new V3PoolData[](length - 1);
 
         for (uint i = 0; i < length - 1; i++) {
@@ -166,15 +163,5 @@ library DexData {
 
             path[i] = pool;
         }
-    }
-
-    function toAmountBeforeTax(uint256 amount, uint24 feeRate) internal pure returns (uint){
-        uint denominator = feeRatePrecision.sub(feeRate);
-        uint numerator = amount.mul(feeRatePrecision).add(denominator).sub(1);
-        return numerator / denominator;
-    }
-
-    function toAmountAfterTax(uint256 amount, uint24 feeRate) internal pure returns (uint){
-        return amount.mul(feeRatePrecision.sub(feeRate)) / feeRatePrecision;
     }
 }

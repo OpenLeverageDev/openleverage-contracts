@@ -10,6 +10,8 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./OpenLevInterface.sol";
+import "./XOLEInterface.sol";
 
 /**
   * @title Controller
@@ -59,7 +61,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
             pairVar.tokenName, pairVar.tokenSymbol, ERC20(pairVar.token1).decimals(), admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
+        uint16 marketId = (OpenLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
         emit LPoolPairCreated(pairVar.token0, address(pool0), pairVar.token1, address(pool1), marketId, pairVar.marginLimit, pairVar.dexData);
     }
 
@@ -222,7 +224,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
 
     function stake(LPoolInterface lpool, address account, uint256 amount) internal returns (bool) {
         bool updateSucceed = updateReward(lpool, account, false);
-        if (xoleToken == address(0) || XOleInterface(xoleToken).balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
+        if (xoleToken == address(0) || XOLEInterface(xoleToken).balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
             return updateSucceed;
         }
         uint addExtraToken = amount.mul(oleTokenDistribution.xoleRaiseRatio).div(100);
@@ -414,17 +416,3 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
     }
 
 }
-
-interface OPENLevInterface {
-    function addMarket(
-        LPoolInterface pool0,
-        LPoolInterface pool1,
-        uint16 marginLimit,
-        bytes memory dexData
-    ) external returns (uint16);
-}
-
-interface XOleInterface {
-    function balanceOf(address addr) external view returns (uint256);
-}
-

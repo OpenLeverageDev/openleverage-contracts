@@ -8,10 +8,11 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "../../lib/TransferHelper.sol";
 import "../../lib/DexData.sol";
+import "../../lib/Utils.sol";
 
 contract UniV2Dex {
     using SafeMath for uint;
-    using DexData for uint;
+    using Utils for uint;
     using TransferHelper for IERC20;
 
     struct V2PriceOracle {
@@ -201,7 +202,7 @@ contract UniV2Dex {
         amountOut = numerator / denominator;
     }
 
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) private pure returns (uint amountIn) {
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) public  pure returns (uint amountIn) {
         require(amountOut > 0, 'INSUFFICIENT_OUTPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint numerator = reserveIn.mul(amountOut).mul(1000);

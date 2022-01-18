@@ -1,5 +1,6 @@
 pragma solidity 0.7.6;
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./OpenLevInterface.sol";
 import "./Adminable.sol";
 import "./XOLEInterface.sol";
@@ -30,12 +31,30 @@ library OpenLevV1Lib {
         mapping(uint16 => Types.Market) storage markets,
         OpenLevStorage.CalculateConfig storage config,
         OpenLevStorage.AddressConfig storage addressConfig,
-        mapping(uint8 => bool) storage _supportDexs
+        mapping(uint8 => bool) storage _supportDexs,
+        mapping(address => mapping(uint => uint24)) storage taxes
     ) external {
+        address token0 = pool0.underlying();
+        address token1 = pool1.underlying(); 
         uint8 dex = dexData.toDex();
         require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
-        address token0 = pool0.underlying();
-        address token1 = pool1.underlying();
+
+        {
+            uint24[] memory taxRates = dexData.toTransferFeeRates(false);
+            require(taxes[token0][0] == taxRates[0] && taxRates[0] < 200000, "WTR" );
+            require(taxes[token1][0] == taxRates[1] && taxRates[1] < 200000, "WTR" );
+            require(taxes[token0][1] == taxRates[2] && taxRates[2] < 200000, "WTR" );
+            require(taxes[token1][1] == taxRates[3] && taxRates[3] < 200000, "WTR" );
+            require(taxes[token0][2] == taxRates[4] && taxRates[4] < 200000, "WTR" );
+            require(taxes[token1][2] == taxRates[5] && taxRates[5] < 200000, "WTR" );
+            taxes[token0][0] = taxRates[0];
+            taxes[token1][0] = taxRates[1];
+            taxes[token0][1] = taxRates[2];
+            taxes[token1][1] = taxRates[3];
+            taxes[token0][2] = taxRates[4];
+            taxes[token1][2] = taxRates[5];
+        }
+
         // Approve the max number for pools
         IERC20(token0).safeApprove(address(pool0), uint256(- 1));
         IERC20(token1).safeApprove(address(pool1), uint256(- 1));
@@ -275,6 +294,26 @@ library OpenLevV1Lib {
     function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
         if (totalShare > 0 && reserve > 0){
             amount = reserve.mul(share) / totalShare;
+        }
+    }
+
+    function verifyTrade(Types.MarketVars memory vars, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData, OpenLevStorage.AddressConfig memory addressConfig, Types.Trade memory trade) external view {
+        //verify if deposit token allowed
+        address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
+
+        //verify minimal deposit > absolute value 0.0001
+        uint decimals = ERC20(depositTokenAddr).decimals();
+        uint minimalDeposit = decimals > 4 ? 10 ** (decimals - 4) : 1;
+        uint actualDeposit = depositTokenAddr == addressConfig.wETH ? msg.value : deposit;
+        require(actualDeposit > minimalDeposit, "DTS");
+
+        // New trade
+        if (trade.lastBlockNum == 0) {
+            require(borrow > 0, "BB0");
+            return;
+        } else {
+            // For new trade, these checks are not needed
+            require(depositToken == trade.depositToken && trade.lastBlockNum != uint128(block.number) && isInSupportDex(vars.dexs, dexData.toDexDetail()), "DNS");
         }
     }
 }

@@ -63,7 +63,7 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
     let token0 = await TestToken.at(await gotPair.token0());
     let token1 = await TestToken.at(await gotPair.token1());
 
-    await gotPair.initialize(toBN(1).mul(toBN(2)).pow(toBN(96)));
+    await gotPair.initialize(toBN(1).mul(toBN(2).pow(toBN(96))));
     await gotPair.increaseObservationCardinalityNext(3);
 
     await gotPair.mint(admin, toBN(-69060), 69060, toWei(100000), '0x');
@@ -84,7 +84,7 @@ exports.createBscDexAgg = async (_uniV2Factory, _uniV3Factory, admin) => {
 }
 
 exports.createToken = async (tokenSymbol) => {
-    return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol, 0);
+    return await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
 }
 exports.createWETH = async () => {
     return await WETH.new();
@@ -128,7 +128,7 @@ exports.createTimelock = async (admin) => {
 }
 
 exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
-    let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol, 0);
+    let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
     let erc20Delegate = await LPool.new();
     let pool = await LPoolDelegator.new();
     await pool.initialize(testToken.address, wethToken ? true : false,

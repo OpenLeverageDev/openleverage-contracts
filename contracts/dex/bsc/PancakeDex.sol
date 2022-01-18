@@ -8,10 +8,11 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "../../lib/TransferHelper.sol";
 import "../../lib/DexData.sol";
+import "../../lib/Utils.sol";
 
 contract PancakeDex {
     using SafeMath for uint;
-    using DexData for uint;
+    using Utils for uint;
     using TransferHelper for IERC20;
 
     struct V2PriceOracle {

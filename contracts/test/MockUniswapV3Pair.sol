@@ -467,23 +467,27 @@ tickCumulatives[1] = (int56)(TickMath.getTickAtSqrtRatio(prePrice) * int(seconds
 }
 }
 }
+
+// price = price * 2**96
 function setPrice(address tokenA, address tokenB, uint price) external {
 tokenB;
 tokenA;
 if (tokenA == token0){
-slot0.sqrtPriceX96 = uint160(price << 95);
+slot0.sqrtPriceX96 = uint160(Sqrt.sqrt((price << 192) / 10**18));
 }else {
-slot0.sqrtPriceX96 = uint160(price << 97);
+slot0.sqrtPriceX96 = uint160(Sqrt.sqrt(((10 ** 18) << 192)  / price));
 }
+slot0.tick = TickMath.getTickAtSqrtRatio(slot0.sqrtPriceX96);
 }
+
 uint160 prePrice;
 function setPreviousPrice(address tokenA, address tokenB, uint price) external {
 tokenB;
 tokenA;
 if (tokenA == token0){
-prePrice = uint160(price << 95);
+prePrice = uint160(Sqrt.sqrt((price << 192) / 10 ** 18));
 }else {
-prePrice = uint160(price << 97);
+prePrice = uint160(Sqrt.sqrt(((10 ** 18) << 192)  / price));
 }
 }
 
@@ -893,4 +897,20 @@ TransferHelper.safeTransfer(token1, recipient, amount1);
 emit CollectProtocol(msg.sender, recipient, amount0, amount1);
 }
 
+}
+
+library Sqrt {
+    // babylonian method (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method)
+    function sqrt(uint y) internal pure returns (uint z) {
+        if (y > 3) {
+            z = y;
+            uint x = y / 2 + 1;
+            while (x < z) {
+                z = x;
+                x = (y / x + x) / 2;
+            }
+        } else if (y != 0) {
+            z = 1;
+        }
+    }
 }

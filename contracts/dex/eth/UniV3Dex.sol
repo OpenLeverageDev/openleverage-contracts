@@ -12,12 +12,14 @@ import '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
 import "../../lib/DexData.sol";
 import "../../lib/TransferHelper.sol";
+import "../../lib/Utils.sol";
+
 
 contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeMath for uint;
     using TransferHelper for IERC20;
     using SafeCast for uint256;
-    using DexData for uint256;
+    using Utils for uint256;
     IUniswapV3Factory public  uniV3Factory;
     uint16 private constant observationSize = 12;
 

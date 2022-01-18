@@ -6,6 +6,7 @@ import "./UniV2Dex.sol";
 import "./UniV3Dex.sol";
 import "../DexAggregatorInterface.sol";
 import "../../lib/DexData.sol";
+import "../../lib/Utils.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../DelegateInterface.sol";
 import "../../Adminable.sol";
@@ -61,13 +62,12 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         }
     }
 
-    function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
-        uint24[] memory transferFeeRate = data.toTransferFeeRates(true);
+    function buy(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_UNIV2) {
-            sellAmount = uniV2Buy(uniV2Factory, buyToken, sellToken, buyAmount, maxSellAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
+            sellAmount = uniV2Buy(uniV2Factory, buyToken, sellToken, buyAmount, maxSellAmount, buyTax, sellTax);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
+            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true, buyTax, sellTax);
         }
         else {
             revert('Unsupported dex');
@@ -75,9 +75,11 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     }
 
 
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) external view override returns (uint buyAmount) {
-        if (data.toDex() == DexData.DEX_UNIV2) {
+    function calBuyAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, bytes memory data) external view override returns (uint buyAmount) {
+        if (data.toDex() == DexData.DEX_PANCAKE) {
+            sellAmount = Utils.toAmountBeforeTax(sellAmount, sellTax);
             buyAmount = uniV2CalBuyAmount(uniV2Factory, buyToken, sellToken, sellAmount);
+            buyAmount = Utils.toAmountAfterTax(buyAmount, buyTax);
         }
         else {
             revert('Unsupported dex');

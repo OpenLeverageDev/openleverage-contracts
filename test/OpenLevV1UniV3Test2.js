@@ -39,10 +39,10 @@ contract("OpenLev UniV3", async accounts => {
     let controller = await utils.createController(admin);
     m.log("Created Controller", last8(controller.address));
 
-    ole = await TestToken.new('OpenLevERC20', 'OLE', 0);
+    ole = await TestToken.new('OpenLevERC20', 'OLE');
 
-    token0 = await TestToken.new('TokenA', 'TKA', 0);
-    token1 = await TestToken.new('TokenB', 'TKB', 0);
+    token0 = await TestToken.new('TokenA', 'TKA');
+    token1 = await TestToken.new('TokenB', 'TKB');
 
     let uniswapFactory = await utils.createUniswapV3Factory();
     gotPair = await utils.createUniswapV3Pool(uniswapFactory, token0, token1, accounts[0]);
@@ -118,7 +118,7 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Trade.deposited:", trade.deposited);
 
 
-    await gotPair.setPrice(btc.address, usdt.address, 2);
+    await gotPair.setPrice(btc.address, usdt.address, utils.toWei(1));
     // Market price change, then check margin ratio
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
