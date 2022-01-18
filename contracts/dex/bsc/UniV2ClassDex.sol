@@ -35,14 +35,13 @@ contract UniV2ClassDex {
     ) internal returns (uint buyAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
+        if (buyToken < sellToken) {
+            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
         } else {
-            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
+            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
             require(buyAmount >= minBuyAmount, 'buy amount less than min');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
@@ -70,14 +69,13 @@ contract UniV2ClassDex {
         address payer = msg.sender;
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves, dexInfo.fees);
+        if (buyToken < sellToken) {
+            sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
         } else {
-            sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves, dexInfo.fees);
+            sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
             IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
@@ -87,22 +85,20 @@ contract UniV2ClassDex {
     function uniClassCalBuyAmount(DexInfo memory dexInfo, address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            return getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
+        if (buyToken < sellToken) {
+            return getAmountOut(sellAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
         } else {
-            return getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
+            return getAmountOut(sellAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
         }
     }
 
     function uniClassCalSellAmount(DexInfo memory dexInfo, address buyToken, address sellToken, uint buyAmount) internal view returns (uint) {
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        bool isToken0 = buyToken < sellToken;
-        if (isToken0) {
-            return getAmountIn(buyAmount, token1Reserves, token0Reserves, dexInfo.fees);
+        if (buyToken < sellToken) {
+            return getAmountIn(buyAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
         } else {
-            return getAmountIn(buyAmount, token0Reserves, token1Reserves, dexInfo.fees);
+            return getAmountIn(buyAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
         }
     }
 
@@ -212,4 +208,21 @@ contract UniV2ClassDex {
             return factory.getPair(tokenA, tokenB);
         }
     }
+
+    function getPairFees(DexInfo memory dexInfo, address pair) private view returns (uint16){
+        //mdex
+        if (address(dexInfo.factory) == 0x3CD1C46068dAEa5Ebb0d3f55F6915B10648062B8) {
+            return toUint16((IMdexFactory)(address(dexInfo.factory)).getPairFees(pair));
+        } else {
+            return dexInfo.fees;
+        }
+    }
+
+    function toUint16(uint256 y) internal pure returns (uint16 z) {
+        require((z = uint16(y)) == y);
+    }
+}
+
+interface IMdexFactory {
+    function getPairFees(address) external view returns (uint256);
 }
