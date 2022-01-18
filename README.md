@@ -38,6 +38,7 @@ Audits
 - [Certik Jun 2021](/audits/REP-OpenLeverage-Protocol-2021-06-24.pdf)
 - [PeckShield Sep 2021](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-v1.0.pdf)
 - [PeckShield Dec 2021](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-1.0.1.pdf)
+- [Code4Rena - Coming in Jan 2021](https://code4rena.com/contests/2022-01-openleverage-contest)
 
 Licensing
 ----------
