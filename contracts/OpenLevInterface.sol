@@ -154,9 +154,6 @@ interface OpenLevInterface {
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
-    function setAllowedDepositTokens(address[] memory tokens, bool allowed) external;
-
     function setSupportDex(uint8 dex, bool support) external;
-
 
 }
