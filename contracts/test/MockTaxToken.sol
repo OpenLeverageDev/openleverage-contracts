@@ -9,7 +9,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-contract CoinToken is Context, IERC20, Ownable {
+contract MockTaxToken is Context, IERC20, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
@@ -54,7 +54,7 @@ contract CoinToken is Context, IERC20, Ownable {
         _name = _NAME;
         _symbol = _SYMBOL;
         _decimals = 18;
-        _tTotal = 10 ** (_decimals + 10);
+        _tTotal = 10 ** (_decimals + 2);
         _rTotal = (MAX - (MAX % _tTotal));
         _taxFee = _txFee;
         _liquidityFee = _lpFee;
@@ -67,10 +67,9 @@ contract CoinToken is Context, IERC20, Ownable {
         _rOwned[msg.sender] = _rTotal;
         
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(routerAddress);
-         // Create a uniswap pair for this new token
-        uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
-            .createPair(address(this), _uniswapV2Router.WETH());
-
+        IUniswapV2Factory factory = IUniswapV2Factory(_uniswapV2Router.factory());
+        // Create a uniswap pair for this new token
+        uniswapV2Pair = factory.createPair(address(this), _uniswapV2Router.WETH());
         // set the rest of the contract variables
         uniswapV2Router = _uniswapV2Router;
         
@@ -323,7 +322,7 @@ contract CoinToken is Context, IERC20, Ownable {
         require(to != address(0), "ERC20: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
         if(from != owner() && to != owner())
-            require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
+        require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
 
         uint256 contractTokenBalance = balanceOf(address(this));
         

@@ -362,7 +362,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         require(nonce.length == expiry.length && nonce.length == v.length && nonce.length == r.length && nonce.length == s.length);
         for (uint i = 0; i < nonce.length; i++) {
             (bool success,) = address(this).call(
-                abi.encodeWithSignature("delegateBySig(address,uint256,uint256,uint8,bytes32,bytes32)", delegatee, nonce[i], expiry[i], v[i], r[i], s[i])
+                abi.encodeWithSelector(XOLE(address(this)).delegateBySig.selector, delegatee, nonce[i], expiry[i], v[i], r[i], s[i])
             );
             if (!success) emit FailedDelegateBySig(delegatee, nonce[i], expiry[i], v[i], r[i], s[i]);
         }

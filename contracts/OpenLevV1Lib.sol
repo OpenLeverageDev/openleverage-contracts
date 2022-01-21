@@ -32,7 +32,7 @@ library OpenLevV1Lib {
         OpenLevStorage.CalculateConfig storage config,
         OpenLevStorage.AddressConfig storage addressConfig,
         mapping(uint8 => bool) storage _supportDexs,
-        mapping(address => mapping(uint => uint24)) storage taxes
+        mapping(uint16 => mapping(address => mapping(uint => uint24))) storage taxes
     ) external {
         address token0 = pool0.underlying();
         address token1 = pool1.underlying(); 
@@ -40,19 +40,14 @@ library OpenLevV1Lib {
         require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
 
         {
-            uint24[] memory taxRates = dexData.toTransferFeeRates(false);
-            require(taxes[token0][0] == taxRates[0] && taxRates[0] < 200000, "WTR" );
-            require(taxes[token1][0] == taxRates[1] && taxRates[1] < 200000, "WTR" );
-            require(taxes[token0][1] == taxRates[2] && taxRates[2] < 200000, "WTR" );
-            require(taxes[token1][1] == taxRates[3] && taxRates[3] < 200000, "WTR" );
-            require(taxes[token0][2] == taxRates[4] && taxRates[4] < 200000, "WTR" );
-            require(taxes[token1][2] == taxRates[5] && taxRates[5] < 200000, "WTR" );
-            taxes[token0][0] = taxRates[0];
-            taxes[token1][0] = taxRates[1];
-            taxes[token0][1] = taxRates[2];
-            taxes[token1][1] = taxRates[3];
-            taxes[token0][2] = taxRates[4];
-            taxes[token1][2] = taxRates[5];
+            uint24[] memory taxRates = dexData.toTransferFeeRates();
+            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 &&taxRates[4] < 200000 && taxRates[5] < 200000, "WTR" );
+            taxes[marketId][token0][0]= taxRates[0];
+            taxes[marketId][token1][0]= taxRates[1];
+            taxes[marketId][token0][1]= taxRates[2];
+            taxes[marketId][token1][1]= taxRates[3];
+            taxes[marketId][token0][2]= taxRates[4];
+            taxes[marketId][token1][2]= taxRates[5];
         }
 
         // Approve the max number for pools

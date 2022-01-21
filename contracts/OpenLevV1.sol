@@ -104,8 +104,10 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         tv.dexDetail = dexData.toDexDetail();
 
         if (depositToken == longToken ){
-            tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData);
-            tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(borrowed) : borrowed.mul(1e18).div(tv.newHeld);
+            if (borrowed > 0){
+                tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData);
+                tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(borrowed) : borrowed.mul(1e18).div(tv.newHeld);
+            }
             tv.newHeld = tv.newHeld.add(tv.depositAfterFees);
         }else{
             tv.tradeSize = tv.depositAfterFees.add(borrowed);
@@ -136,10 +138,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
-
+        
         //verify
+        verifyCloseBefore(trade, marketVars, closeHeld, dexData);
+
         uint closeAmount = OpenLevV1Lib.shareToAmount(closeHeld, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
-        verifyCloseBefore(trade, marketVars, closeAmount, dexData);
 
         Types.CloseTradeVars memory closeTradeVars;
         closeTradeVars.fees = feesAndInsurance(msg.sender, closeAmount, address(marketVars.sellToken), marketId, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
@@ -147,7 +150,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         closeTradeVars.closeRatio = closeHeld.mul(1e18).div(trade.held);
         closeTradeVars.isPartialClose = closeHeld != trade.held;
         closeTradeVars.repayAmount = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
-        closeTradeVars.repayAmount = Utils.toAmountBeforeTax(closeTradeVars.repayAmount, taxes[address(marketVars.buyToken)][0]);
+        closeTradeVars.repayAmount = Utils.toAmountBeforeTax(closeTradeVars.repayAmount, taxes[marketId][address(marketVars.buyToken)][0]);
         closeTradeVars.dexDetail = dexData.toDexDetail();
 
         //partial close
@@ -171,8 +174,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         } else {
             uint balance = marketVars.buyToken.balanceOf(address(this));
             minOrMaxAmount = Utils.minOf(closeTradeVars.closeAmountAfterFees, minOrMaxAmount);
-            closeTradeVars.sellAmount = flashBuy(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, minOrMaxAmount, dexData);
-
+            closeTradeVars.sellAmount = flashBuy(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, minOrMaxAmount, dexData);
             closeTradeVars.receiveAmount = marketVars.buyToken.balanceOf(address(this)).sub(balance);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
@@ -207,9 +209,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             OpenLevV1Lib.updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         }
 
+        verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, marketVars.dexs, dexData.toDexDetail());
         uint closeAmount = OpenLevV1Lib.shareToAmount(trade.held, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
 
-        verifyCloseOrLiquidateBefore(closeAmount, trade.lastBlockNum, marketVars.dexs, dexData.toDexDetail());
         (ControllerInterface(addressConfig.controller)).liquidateAllowed(marketId, msg.sender, closeAmount, dexData);
         require(!OpenLevV1Lib.isPositionHealthy(owner, false, closeAmount, marketVars, dexData), "PIH");
 
@@ -222,7 +224,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         liquidateVars.remainAmountAfterFees = closeAmount.sub(liquidateVars.fees).sub(liquidateVars.penalty);
         liquidateVars.dexDetail = dexData.toDexDetail();
         liquidateVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(owner);
-        liquidateVars.borrowed = Utils.toAmountBeforeTax(liquidateVars.borrowed, taxes[address(marketVars.buyToken)][0]);
+        liquidateVars.borrowed = Utils.toAmountBeforeTax(liquidateVars.borrowed, taxes[marketId][address(marketVars.buyToken)][0]);
         liquidateVars.marketId = marketId;
         liquidateVars.longToken = longToken;
 
@@ -232,8 +234,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             maxSell = Utils.minOf(maxSell, liquidateVars.remainAmountAfterFees);
             marketVars.sellToken.safeApprove(address(addressConfig.dexAggregator), maxSell);
             (buySuccess, sellAmountData) = address(addressConfig.dexAggregator).call(
-                abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[address(marketVars.buyToken)][2], 
-                taxes[address(marketVars.sellToken)][1], liquidateVars.borrowed, maxSell, dexData)
+                abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[liquidateVars.marketId][address(marketVars.buyToken)][2], 
+                taxes[liquidateVars.marketId][address(marketVars.sellToken)][2], liquidateVars.borrowed, maxSell, dexData)
             );
         }        
 
@@ -254,6 +256,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             liquidateVars.sellAmount = liquidateVars.remainAmountAfterFees;
             liquidateVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minBuy, dexData);
             if (liquidateVars.receiveAmount >= liquidateVars.borrowed) {
+                // fail if buy failed but sell succeeded
                 require (longToken != trade.depositToken, "PH");
                 marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
                 liquidateVars.depositReturn = liquidateVars.receiveAmount.sub(liquidateVars.borrowed);
@@ -392,11 +395,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
     }
 
-    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) internal returns (uint sellAmount){
+    function flashBuy(uint16 marketId, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) internal returns (uint sellAmount){
         if (buyAmount > 0){
             DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
             IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
-            sellAmount = dexAggregator.buy(buyToken, sellToken, taxes[buyToken][2], taxes[sellToken][1], buyAmount, maxSellAmount, data);
+            sellAmount = dexAggregator.buy(buyToken, sellToken, taxes[marketId][buyToken][2], taxes[marketId][sellToken][1], buyAmount, maxSellAmount, data);
         }
     }
 
@@ -446,8 +449,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         supportDexs[dex] = support;
     }
 
-    function setTaxRate(address token, uint index, uint24 tax) external onlyAdmin(){
-        taxes[token][index] = tax;
+    function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external override onlyAdmin(){
+        taxes[marketId][token][index] = tax;
     }
 
     function verifyTrade(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {

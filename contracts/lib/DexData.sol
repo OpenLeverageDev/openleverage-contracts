@@ -77,14 +77,9 @@ library DexData {
     }
 
     // only for add pair
-    function toTransferFeeRates(bytes memory data, bool beforeSwap) internal pure returns (uint24[] memory transferFeeRates){
+    function toTransferFeeRates(bytes memory data) internal pure returns (uint24[] memory transferFeeRates){
         uint8 length = toArrayLength(data) * 3;
-        uint start;
-        if (beforeSwap){
-            start = TRANSFERFEE_INDEX + FEE_SIZE * length;
-        }else{
-            start = TRANSFERFEE_INDEX;
-        }
+        uint start = TRANSFERFEE_INDEX;
 
         transferFeeRates = new uint24[](length);
         for (uint i = 0; i < length; i++){

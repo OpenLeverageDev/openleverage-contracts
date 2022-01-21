@@ -46,7 +46,6 @@ contract PancakeDex {
         
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
         uint bought = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
-        require(buyAmount <= bought, "wrong amount bought");
         return bought;
     }
 

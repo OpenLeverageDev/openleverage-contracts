@@ -45,6 +45,8 @@ abstract contract OpenLevStorage {
     // owner => marketId => long0(true)/long1(false) => Trades
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
+    mapping(address => bool) public allowedDepositTokens;
+
     CalculateConfig public calculateConfig;
 
     AddressConfig public addressConfig;
@@ -53,7 +55,8 @@ abstract contract OpenLevStorage {
 
     mapping(address => uint) public totalHelds;
 
-    mapping(address => mapping(uint => uint24)) public taxes;
+    // map(keccak256(marketId, tokenAddress, index) => taxRate) 
+    mapping(uint16 => mapping(address => mapping(uint => uint24))) public taxes;  
     
     event MarginTrade(
         address trader,
@@ -158,4 +161,7 @@ interface OpenLevInterface {
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
     function setSupportDex(uint8 dex, bool support) external;
+
+    function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external;
+
 }

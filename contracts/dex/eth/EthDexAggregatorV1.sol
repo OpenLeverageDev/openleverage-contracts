@@ -76,8 +76,8 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
 
     function calBuyAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, bytes memory data) external view override returns (uint buyAmount) {
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            sellAmount = Utils.toAmountBeforeTax(sellAmount, sellTax);
+        if (data.toDex() == DexData.DEX_UNIV2) {
+            sellAmount = Utils.toAmountAfterTax(sellAmount, sellTax);
             buyAmount = uniV2CalBuyAmount(uniV2Factory, buyToken, sellToken, sellAmount);
             buyAmount = Utils.toAmountAfterTax(buyAmount, buyTax);
         }
@@ -86,16 +86,14 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         }
     }
 
-    function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
+    function calSellAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_UNIV2) {
-            uint24[] memory transferFeeRate = data.toTransferFeeRates(true);
-            sellAmount = uniV2CalSellAmount(uniV2Factory, buyToken, sellToken, buyAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
+            sellAmount = uniV2CalSellAmount(uniV2Factory, buyToken, sellToken, buyAmount, buyTax, sellTax);
         }
         else {
             revert('Unsupported dex');
         }
     }
-
 
     function getPrice(address desToken, address quoteToken, bytes memory data) external view override returns (uint256 price, uint8 decimals){
         decimals = priceDecimals;

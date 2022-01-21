@@ -44,10 +44,8 @@ contract UniV2Dex {
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
         
+        buyAmount = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
-        uint bought = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
-        require(buyAmount <= bought, "wrong amount bought");
-        return bought;
     }
 
     function uniV2SellMul(IUniswapV2Factory factory, uint sellAmount, uint minBuyAmount, address[] memory tokens)
@@ -77,21 +75,23 @@ contract UniV2Dex {
     )internal returns (uint sellAmount){
         address payer = msg.sender;
         address pair = getUniV2ClassPair(buyToken, sellToken, factory);
+        IUniswapV2Pair(pair).sync();
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         uint balanceBefore = IERC20(buyToken).balanceOf(payer);
+        uint toBuy = buyAmount.toAmountBeforeTax(buyTokenFeeRate);
 
        if (buyToken < sellToken) {
-            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves);
+            sellAmount = getAmountIn(toBuy, token1Reserves, token0Reserves);
             sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
+            IUniswapV2Pair(pair).swap(toBuy, 0, payer, "");
         } else {
-            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves);
+            sellAmount = getAmountIn(toBuy, token0Reserves, token1Reserves);
             sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
+            IUniswapV2Pair(pair).swap(0, toBuy, payer, "");
         }
             
         uint balanceAfter = IERC20(buyToken).balanceOf(payer);
@@ -166,10 +166,7 @@ contract UniV2Dex {
         if (currentBlockTime < (priceOracle.blockTimestampLast + timeWindow)) {
             return (priceOracle, false);
         }
-        (,,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
-        if (uniBlockTimeLast != currentBlockTime) {
-            IUniswapV2Pair(pair).sync();
-        }
+        IUniswapV2Pair(pair).sync();
         uint32 timeElapsed = currentBlockTime - priceOracle.blockTimestampLast;
         uint currentPrice0CumulativeLast = IUniswapV2Pair(pair).price0CumulativeLast();
         uint currentPrice1CumulativeLast = IUniswapV2Pair(pair).price1CumulativeLast();

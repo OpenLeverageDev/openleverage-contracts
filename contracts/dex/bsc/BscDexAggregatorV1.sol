@@ -64,7 +64,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     function calBuyAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, bytes memory data) external view override returns (uint buyAmount) {
         if (data.toDex() == DexData.DEX_PANCAKE) {
-            sellAmount = Utils.toAmountBeforeTax(sellAmount, sellTax);
+            sellAmount = Utils.toAmountAfterTax(sellAmount, sellTax);
             buyAmount = pancakeCalBuyAmount(pancakeFactory, buyToken, sellToken, sellAmount);
             buyAmount = Utils.toAmountAfterTax(buyAmount, buyTax);
         }
@@ -73,10 +73,9 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         }
     }
 
-    function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
+    function calSellAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
         if (data.toDex() == DexData.DEX_PANCAKE) {
-            uint24[] memory transferFeeRate = data.toTransferFeeRates(true);
-            sellAmount = pancakeCalSellAmount(pancakeFactory, buyToken, sellToken, buyAmount, transferFeeRate[0], transferFeeRate[transferFeeRate.length - 1]);
+            sellAmount = pancakeCalSellAmount(pancakeFactory, buyToken, sellToken, buyAmount, buyTax, sellTax);
         }
         else {
             revert('Unsupported dex');
