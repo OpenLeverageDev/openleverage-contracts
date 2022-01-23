@@ -45,9 +45,9 @@ contract LPoolDepositor is ReentrancyGuard {
 
     function checkSwapInternal(IERC20 depositToken, IERC20 outToken, uint inAmount, DexAggregatorInterface dexAgg, bytes memory data) internal {
         depositToken.approve(address(dexAgg), inAmount);
-        uint outTokenAmount = dexAgg.sell(address(outToken), address(depositToken), inAmount, 0, data);
+        uint outTokenAmount = dexAgg.sell(address(outToken), address(depositToken), 0, 0, inAmount, 0, data);
         outToken.approve(address(dexAgg), outTokenAmount);
-        dexAgg.sell(address(depositToken), address(outToken), outTokenAmount, 0, data);
+        dexAgg.sell(address(depositToken), address(outToken), 0, 0, outTokenAmount, 0, data);
         revert('succeed');
     }
 }

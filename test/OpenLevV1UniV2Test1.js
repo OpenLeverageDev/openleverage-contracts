@@ -286,7 +286,7 @@ contract("OpenLev UniV2", async accounts => {
         //
         let marginRatio = await openLev.marginRatio(trader, 0, 0, Uni2DexData);
         m.log("Margin Ratio current:", marginRatio.current / 100, "%");
-        m.log("Margin Ratio havg:", marginRatio.havg / 100, "%");
+        m.log("Margin Ratio havg:", marginRatio.hAvg / 100, "%");
         assert.equal(marginRatio.current.toString(), 13599);
     })
 

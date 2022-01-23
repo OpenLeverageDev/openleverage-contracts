@@ -36,7 +36,9 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         openLev = _openLev;
     }
 
-    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+    function sell(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+        buyTax;
+        sellTax;
         address payer = msg.sender;
         if (data.toDex() == DexData.DEX_PANCAKE) {
             buyAmount = pancakeSell(pancakeFactory, buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);

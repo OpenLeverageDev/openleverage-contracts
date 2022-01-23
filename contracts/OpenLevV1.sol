@@ -35,6 +35,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         address _xOLE,
         uint8[] memory _supportDexs
     ) public {
+        depositTokens;
         require(msg.sender == admin, "NAD");
         addressConfig.controller = _controller;
         addressConfig.dexAggregator = _dexAggregator;
@@ -105,13 +106,13 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
         if (depositToken == longToken ){
             if (borrowed > 0){
-                tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData);
+                tv.newHeld = flashSell(marketId, address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData);
                 tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(borrowed) : borrowed.mul(1e18).div(tv.newHeld);
             }
             tv.newHeld = tv.newHeld.add(tv.depositAfterFees);
         }else{
             tv.tradeSize = tv.depositAfterFees.add(borrowed);
-            tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData);
+            tv.newHeld = flashSell(marketId, address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData);
             tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(tv.tradeSize) : tv.tradeSize.mul(1e18).div(tv.newHeld);
         }
 
@@ -164,7 +165,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
         if (trade.depositToken != longToken) {
             minOrMaxAmount = Utils.maxOf(closeTradeVars.repayAmount, minOrMaxAmount);
-            closeTradeVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
+            closeTradeVars.receiveAmount = flashSell(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
 
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
             marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
@@ -185,6 +186,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
 
         if (!closeTradeVars.isPartialClose) {
+            require(marketVars.buyPool.borrowBalanceCurrent(msg.sender) == 0, "IRP");
             delete activeTrades[msg.sender][marketId][longToken];
         }else{
             trade.held = trade.held.sub(closeHeld);
@@ -235,7 +237,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             marketVars.sellToken.safeApprove(address(addressConfig.dexAggregator), maxSell);
             (buySuccess, sellAmountData) = address(addressConfig.dexAggregator).call(
                 abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[liquidateVars.marketId][address(marketVars.buyToken)][2], 
-                taxes[liquidateVars.marketId][address(marketVars.sellToken)][2], liquidateVars.borrowed, maxSell, dexData)
+                taxes[liquidateVars.marketId][address(marketVars.sellToken)][1], liquidateVars.borrowed, maxSell, dexData)
             );
         }        
 
@@ -254,7 +256,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
         } else {
             liquidateVars.sellAmount = liquidateVars.remainAmountAfterFees;
-            liquidateVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minBuy, dexData);
+            liquidateVars.receiveAmount = flashSell(marketId, address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minBuy, dexData);
             if (liquidateVars.receiveAmount >= liquidateVars.borrowed) {
                 // fail if buy failed but sell succeeded
                 require (longToken != trade.depositToken, "PH");
@@ -387,11 +389,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         return newFees;
     }
 
-    function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) internal returns (uint buyAmount){
+    function flashSell(uint16 marketId, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) internal returns (uint buyAmount){
         if (sellAmount > 0){
             DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
             IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
-            buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
+            buyAmount = dexAggregator.sell(buyToken, sellToken, taxes[marketId][buyToken][2], taxes[marketId][sellToken][1], sellAmount, minBuyAmount, data);
         }
     }
 

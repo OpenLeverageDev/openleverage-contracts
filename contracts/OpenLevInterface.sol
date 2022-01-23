@@ -55,7 +55,7 @@ abstract contract OpenLevStorage {
 
     mapping(address => uint) public totalHelds;
 
-    // map(keccak256(marketId, tokenAddress, index) => taxRate) 
+    // map(marketId, tokenAddress, index) => taxRate) 
     mapping(uint16 => mapping(address => mapping(uint => uint24))) public taxes;  
     
     event MarginTrade(

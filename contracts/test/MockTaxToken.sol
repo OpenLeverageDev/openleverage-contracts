@@ -30,6 +30,11 @@ contract MockTaxToken is Context, IERC20, Ownable {
     uint256 private _previousTaxFee;
     uint256 public _liquidityFee;
     uint256 private _previousLiquidityFee;
+    uint256 public _uniswapSellTaxFee;
+    uint256 public _uniswapSellLiquidityFee;
+    uint256 public _uniswapBuyTaxFee;
+    uint256 public _uniswapBuyLiquidityFee;
+
     IUniswapV2Router02 public uniswapV2Router;
     address public uniswapV2Pair;
     bool inSwapAndLiquify;
@@ -58,8 +63,11 @@ contract MockTaxToken is Context, IERC20, Ownable {
         _rTotal = (MAX - (MAX % _tTotal));
         _taxFee = _txFee;
         _liquidityFee = _lpFee;
+        _uniswapSellTaxFee = _txFee;
+        _uniswapSellLiquidityFee = _lpFee;
+        _uniswapBuyTaxFee = _txFee;
+        _uniswapBuyLiquidityFee = _lpFee;
         _previousTaxFee = _txFee;
-		
         _previousLiquidityFee = _lpFee;
         _maxTxAmount = (_tTotal * 5 / 1000) * 10 ** _decimals;
         numTokensSellToAddToLiquidity = (_tTotal * 5 / 10000) * 10 ** _decimals;
@@ -186,7 +194,8 @@ contract MockTaxToken is Context, IERC20, Ownable {
             }
         }
     }
-        function _transferBothExcluded(address sender, address recipient, uint256 tAmount) private {
+    
+    function _transferBothExcluded(address sender, address recipient, uint256 tAmount) private {
         (uint256 rAmount, uint256 rTransferAmount, uint256 rFee, uint256 tTransferAmount, uint256 tFee, uint256 tLiquidity) = _getValues(tAmount);
         _tOwned[sender] = _tOwned[sender].sub(tAmount);
         _rOwned[sender] = _rOwned[sender].sub(rAmount);
@@ -211,6 +220,22 @@ contract MockTaxToken is Context, IERC20, Ownable {
     
     function setLiquidityFeePercent(uint256 liquidityFee) external onlyOwner() {
         _liquidityFee = liquidityFee;
+    }
+
+    function setUniswapSellTaxFeePercent(uint256 taxFee) external onlyOwner() {
+        _uniswapSellTaxFee = taxFee;
+    }
+
+    function setUniswapSellLiquidityFeePercent(uint256 liquidityFee) external onlyOwner() {
+        _uniswapSellLiquidityFee = liquidityFee;
+    }
+
+    function setUniswapBuyTaxFeePercent(uint256 taxFee) external onlyOwner() {
+        _uniswapBuyTaxFee = taxFee;
+    }
+
+    function setUniswapBuyLiquidityFeePercent(uint256 liquidityFee) external onlyOwner() {
+        _uniswapBuyLiquidityFee = liquidityFee;
     }
    
     function setMaxTxPercent(uint256 maxTxPercent) public onlyOwner {
@@ -387,9 +412,18 @@ contract MockTaxToken is Context, IERC20, Ownable {
     }
 
     function _tokenTransfer(address sender, address recipient, uint256 amount,bool takeFee) private {
-        if(!takeFee)
+        if(!takeFee){
             removeAllFee();
-        
+        }else if (recipient == uniswapV2Pair){
+            removeAllFee();
+            _taxFee = _uniswapSellTaxFee; 
+            _liquidityFee = _uniswapSellLiquidityFee;
+        }else if (sender == uniswapV2Pair){
+            removeAllFee();
+            _taxFee = _uniswapBuyTaxFee;
+            _liquidityFee = _uniswapBuyLiquidityFee;
+        }
+
         if (_isExcluded[sender] && !_isExcluded[recipient]) {
             _transferFromExcluded(sender, recipient, amount);
         } else if (!_isExcluded[sender] && _isExcluded[recipient]) {
@@ -402,8 +436,11 @@ contract MockTaxToken is Context, IERC20, Ownable {
             _transferStandard(sender, recipient, amount);
         }
         
-        if(!takeFee)
+        if(!takeFee){
             restoreAllFee();
+        }else if(recipient == uniswapV2Pair || sender == uniswapV2Pair){
+            restoreAllFee();
+        }
     }
 
     function _transferStandard(address sender, address recipient, uint256 tAmount) private {

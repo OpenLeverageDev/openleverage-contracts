@@ -44,4 +44,3 @@ contract ControllerDelegator is DelegatorInterface, Adminable {
         emit NewImplementation(oldImplementation, implementation);
     }
 }
-// 0x00000000000000000000000092891D62E1D824ffb8D85F48c031A525D21Ce0ED

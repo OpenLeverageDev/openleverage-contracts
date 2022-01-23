@@ -374,7 +374,7 @@ contract("OpenLev UniV3", async accounts => {
     //change Price
     await utils.mint(token0, saver, 100000);
     await token0.approve(dexAgg.address, utils.toWei(50000), {from: saver});
-    await dexAgg.sell(token1.address, token0.address, utils.toWei(50000), 0, Uni3DexData, {from: saver});
+    await dexAgg.sell(token1.address, token0.address, 0, 0, utils.toWei(50000), 0, Uni3DexData, {from: saver});
     let trade = await openLev.activeTrades(trader, 0, 0);
     // Close trade
     m.log("trade.deposit=", trade.deposited);

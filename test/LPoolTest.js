@@ -432,6 +432,7 @@ contract("LPoolDelegator", async accounts => {
         assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
         assert.equal((await erc20Pool.availableForBorrow()).toString(), '1540');
     })
+    
     it("pool not allowed test", async () => {
         let controller = await utils.createController(accounts[0]);
         let createPoolResult = await utils.createPool(accounts[0], controller, admin);

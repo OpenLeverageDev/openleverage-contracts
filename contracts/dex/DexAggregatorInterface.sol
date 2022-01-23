@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 
 interface DexAggregatorInterface {
 
-    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
+    function sell(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 
     function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 

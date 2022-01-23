@@ -12,9 +12,6 @@ const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
 const { result } = require("lodash");
 const timeMachine = require('ganache-time-traveler');
 
-
-
-
 contract("DexAggregator BSC", async accounts => {
     // components
     let openLev;
@@ -51,7 +48,7 @@ contract("DexAggregator BSC", async accounts => {
 
     it("calulate Sell Amount", async () => {
         let swapOut = 1;
-        r = await dexAgg.calSellAmount(token1.address, token0.address, utils.toWei(swapOut), utils.PancakeDexData);
+        r = await dexAgg.calSellAmount(token1.address, token0.address, 0, 0, utils.toWei(swapOut), utils.PancakeDexData);
         assert.equal(r.toString(), "1002516290827068672", "buy exact amount");
     })
 
@@ -70,7 +67,7 @@ contract("DexAggregator BSC", async accounts => {
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
 
-        r = await dexAgg.sell(token1.address, token0.address, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper});     
+        r = await dexAgg.sell(token1.address, token0.address, 0, 0, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper});     
         m.log("sell exact amount Gas Used:", r.receipt.gasUsed);
         assert.equal(await token1.balanceOf(swapper), "997490050036750883", "sell exact amount");
     })
@@ -82,7 +79,7 @@ contract("DexAggregator BSC", async accounts => {
 
         await utils.mint(token0, swapper, swapIn);
         await token0.approve(dexAgg.address, utils.toWei(swapIn), {from: swapper});
-        await assertThrows(dexAgg.sell(token1.address, token0.address, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper}), 'buy amount less than min');
+        await assertThrows(dexAgg.sell(token1.address, token0.address, 0, 0, utils.toWei(swapIn), minOut, utils.PancakeDexData, {from: swapper}), 'buy amount less than min');
         assert.equal(await token1.balanceOf(swapper), "0", "sell exact amount, but failed");
     })
 

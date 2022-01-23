@@ -45,8 +45,10 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         uniV3Factory = _uniV3Factory;
     }
 
-    function uniV3Sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, uint24 fee, bool checkPool, address payer, address payee) internal returns (uint amountOut){
-        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : payer, transferFeeRate: 0});
+    function uniV3Sell(address buyToken, address sellToken, uint24 sellTax, uint24 buyTax, uint sellAmount, uint minBuyAmount, uint24 fee, bool checkPool, address payer, address payee) internal returns (uint amountOut){
+        // to slience warning
+        buyTax;
+        SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : payer, transferFeeRate: sellTax});
         SwapCallData memory callData;
         callData.zeroForOne = data.tokenIn < data.tokenOut;
         callData.recipient = payee;
@@ -77,7 +79,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
             bool isLast = i == path.length - 1;
             address payer = i == 0 ? msg.sender : address(this);
             address payee = isLast ? msg.sender : address(this);
-            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, 0, poolData.fee, false, payer, payee);
+            buyAmount = uniV3Sell(buyToken, sellToken, 0, 0, sellAmount, 0, poolData.fee, false, payer, payee);
             if (!isLast) {
                 sellAmount = buyAmount;
             }

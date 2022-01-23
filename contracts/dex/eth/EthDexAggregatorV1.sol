@@ -38,13 +38,13 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         openLev = _openLev;
     }
 
-    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+    function sell(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
         if (data.toDex() == DexData.DEX_UNIV2) {
             buyAmount = uniV2Sell(uniV2Factory, buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
+            buyAmount = uniV3Sell(buyToken, sellToken, buyTax, sellTax, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
         }
         else {
             revert('Unsupported dex');
