@@ -150,8 +150,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         closeTradeVars.closeAmountAfterFees = closeAmount.sub(closeTradeVars.fees);
         closeTradeVars.closeRatio = closeHeld.mul(1e18).div(trade.held);
         closeTradeVars.isPartialClose = closeHeld != trade.held;
-        closeTradeVars.repayAmount = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
-        closeTradeVars.repayAmount = Utils.toAmountBeforeTax(closeTradeVars.repayAmount, taxes[marketId][address(marketVars.buyToken)][0]);
+        closeTradeVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+        closeTradeVars.repayAmount = Utils.toAmountBeforeTax(closeTradeVars.borrowed, taxes[marketId][address(marketVars.buyToken)][0]);
         closeTradeVars.dexDetail = dexData.toDexDetail();
 
         //partial close
@@ -185,8 +185,10 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             doTransferOut(msg.sender, marketVars.sellToken, closeTradeVars.depositReturn);
         }
 
+        uint repayed = closeTradeVars.borrowed.sub(marketVars.buyPool.borrowBalanceCurrent(msg.sender));
+        require(repayed >= closeTradeVars.borrowed.mul(closeTradeVars.closeRatio).div(1e18), "IRP");
+
         if (!closeTradeVars.isPartialClose) {
-            require(marketVars.buyPool.borrowBalanceCurrent(msg.sender) == 0, "IRP");
             delete activeTrades[msg.sender][marketId][longToken];
         }else{
             trade.held = trade.held.sub(closeHeld);

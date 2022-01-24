@@ -3259,6 +3259,10 @@ contract("OpenLev UniV2", async accounts => {
         m.log("tax updated to: ", await token0._taxFee());
 
         m.log("-- close trade partial...");
+        await assertThrows(openLev.closeTrade(pairId, true, toBN(Math.floor(trade.held / 2)), 0, Uni2DexData, {from: trader}));
+        await openLev.setTaxRate(pairId, token0.address, 0, 100000);
+        await openLev.setTaxRate(pairId, token0.address, 1, 100000);
+        await openLev.setTaxRate(pairId, token0.address, 2, 100000);
         await openLev.closeTrade(pairId, true, toBN(Math.floor(trade.held / 2)), 0, Uni2DexData, {from: trader});
         let PriceData03 = await dexAgg.getPriceCAvgPriceHAvgPrice(weth.address, token0.address, 60, Uni2DexData);
         let tradeAfterClose = await openLev.activeTrades(trader, pairId, 1);
@@ -3269,10 +3273,6 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(tradeAfterClose.held.toString(), toBN(Math.ceil(trade.held / 2)).toString());
 
         m.log("-- close trade all...");
-        await assertThrows(openLev.closeTrade(pairId, true, tradeAfterClose.held, 0, Uni2DexData, {from: trader}), "IRP");
-        await openLev.setTaxRate(pairId, token0.address, 0, 100000);
-        await openLev.setTaxRate(pairId, token0.address, 1, 100000);
-        await openLev.setTaxRate(pairId, token0.address, 2, 100000);
         await openLev.closeTrade(pairId, true, tradeAfterClose.held, 0, Uni2DexData, {from: trader});
         let PriceData04 = await dexAgg.getPriceCAvgPriceHAvgPrice(weth.address, token0.address, 60, Uni2DexData);
         let tradeAfterCloseAlls = await openLev.activeTrades(trader, pairId, 1);
@@ -3428,6 +3428,10 @@ contract("OpenLev UniV2", async accounts => {
         m.log("tax updated to: ", await token0._taxFee());
 
         m.log("-- close trade partial...");
+        await assertThrows(openLev.closeTrade(pairId, true, toBN(Math.floor(trade.held / 2)), utils.maxUint(), Uni2DexData, {from: trader}));
+        await openLev.setTaxRate(pairId, token0.address, 0, 100000);
+        await openLev.setTaxRate(pairId, token0.address, 1, 100000);
+        await openLev.setTaxRate(pairId, token0.address, 2, 100000);
         await openLev.closeTrade(pairId, true, toBN(Math.floor(trade.held / 2)), utils.maxUint(), Uni2DexData, {from: trader});
         let PriceData03 = await dexAgg.getPriceCAvgPriceHAvgPrice(weth.address, token0.address, 60, Uni2DexData);
         let tradeAfterClose = await openLev.activeTrades(trader, pairId, 1);
@@ -3438,10 +3442,6 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(tradeAfterClose.held.toString(), toBN(Math.ceil(trade.held / 2)).toString());
 
         m.log("-- close trade all...");
-        await assertThrows(openLev.closeTrade(pairId, true, tradeAfterClose.held, utils.maxUint(), Uni2DexData, {from: trader}), "IRP");
-        await openLev.setTaxRate(pairId, token0.address, 0, 100000);
-        await openLev.setTaxRate(pairId, token0.address, 1, 100000);
-        await openLev.setTaxRate(pairId, token0.address, 2, 100000);
         await openLev.closeTrade(pairId, true, tradeAfterClose.held, utils.maxUint(), Uni2DexData, {from: trader});
         let PriceData04 = await dexAgg.getPriceCAvgPriceHAvgPrice(weth.address, token0.address, 60, Uni2DexData);
         let tradeAfterCloseAlls = await openLev.activeTrades(trader, pairId, 1);

@@ -62,6 +62,7 @@ library Types {
         uint closeRatio;          // Close ratio
         bool isPartialClose;        // Is partial close
         uint closeAmountAfterFees;  // Close amount sub Fees value
+        uint borrowed;
         uint repayAmount;           // Repay to pool value
         uint depositDecrease;       // Deposit decrease
         uint depositReturn;         // Deposit actual returns

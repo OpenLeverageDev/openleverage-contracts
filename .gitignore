@@ -5,6 +5,7 @@
 .DS_Store
 /contracts/artifacts/
 contracts/*/artifacts
+/contracts/*/*/artifacts
 /.solcx-lock-0.7.3
 /contracts/venv/*
 /coverage/
