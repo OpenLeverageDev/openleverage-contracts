@@ -88,12 +88,12 @@ contract("OpenLev UniV2", async accounts => {
         pool0 = await LPool.at(pool0Address);
         poolEth = await LPool.at(poolEthAddress);
 
-        token0.approve(pool0.address, utils.toWei(1));
-        pool0.mint(utils.toWei(1));
-        poolEth.mintEth({from: saver, value: utils.toWei(1)});
+        await token0.approve(pool0.address, utils.toWei(1));
+        await pool0.mint(utils.toWei(1));
+        await poolEth.mintEth({from: saver, value: utils.toWei(1)});
 
-        token0.transfer(trader, utils.toWei(1));
-        token0.approve(openLev.address, utils.toWei(1), {from: trader});
+        await token0.transfer(trader, utils.toWei(1));
+        await token0.approve(openLev.address, utils.toWei(1), {from: trader});
 
         await advanceMultipleBlocksAndTime(30);
     });
