@@ -1,12 +1,7 @@
-const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const ControllerV1 = artifacts.require("ControllerV1");
 const ControllerDelegator = artifacts.require("ControllerDelegator")
 const Gov = artifacts.require("GovernorAlpha");
 const Timelock = artifacts.require("Timelock");
-const OLEToken = artifacts.require("OLEToken");
-const Reserve = artifacts.require("Reserve");
-const OLETokenLock = artifacts.require("OLETokenLock");
-const DexAggregatorV1 = artifacts.require("BscDexAggregatorV1");
 
 const utils = require("./util");
 const m = require('mocha-logger');
@@ -19,7 +14,6 @@ module.exports = async function (deployer, network, accounts) {
         await initializeContract(accounts, network),
         await initializeLenderPool(accounts, network),
         // await releasePower2Gov(accounts),
-        // await loggerInfo()
     ]);
     m.log("initialize finished......");
 
@@ -69,8 +63,33 @@ async function initializeLenderPool(accounts, network) {
             await intializeMarket(accounts, network, '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', 2500, "0x02000bb8");
             break;
         case utils.bscIntegrationTest:
-            m.log("waiting controller create WBNB - BUSD market ......");
-            await intializeMarket(accounts, network, '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000);
+
+            // m.log("waiting controller create WBNB - BUSD market ......");
+            // await intializeMarket(accounts, network, '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000);
+            m.log("waiting controller create DXCT - BUSD market ......");
+            await intializeMarket(accounts, network, '0x5b1baec64af6dc54e6e04349315919129a6d3c23', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000, '0x03');
+            m.log("waiting controller create HERO - WBNB market ......");
+            await intializeMarket(accounts, network, '0xd40bedb44c081d2935eeba6ef5a3c8a31a1bbe13', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create BCOIN - WBNB market ......");
+            await intializeMarket(accounts, network, '0x00e1656e45f18ec6747f5a8496fd39b50b38396d', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create IPAD - BUSD market ......");
+            await intializeMarket(accounts, network, '0xf07dfc2ad28ab5b09e8602418d2873fcb95e1744', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000, '0x03');
+            m.log("waiting controller create ORKL - WBNB market ......");
+            await intializeMarket(accounts, network, '0x36bc1f4d4af21df024398150ad39627fb2c8a847', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create METIS - WBNB market ......");
+            await intializeMarket(accounts, network, '0xe552fb52a4f19e44ef5a967632dbc320b0820639', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create IDIA - BUSD market ......");
+            await intializeMarket(accounts, network, '0x0b15ddf19d47e6a86a56148fb4afffc6929bcb89', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000, '0x03');
+            m.log("waiting controller create ITAM - WBNB market ......");
+            await intializeMarket(accounts, network, '0x04c747b40be4d535fc83d09939fb0f626f32800b', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create THC - WBNB market ......");
+            await intializeMarket(accounts, network, '0x24802247bd157d771b7effa205237d8e9269ba8a', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create TMT - BUSD market ......");
+            await intializeMarket(accounts, network, '0x4803ac6b79f9582f69c4fa23c72cb76dd1e46d8d', '0xe9e7cea3dedca5984780bafc599bd69add087d56', 3000, '0x03');
+            m.log("waiting controller create XVS - WBNB market ......");
+            await intializeMarket(accounts, network, '0xcf6bb5389c92bdda8a3747ddb454cb7a64626c63', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
+            m.log("waiting controller create CAKE - WBNB market ......");
+            await intializeMarket(accounts, network, '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
             break;
     }
 }
@@ -109,18 +128,6 @@ async function releasePower2Gov(accounts) {
     await gov.__abdicate();
 }
 
-async function loggerInfo() {
-    m.log("OLEToken.address=", OLEToken.address.toLowerCase());
-    m.log("Gov.address=", Gov.address.toLowerCase());
-    m.log("Timelock.address=", Timelock.address.toLowerCase());
-    m.log("Treasury.address=", TreasuryDelegator.address.toLowerCase());
-    m.log("ControllerV1.address=", ControllerV1.address.toLowerCase());
-    m.log("ControllerDelegator.address=", ControllerDelegator.address.toLowerCase());
-    m.log("OpenLevV1.address=", OpenLevV1.address.toLowerCase());
-    m.log("Reserve.address=", Reserve.address.toLowerCase());
-    m.log("OLETokenLock.address=", OLETokenLock.address.toLowerCase());
-    m.log("DexAggregatorV1.address=", DexAggregatorV1.address.toLowerCase());
-}
 
 function toBN(bn) {
     return web3.utils.toBN(bn);
