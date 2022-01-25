@@ -38,14 +38,14 @@ contract UniV2ClassDex {
     ) internal returns (uint buyAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        uint amountReceivedByPancake = transferOut(IERC20(sellToken), payer, pair, sellAmount);
+        sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
         uint balanceBefore = IERC20(buyToken).balanceOf(payee);
-
+        dexInfo.fees = getPairFees(dexInfo, pair);
         if (buyToken < sellToken) {
-            buyAmount = getAmountOut(amountReceivedByPancake, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
+            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
         } else {
-            buyAmount = getAmountOut(amountReceivedByPancake, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
+            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
 
@@ -77,27 +77,26 @@ contract UniV2ClassDex {
         uint buyAmount,
         uint maxSellAmount,
         uint24 buyTokenFeeRate,
-        uint24 sellTokenFeeRate)
-    internal returns (uint sellAmount){
-        address payer = msg.sender;
+        uint24 sellTokenFeeRate) internal returns (uint sellAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        uint balanceBefore = IERC20(buyToken).balanceOf(payer);
+        uint balanceBefore = IERC20(buyToken).balanceOf(msg.sender);
+        dexInfo.fees = getPairFees(dexInfo, pair);
         if (buyToken < sellToken) {
-            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves, dexInfo.fees);
             sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
+            transferOut(IERC20(sellToken), msg.sender, pair, sellAmount);
+            IUniswapV2Pair(pair).swap(buyAmount.toAmountBeforeTax(buyTokenFeeRate), 0, msg.sender, "");
         } else {
-            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves, dexInfo.fees);
             sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
+            transferOut(IERC20(sellToken), msg.sender, pair, sellAmount);
+            IUniswapV2Pair(pair).swap(0, buyAmount.toAmountBeforeTax(buyTokenFeeRate), msg.sender, "");
         }
 
-        uint balanceAfter = IERC20(buyToken).balanceOf(payer);
+        uint balanceAfter = IERC20(buyToken).balanceOf(msg.sender);
         require(buyAmount <= balanceAfter.sub(balanceBefore), "wrong amount bought");
     }
 
