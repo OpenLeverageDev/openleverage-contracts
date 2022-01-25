@@ -43,7 +43,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         for (uint i = 0; i < _supportDexs.length; i++) {
             supportDexs[_supportDexs[i]] = true;
         }
-        setAllowedDepositTokensInternal(depositTokens, true);
         setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 500, 5, 60);
     }
 
@@ -557,27 +556,13 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         (IERC20(market.token1)).safeTransfer(to, amount);
     }
 
-    function setAllowedDepositTokens(address[] memory tokens, bool allowed) external override onlyAdmin() {
-        setAllowedDepositTokensInternal(tokens, allowed);
-    }
-
     function setSupportDex(uint8 dex, bool support) public override onlyAdmin() {
         supportDexs[dex] = support;
     }
 
-    function setAllowedDepositTokensInternal(address[] memory tokens, bool allowed) internal {
-        for (uint i = 0; i < tokens.length; i++) {
-            allowedDepositTokens[tokens[i]] = allowed;
-        }
-        emit ChangeAllowedDepositTokens(tokens, allowed);
-    }
-
-
     function verifyTrade(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {
         //verify if deposit token allowed
         address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
-        require(allowedDepositTokens[depositTokenAddr], "UDT");
-
         //verify minimal deposit > absolute value 0.0001
         uint decimals = ERC20(depositTokenAddr).decimals();
         uint minimalDeposit = decimals > 4 ? 10 ** (decimals - 4) : 1;

@@ -2,6 +2,7 @@
 
 pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
 interface DexAggregatorInterface {
 
@@ -25,4 +26,6 @@ interface DexAggregatorInterface {
     function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external returns(bool);
 
     function updateV3Observation(address desToken, address quoteToken, bytes memory data) external;
+
+    function setDexInfo(uint8[] memory dexName, IUniswapV2Factory[] memory factoryAddr, uint16[] memory fees) external;
 }

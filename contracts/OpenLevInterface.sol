@@ -44,6 +44,7 @@ abstract contract OpenLevStorage {
     // owner => marketId => long0(true)/long1(false) => Trades
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
+    //useless
     mapping(address => bool) public allowedDepositTokens;
 
     CalculateConfig internal calculateConfig;
@@ -154,9 +155,6 @@ interface OpenLevInterface {
 
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
-    function setAllowedDepositTokens(address[] memory tokens, bool allowed) external;
-
     function setSupportDex(uint8 dex, bool support) external;
-
 
 }

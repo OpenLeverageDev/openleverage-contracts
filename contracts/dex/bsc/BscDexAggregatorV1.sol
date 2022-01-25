@@ -2,21 +2,22 @@
 pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
-import "./PancakeDex.sol";
+import "./UniV2ClassDex.sol";
 import "../DexAggregatorInterface.sol";
 import "../../lib/DexData.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../DelegateInterface.sol";
 import "../../Adminable.sol";
 
-contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, PancakeDex {
+contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex {
     using DexData for bytes;
     using SafeMath for uint;
-    mapping(IUniswapV2Pair => V2PriceOracle) public pancakePriceOracle;
+    mapping(IUniswapV2Pair => V2PriceOracle) public uniV2PriceOracle;
     IUniswapV2Factory public pancakeFactory;
     address public openLev;
-
     uint8 private constant priceDecimals = 18;
+
+    mapping(uint8 => DexInfo) public dexInfo;
 
     //pancakeFactory: 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73
     function initialize(
@@ -27,8 +28,16 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         // Shh - currently unused
         _unsedFactory;
         pancakeFactory = _pancakeFactory;
+        dexInfo[DexData.DEX_PANCAKE] = DexInfo(_pancakeFactory, 25);
     }
 
+    function setDexInfo(uint8[] memory dexName, IUniswapV2Factory[] memory factoryAddr, uint16[] memory fees) external override onlyAdmin {
+        require(dexName.length == factoryAddr.length && dexName.length == fees.length, 'EOR');
+        for (uint i = 0; i < dexName.length; i++) {
+            DexInfo memory info = DexInfo(factoryAddr[i], fees[i]);
+            dexInfo[dexName[i]] = info;
+        }
+    }
 
     function setOpenLev(address _openLev) external onlyAdmin {
         require(address(0) != _openLev, '0x');
@@ -37,68 +46,38 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            buyAmount = pancakeSell(pancakeFactory, buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
-        }else {
-            revert('Unsupported dex');
-        }
+        buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
     }
 
     function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            buyAmount = pancakeSellMul(pancakeFactory, sellAmount, minBuyAmount, data.toUniV2Path());
-        }else {
-            revert('Unsupported dex');
-        }
+        buyAmount = uniClassSellMul(dexInfo[data.toDex()], sellAmount, minBuyAmount, data.toUniV2Path());
     }
 
     function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            sellAmount = pancakeBuy(pancakeFactory, buyToken, sellToken, buyAmount, maxSellAmount);
-        }else {
-            revert('Unsupported dex');
-        }
+        sellAmount = uniClassBuy(dexInfo[data.toDex()], buyToken, sellToken, buyAmount, maxSellAmount);
     }
 
 
     function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) external view override returns (uint buyAmount) {
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            buyAmount = pancakeCalBuyAmount(pancakeFactory, buyToken, sellToken, sellAmount);
-        }
-        else {
-            revert('Unsupported dex');
-        }
+        buyAmount = uniClassCalBuyAmount(dexInfo[data.toDex()], buyToken, sellToken, sellAmount);
     }
 
     function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view override returns (uint sellAmount){
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            sellAmount = pancakeCalSellAmount(pancakeFactory, buyToken, sellToken, buyAmount);
-        }
-        else {
-            revert('Unsupported dex');
-        }
+        sellAmount = uniClassCalSellAmount(dexInfo[data.toDex()], buyToken, sellToken, buyAmount);
     }
 
     function getPrice(address desToken, address quoteToken, bytes memory data) external view override returns (uint256 price, uint8 decimals){
         decimals = priceDecimals;
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            price = pancakeGetPrice(pancakeFactory, desToken, quoteToken, decimals);
-        }else {
-            revert('Unsupported dex');
-        }
+        price = uniClassGetPrice(dexInfo[data.toDex()].factory, desToken, quoteToken, decimals);
     }
 
     function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint256 price, uint8 decimals, uint256 timestamp){
         // Shh - currently unused
         secondsAgo;
         decimals = priceDecimals;
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            address pair = getPancakeClassPair(desToken, quoteToken, pancakeFactory);
-            V2PriceOracle memory priceOracle = pancakePriceOracle[IUniswapV2Pair(pair)];
-            (price, timestamp) = pancakeGetAvgPrice(desToken, quoteToken, priceOracle);
-        } else {
-            revert('Unsupported dex');
-        }
+        address pair = getUniClassPair(desToken, quoteToken, dexInfo[data.toDex()].factory);
+        V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
+        (price, timestamp) = uniClassGetAvgPrice(desToken, quoteToken, priceOracle);
     }
 
     /*
@@ -121,27 +100,20 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     ) external view override returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
         secondsAgo;
         decimals = priceDecimals;
-        if (dexData.toDex() == DexData.DEX_PANCAKE) {
-            address pair = getPancakeClassPair(desToken, quoteToken, pancakeFactory);
-            V2PriceOracle memory priceOracle = pancakePriceOracle[IUniswapV2Pair(pair)];
-            (price, cAvgPrice, hAvgPrice, timestamp) = pancakeGetPriceCAvgPriceHAvgPrice(pair, priceOracle, desToken, quoteToken, decimals);
-        } else {
-            revert('Unsupported dex');
-        }
+        address pair = getUniClassPair(desToken, quoteToken, dexInfo[dexData.toDex()].factory);
+        V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
+        (price, cAvgPrice, hAvgPrice, timestamp) = uniClassGetPriceCAvgPriceHAvgPrice(pair, priceOracle, desToken, quoteToken, decimals);
     }
 
     function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external override returns (bool){
         require(msg.sender == openLev, "Only openLev can update price");
-        if (data.toDex() == DexData.DEX_PANCAKE) {
-            address pair = getPancakeClassPair(desToken, quoteToken, pancakeFactory);
-            V2PriceOracle memory priceOracle = pancakePriceOracle[IUniswapV2Pair(pair)];
-            (V2PriceOracle memory updatedPriceOracle, bool updated) = pancakeUpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
-            if (updated) {
-                pancakePriceOracle[IUniswapV2Pair(pair)] = updatedPriceOracle;
-            }
-            return updated;
+        address pair = getUniClassPair(desToken, quoteToken, dexInfo[data.toDex()].factory);
+        V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
+        (V2PriceOracle memory updatedPriceOracle, bool updated) = uniClassUpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
+        if (updated) {
+            uniV2PriceOracle[IUniswapV2Pair(pair)] = updatedPriceOracle;
         }
-        return false;
+        return updated;
     }
 
     function updateV3Observation(address desToken, address quoteToken, bytes memory data) external pure override {

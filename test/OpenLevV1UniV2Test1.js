@@ -73,7 +73,6 @@ contract("OpenLev UniV2", async accounts => {
 
     it("Deposit Eth，return eth ", async () => {
         gotPair = await utils.createUniswapV2Pool(uniswapFactory, weth, token1);
-        await openLev.setAllowedDepositTokens([weth.address], true);
         await controller.createLPoolPair(weth.address, token1.address, 3000, Uni2DexData); // 30% margin ratio by default
         let pairId = 1;
         await utils.mint(token1, saver, 10000);
