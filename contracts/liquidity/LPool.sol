@@ -3,7 +3,7 @@ pragma solidity 0.7.6;
 
 
 import "./LPoolInterface.sol";
-import "./LpoolDepositor.sol";
+import "./LPoolDepositor.sol";
 import "../lib/Exponential.sol";
 import "../Adminable.sol";
 import "../lib/CarefulMath.sol";
