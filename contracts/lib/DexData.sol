@@ -16,7 +16,7 @@ library DexData {
     uint constant FEE_SIZE = 3;
     uint constant ADDRESS_SIZE = 20;
     uint constant NEXT_OFFSET = ADDRESS_SIZE + FEE_SIZE;
-    
+
     uint8 constant DEX_UNIV2 = 1;
     uint8 constant DEX_UNIV3 = 2;
     uint8 constant DEX_PANCAKE = 3;
@@ -27,7 +27,9 @@ library DexData {
     uint8 constant DEX_QUICK = 8;
     uint8 constant DEX_SHIBA = 9;
     uint8 constant DEX_APE = 10;
-    
+    uint8 constant DEX_PANCAKEV1 = 11;
+    uint8 constant DEX_BABY = 12;
+
     struct V3PoolData {
         address tokenA;
         address tokenB;
@@ -70,7 +72,7 @@ library DexData {
 
     function toArrayLength(bytes memory data) internal pure returns(uint8 length){
         require(data.length >= TRANSFERFEE_INDEX, "DexData: toArrayLength wrong data format");
-        
+
         assembly {
             length := byte(0, mload(add(data, add(0x20, ARRYLENTH_INDEX))))
         }
@@ -151,7 +153,7 @@ library DexData {
             assembly {
                 temp := mload(add(data, add(0x20, index)))
             }
-            
+
             uint tokenBAndFee = temp >> (256 - NEXT_OFFSET * 8);
             pool.tokenB = address(tokenBAndFee >> (FEE_SIZE * 8));
             pool.fee = uint24(tokenBAndFee - (tokenBAndFee << (FEE_SIZE * 8)));

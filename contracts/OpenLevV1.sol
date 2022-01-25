@@ -124,7 +124,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         trade.lastBlockNum = uint128(block.number);
 
         totalHelds[address(vars.buyToken)] = totalHelds[address(vars.buyToken)].add(tv.newHeld);
-        
+
         require(OpenLevV1Lib.isPositionHealthy(
                 msg.sender,
                 true,
@@ -139,7 +139,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
-        
+
         //verify
         verifyCloseBefore(trade, marketVars, closeHeld, dexData);
 
@@ -201,7 +201,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         if (dexData.isUniV2Class()) {
             OpenLevV1Lib.updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         }
-        
+
         emit TradeClosed(msg.sender, marketId, longToken, trade.depositToken, closeAmount, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
             closeTradeVars.token0Price, closeTradeVars.dexDetail);
     }
@@ -238,10 +238,10 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             maxSell = Utils.minOf(maxSell, liquidateVars.remainAmountAfterFees);
             marketVars.sellToken.safeApprove(address(addressConfig.dexAggregator), maxSell);
             (buySuccess, sellAmountData) = address(addressConfig.dexAggregator).call(
-                abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[liquidateVars.marketId][address(marketVars.buyToken)][2], 
+                abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[liquidateVars.marketId][address(marketVars.buyToken)][2],
                 taxes[liquidateVars.marketId][address(marketVars.sellToken)][1], liquidateVars.borrowed, maxSell, dexData)
             );
-        }        
+        }
 
         if (buySuccess) {
             {
@@ -379,7 +379,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
         uint newInsurance = newFees.mul(calculateConfig.insuranceRatio).div(100);
         IERC20(token).safeTransfer(addressConfig.xOLE, newFees.sub(newInsurance));
-        
+
         newInsurance = OpenLevV1Lib.amountToShare(newInsurance, totalHeld, reserve);
         if (token == market.token1) {
             market.pool1Insurance = market.pool1Insurance.add(newInsurance);
