@@ -4,7 +4,6 @@ const {toBN} = require("./utils/EtheUtil");
 const {createToken} = require("./utils/OpenLevUtil");
 
 const OpenLevDelegate = artifacts.require("OpenLevV1");
-const OpenLevUpgradeV2 = artifacts.require("UpgradeOpenLevV2");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 
 const LPoolDelegate = artifacts.require('LPool');
