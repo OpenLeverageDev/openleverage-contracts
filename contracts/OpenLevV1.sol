@@ -14,10 +14,10 @@ import "./XOLEInterface.sol";
 import "./Types.sol";
 import "./OpenLevV1Lib.sol";
 
-/**
-  * @title OpenLevV1
-  * @author OpenLeverage
-  */
+/// @title OpenLeverage margin trade logic
+/// @author OpenLeverage
+/// @notice Use this contract for margin trade.
+/// @dev Admin of this contract is the address of Timelock. Admin set configs and transfer insurance expected to XOLE.
 contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInterface, OpenLevStorage {
     using SafeMath for uint;
     using TransferHelper for IERC20;
@@ -27,6 +27,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     {
     }
 
+    /// @notice initialize proxy contract
+    /// @dev This function is not supposed to call multiple times. All configs can be set through other functions.
+    /// @param _controller Address of contract ControllerDelegator.
+    /// @param _dexAggregator contract DexAggregatorDelegator.
+    /// @param depositTokens Tokens allowed to deposit. Removed from logic. Allows all tokens.
+    /// @param _wETH Address of wrapped native coin.
+    /// @param _xOLE Address of XOLEDelegator.
+    /// @param _supportDexs Indexes of Dexes supported. Indexes are listed in contracts/lib/DexData.sol.
     function initialize(
         address _controller,
         DexAggregatorInterface _dexAggregator,
@@ -47,6 +55,13 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         OpenLevV1Lib.setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 500, 5, 60, calculateConfig);
     }
 
+    /// @notice Create new trading pair.
+    /// @dev This function is typically called by ControllerDelegator.
+    /// @param pool0 Contract LpoolDelegator, lending pool of token0.
+    /// @param pool1 Contract LpoolDelegator, lending pool of token1.
+    /// @param marginLimit The liquidation trigger ratio of deposit token value to borrowed token value.
+    /// @param dexData Pair initiate data including index, feeRate of the Dex and tax rate of the underlying tokens.
+    /// @return The new created pair ID.
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
@@ -59,6 +74,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         return marketId;
     }
 
+    /// @notice Margin trade or just add more deposit tokens.
+    /// @dev To support token with tax and reward. Stores share of all token balances of this contract.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param depositToken Token to deposit. False for token0, true for token1.
+    /// @param deposit Amount of ERC20 tokens to deposit. WETH deposit is not supported.
+    /// @param borrow Amount of ERC20 to borrow from the short token pool.
+    /// @param minBuyAmount Slippage for Dex trading.
+    /// @param dexData Index and fee rate for the trading Dex.
     function marginTrade(
         uint16 marketId,
         bool longToken,
@@ -136,6 +159,12 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.token0Price, tv.dexDetail);
     }
 
+    /// @notice Close trade by shares.
+    /// @dev To support token with tax, function expect to fail if share of borrowed funds not repayed.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param closeHeld Amount of shares to close.
+    /// @param minOrMaxAmount Slippage for Dex trading.
+    /// @param dexData Index and fee rate for the trading Dex.
     function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
@@ -206,6 +235,13 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             closeTradeVars.token0Price, closeTradeVars.dexDetail);
     }
 
+    /// @notice Liquidate if trade below margin limit.
+    /// @dev For trades without sufficient funds to repay, use insurance.
+    /// @param owner Owner of the trade to liquidate.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param minBuy Slippage for Dex trading.
+    /// @param maxSell Slippage for Dex trading.
+    /// @param dexData Index and fee rate for the trading Dex.
     function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxSell, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
@@ -309,6 +345,15 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             market.dexs);
     }
 
+    /// @notice Get ratios of deposit token value to borrowed token value.
+    /// @dev Caluclate ratio with current price and twap price.
+    /// @param owner Owner of the trade to liquidate.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param dexData Index and fee rate for the trading Dex.
+    /// @return current Margin ratio calculated using current price.
+    /// @return cAvg Margin ratio calculated using twap price.
+    /// @return hAvg Margin ratio calculated using last recorded twap price.
+    /// @return limit The liquidation trigger ratio of deposit token value to borrowed token value.
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint cAvg, uint hAvg, uint32 limit) {
         Types.MarketVars memory vars = toMarketVar(longToken, false, markets[marketId]);
         limit = vars.marginLimit;
@@ -324,15 +369,20 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         );
     }
 
+    /// @notice Check if a price update is required on Dex.
+    /// @param dexData Index and fee rate for the trading Dex.
     function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external override view returns (bool){
         Types.Market memory market = markets[marketId];
         return OpenLevV1Lib.shouldUpdatePriceInternal(addressConfig.dexAggregator, calculateConfig.twapDuration,  market.priceDiffientRatio, market.token0, market.token1, dexData);
     }
 
+    /// @notice Update price on Dex.
+    /// @param dexData Index and fee rate for the trading Dex.
     function updatePrice(uint16 marketId, bytes memory dexData) external override {
         OpenLevV1Lib.updatePrice(marketId, markets[marketId], addressConfig, calculateConfig, dexData);
     }
 
+    /// @notice List of all supporting Dexes.
     function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
         return markets[marketId].dexs;
     }
@@ -407,10 +457,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
     }
 
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount, uint24 buyTax, uint24 sellTax, bytes memory data) internal view returns (uint){
-        return addressConfig.dexAggregator.calBuyAmount(buyToken, sellToken, buyTax, sellTax, sellAmount, data);
-    }
-
     function transferIn(address from, IERC20 token, uint amount) internal returns (uint) {
         return OpenLevV1Lib.transferIn(from, token, addressConfig.wETH, amount);
     }
@@ -445,6 +491,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         emit NewMarketConfig(marketId, feesRate, marginLimit, priceDiffientRatio, dexs);
     }
 
+    /// @notice List of all supporting Dexes.
+    /// @param poolIndex index of insurance pool, 0 for token0, 1 for token1
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
         OpenLevV1Lib.moveInsurance(poolIndex, to, amount, markets[marketId]);
     }

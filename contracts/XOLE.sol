@@ -14,9 +14,10 @@ import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
 
 
-// @title Voting Escrowed Token
-// @notice Lock OLE to get time and amount weighted xOLE
-// The weight in this implementation is linear, and lock cannot be more than maxtime (4 years)
+/// @title Voting Escrowed Token
+/// @author OpenLeverage
+/// @notice Lock OLE to get time and amount weighted xOLE
+/// @dev The weight in this implementation is linear, and lock cannot be more than maxtime (4 years)
 contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -30,6 +31,12 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     constructor() {
     }
 
+    /// @notice initialize proxy contract
+    /// @dev This function is not supposed to call multiple times. All configs can be set through other functions.
+    /// @param _oleToken Address of contract _oleToken.
+    /// @param _dexAgg Contract DexAggregatorDelegator.
+    /// @param _devFundRatio Ratio of token reserved to Dev team
+    /// @param _dev Address of Dev team.
     function initialize(
         address _oleToken,
         DexAggregatorInterface _dexAgg,
@@ -59,6 +66,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         oleToken.transfer(dev, toSend);
     }
 
+    /// @dev swap feeCollected to reward token
     function convertToSharingToken(uint amount, uint minBuyAmount, bytes memory dexData) external override onlyAdminOrDeveloper() {
         require(totalSupply > 0, "Can't share without locked OLE");
         address fromToken;
@@ -106,6 +114,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
     }
 
+    /// @notice calculate the amount of token reward
     function earned(address account) external override view returns (uint) {
         return earnedInternal(account);
     }
@@ -131,6 +140,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         }
     }
 
+    /// @notice transfer rewarded ole to msg.sender
     function withdrawReward() external override {
         uint reward = getReward();
         oleToken.safeTransfer(msg.sender, reward);
@@ -200,6 +210,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         return balances[addr];
     }
 
+    /// @dev get supply amount by blocknumber
     function totalSupplyAt(uint256 blockNumber) external view returns (uint){
         if (totalSupplyNumCheckpoints == 0) {
             return 0;
@@ -230,11 +241,9 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         return totalSupplyCheckpoints[lower].votes;
     }
 
-    /*
-    @notice Deposit `_value` tokens for `msg.sender` and lock until `_unlock_time`
-    @param _value Amount to deposit
-    @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks
-    */
+    /// @notice Deposit `_value` tokens for `msg.sender` and lock until `_unlock_time`
+    /// @param _value Amount to deposit
+    /// @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks
     function create_lock(uint256 _value, uint256 _unlock_time) external override nonReentrant() {
         // Locktime is rounded down to weeks
         uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
@@ -248,11 +257,10 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         _deposit_for(msg.sender, _value, unlock_time, _locked, CREATE_LOCK_TYPE);
     }
 
-    /*
-    @notice Deposit `_value` additional tokens for `msg.sender`
-    without modifying the unlock time
-    @param _value Amount of tokens to deposit and add to the lock
-    */
+    
+    /// @notice Deposit `_value` additional tokens for `msg.sender`
+    /// without modifying the unlock time
+    /// @param _value Amount of tokens to deposit and add to the lock
     function increase_amount(uint256 _value) external override nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
         require(_value > 0, "need non - zero value");
@@ -261,11 +269,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         _deposit_for(msg.sender, _value, 0, _locked, INCREASE_LOCK_AMOUNT);
     }
 
-    /*
-    @notice Extend the unlock time for `msg.sender` to `_unlock_time`
-    @param _unlock_time New epoch time for unlocking
-    */
-
+    /// @notice Extend the unlock time for `msg.sender` to `_unlock_time`
+    /// @param _unlock_time New epoch time for unlocking
     function increase_unlock_time(uint256 _unlock_time) external override nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
         // Locktime is rounded down to weeks
@@ -277,13 +282,13 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
         _deposit_for(msg.sender, 0, unlock_time, _locked, INCREASE_UNLOCK_TIME);
     }
-    /*
-    @notice Deposit and lock tokens for a user
-    @param _addr User's wallet address
-    @param _value Amount to deposit
-    @param unlock_time New time when to unlock the tokens, or 0 if unchanged
-    @param locked_balance Previous locked amount / timestamp
-    */
+
+    /// @notice Deposit and lock tokens for a user
+    /// @param _addr User's wallet address
+    /// @param _value Amount to deposit
+    /// @param unlock_time New time when to unlock the tokens, or 0 if unchanged
+    /// @param _locked Previous locked amount / timestamp
+    /// @param _type For event only.
     function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal updateReward(_addr) {
         uint256 locked_before = totalLocked;
         totalLocked = locked_before.add(_value);
@@ -315,10 +320,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         emit Deposit(_addr, _value, _locked.end, _type, block.timestamp);
     }
 
-    /*
-    @notice Withdraw all tokens for `msg.sender`
-    @dev Only possible if the lock has expired
-    */
+    /// @notice Withdraw all tokens for `msg.sender`
+    /// @dev Only possible if the lock has expired
     function withdraw() external override nonReentrant() updateReward(msg.sender) {
         LockedBalance memory _locked = locked[msg.sender];
         require(_locked.amount >= 0, "Nothing to withdraw");
@@ -336,24 +339,20 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     }
 
 
-    /**
- * Delegate votes from `msg.sender` to `delegatee`
- * @param delegatee The address to delegate votes to
- */
+    /// Delegate votes from `msg.sender` to `delegatee`
+    /// @param delegatee The address to delegate votes to
     function delegate(address delegatee) public {
         require(delegatee != address(0), 'delegatee:0x');
         return _delegate(msg.sender, delegatee);
     }
 
-    /**
-     * Delegates votes from signatory to `delegatee`
-     * @param delegatee The address to delegate votes to
-     * @param nonce The contract state required to match the signature
-     * @param expiry The time at which to expire the signature
-     * @param v The recovery byte of the signature
-     * @param r Half of the ECDSA signature pair
-     * @param s Half of the ECDSA signature pair
-     */
+    /// Delegates votes from signatory to `delegatee`
+    /// @param delegatee The address to delegate votes to
+    /// @param nonce The contract state required to match the signature
+    /// @param expiry The time at which to expire the signature
+    /// @param v The recovery byte of the signature
+    /// @param r Half of the ECDSA signature pair
+    /// @param s Half of the ECDSA signature pair
     function delegateBySig(address delegatee, uint nonce, uint expiry, uint8 v, bytes32 r, bytes32 s) public {
         delegateBySigInternal(delegatee, nonce, expiry, v, r, s);
     }
@@ -382,24 +381,19 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         _delegate(signatory, delegatee);
     }
 
-
-    /**
-     * Gets the current votes balance for `account`
-     * @param account The address to get votes balance
-     * @return The number of current votes for `account`
-     */
+    /// Gets the current votes balance for `account`
+    /// @param account The address to get votes balance
+    /// @return The number of current votes for `account`
     function getCurrentVotes(address account) external view returns (uint) {
         uint32 nCheckpoints = numCheckpoints[account];
         return nCheckpoints > 0 ? checkpoints[account][nCheckpoints - 1].votes : 0;
     }
 
-    /**
-     * Determine the prior number of votes for an account as of a block number
-     * @dev Block number must be a finalized block or else this function will revert to prevent misinformation.
-     * @param account The address of the account to check
-     * @param blockNumber The block number to get the vote balance at
-     * @return The number of votes the account had as of the given block
-     */
+    /// Determine the prior number of votes for an account as of a block number
+    /// @dev Block number must be a finalized block or else this function will revert to prevent misinformation.
+    /// @param account The address of the account to check
+    /// @param blockNumber The block number to get the vote balance at
+    /// @return The number of votes the account had as of the given block
     function getPriorVotes(address account, uint blockNumber) public view returns (uint) {
         require(blockNumber < block.number, "getPriorVotes:not yet determined");
 

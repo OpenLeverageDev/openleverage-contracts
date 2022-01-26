@@ -4,6 +4,9 @@ pragma solidity 0.7.6;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
+/// @title Admin to all OpenLeverage contracts
+/// @author OpenLeverage
+/// @dev Fork from compound https://github.com/compound-finance/compound-protocol/blob/master/contracts/Timelock.sol
 contract Timelock {
     using SafeMath for uint;
 
@@ -43,6 +46,7 @@ contract Timelock {
         require(msg.sender == admin);
         _;
     }
+
     function setDelay(uint delay_) public {
         require(msg.sender == address(this), "Call must come from Timelock");
         require(delay_ >= MINIMUM_DELAY, "Delay must exceed minimum");
@@ -71,6 +75,13 @@ contract Timelock {
         emit NewPendingAdmin(pendingAdmin);
     }
 
+    /// @dev Save transactions before execution. Allowed to cancel before eta
+    /// @param target Address of contract to call.
+    /// @param value Amount of native token send along with the transaction.
+    /// @param signature Function signature of the target contract.
+    /// @param data Argument pass to the target function.
+    /// @param eta time before execution.
+    /// @return ID of the transaction
     function queueTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public returns (bytes32) {
         require(msg.sender == admin, "Call must come from admin");
         require(eta >= getBlockTimestamp().add(delay), "ETA must satisfy delay");
@@ -82,15 +93,27 @@ contract Timelock {
         return txHash;
     }
 
+    /// @dev cancel queued transactions.
+    /// @param target Address of contract to call.
+    /// @param value Amount of native token send along with the transaction.
+    /// @param signature Function signature of the target contract.
+    /// @param data Argument pass to the target function.
+    /// @param eta time before execution.
     function cancelTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public {
         require(msg.sender == admin, "Call must come from admin");
 
         bytes32 txHash = keccak256(abi.encode(target, value, signature, data, eta));
-        queuedTransactions[txHash] = false;
+        delete queuedTransactions[txHash];
 
         emit CancelTransaction(txHash, target, value, signature, data, eta);
     }
 
+    /// @dev execute queued transactions.
+    /// @param target Address of contract to call.
+    /// @param value Amount of native token send along with the transaction.
+    /// @param signature Function signature of the target contract.
+    /// @param data Argument pass to the target function.
+    /// @param eta time before execution.
     function executeTransaction(address target, uint value, string memory signature, bytes memory data, uint eta) public payable returns (bytes memory) {
         require(msg.sender == admin, "Call must come from admin");
 
@@ -99,7 +122,7 @@ contract Timelock {
             require(queuedTransactions[txHash], "Tx hasn't been queued");
             require(getBlockTimestamp() >= eta, "Not surpassed timelock");
             require(getBlockTimestamp() <= eta.add(GRACE_PERIOD), "Transaction is stale");
-            queuedTransactions[txHash] = false;
+            delete queuedTransactions[txHash];
         }
 
         bytes memory callData;

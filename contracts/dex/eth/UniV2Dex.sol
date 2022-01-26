@@ -201,7 +201,7 @@ contract UniV2Dex {
         amountOut = numerator / denominator;
     }
 
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut, uint16 fees) public pure returns (uint amountIn) {
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut, uint16 fees) private pure returns (uint amountIn) {
         require(amountOut > 0, 'INSUFFICIENT_OUTPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint numerator = reserveIn.mul(amountOut).mul(10000);

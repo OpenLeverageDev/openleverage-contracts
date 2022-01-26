@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../Adminable.sol";
 
+/// @title Farming Pools
+/// @author OpenLeverage
+/// @notice Deposit OLE to earn inerest
+/// @dev Rewards are released linearly 
 contract FarmingPools is Adminable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;

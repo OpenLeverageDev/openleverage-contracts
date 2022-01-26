@@ -14,11 +14,9 @@ import "../DelegateInterface.sol";
 import "../ControllerInterface.sol";
 import "../IWETH.sol";
 
-/**
- * @title OpenLeverage's LToken Contract
- * Abstract base for LTokens
- * @author OpenLeverage
- */
+/// @title OpenLeverage's LToken Contract
+/// @dev Abstract base for LTokens
+/// @author OpenLeverage
 contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, ReentrancyGuard {
     using TransferHelper for IERC20;
     using SafeMath for uint;
@@ -26,14 +24,17 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     constructor() {
 
     }
-    /**
-     * Initialize the money market
-     * @param controller_ The address of the Controller
-     * @param initialExchangeRateMantissa_ The initial exchange rate, scaled by 1e18
-     * @param name_ EIP-20 name of this token
-     * @param symbol_ EIP-20 symbol of this token
-     * @param decimals_ EIP-20 decimal precision of this token
-     */
+    
+    /// @notice Initialize the money market
+    /// @param controller_ The address of the Controller
+    /// @param baseRatePerBlock_ The base interest rate which is the y-intercept when utilization rate is 0
+    /// @param multiplierPerBlock_ The multiplier of utilization rate that gives the slope of the interest rate
+    /// @param jumpMultiplierPerBlock_ The multiplierPerBlock after hitting a specified utilization point
+    /// @param kink_ The utilization point at which the jump multiplier is applied
+    /// @param initialExchangeRateMantissa_ The initial exchange rate, scaled by 1e18
+    /// @param name_ EIP-20 name of this token
+    /// @param symbol_ EIP-20 symbol of this token
+    /// @param decimals_ EIP-20 decimal precision of this token
     function initialize(
         address underlying_,
         bool isWethPool_,
@@ -84,15 +85,13 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         emit Transfer(address(0), msg.sender, 0);
     }
 
-    /**
-     * Transfer `tokens` tokens from `src` to `dst` by `spender`
-     * @dev Called by both `transfer` and `transferFrom` internally
-     * @param spender The address of the account performing the transfer
-     * @param src The address of the source account
-     * @param dst The address of the destination account
-     * @param tokens The number of tokens to transfer
-     * @return Whether or not the transfer succeeded
-     */
+    /// @notice Transfer `tokens` tokens from `src` to `dst` by `spender`
+    /// @dev Called by both `transfer` and `transferFrom` internally
+    /// @param spender The address of the account performing the transfer
+    /// @param src The address of the source account
+    /// @param dst The address of the destination account
+    /// @param tokens The number of tokens to transfer
+    /// @return Whether or not the transfer succeeded
     function transferTokens(address spender, address src, address dst, uint tokens) internal returns (bool) {
         require(dst != address(0), "dst address cannot be 0");
         /* Do not allow self-transfers */
@@ -135,35 +134,29 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         return true;
     }
 
-    /**
-     * Transfer `amount` tokens from `msg.sender` to `dst`
-     * @param dst The address of the destination account
-     * @param amount The number of tokens to transfer
-     * @return Whether or not the transfer succeeded
-     */
+    /// @notice Transfer `amount` tokens from `msg.sender` to `dst`
+    /// @param dst The address of the destination account
+    /// @param amount The number of tokens to transfer
+    /// @return Whether or not the transfer succeeded
     function transfer(address dst, uint256 amount) external override nonReentrant returns (bool) {
         return transferTokens(msg.sender, msg.sender, dst, amount);
     }
 
-    /**
-     * Transfer `amount` tokens from `src` to `dst`
-     * @param src The address of the source account
-     * @param dst The address of the destination account
-     * @param amount The number of tokens to transfer
-     * @return Whether or not the transfer succeeded
-     */
+    /// @notice Transfer `amount` tokens from `src` to `dst`
+    /// @param src The address of the source account
+    /// @param dst The address of the destination account
+    /// @param amount The number of tokens to transfer
+    /// @return Whether or not the transfer succeeded
     function transferFrom(address src, address dst, uint256 amount) external override nonReentrant returns (bool) {
         return transferTokens(msg.sender, src, dst, amount);
     }
 
-    /**
-     * Approve `spender` to transfer up to `amount` from `src`
-     * @dev This will overwrite the approval amount for `spender`
-     *  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)
-     * @param spender The address of the account which may transfer tokens
-     * @param amount The number of tokens that are approved (-1 means infinite)
-     * @return Whether or not the approval succeeded
-     */
+    /// @notice Approve `spender` to transfer up to `amount` from `src`
+    /// @dev This will overwrite the approval amount for `spender`
+    ///  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)
+    /// @param spender The address of the account which may transfer tokens
+    /// @param amount The number of tokens that are approved (-1 means infinite)
+    /// @return Whether or not the approval succeeded
     function approve(address spender, uint256 amount) external override returns (bool) {
         address src = msg.sender;
         transferAllowances[src][spender] = amount;
@@ -171,31 +164,25 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         return true;
     }
 
-    /**
-     * Get the current allowance from `owner` for `spender`
-     * @param owner The address of the account which owns the tokens to be spent
-     * @param spender The address of the account which may transfer tokens
-     * @return The number of tokens allowed to be spent (-1 means infinite)
-     */
+    /// @notice Get the current allowance from `owner` for `spender`
+    /// @param owner The address of the account which owns the tokens to be spent
+    /// @param spender The address of the account which may transfer tokens
+    /// @return The number of tokens allowed to be spent (-1 means infinite)
     function allowance(address owner, address spender) external override view returns (uint256) {
         return transferAllowances[owner][spender];
     }
 
-    /**
-     * Get the token balance of the `owner`
-     * @param owner The address of the account to query
-     * @return The number of tokens owned by `owner`
-     */
+    /// @notice Get the token balance of the `owner`
+    /// @param owner The address of the account to query
+    /// @return The number of tokens owned by `owner`
     function balanceOf(address owner) external override view returns (uint256) {
         return accountTokens[owner];
     }
 
-    /**
-     * Get the underlying balance of the `owner`
-     * @dev This also accrues interest in a transaction
-     * @param owner The address of the account to query
-     * @return The amount of underlying owned by `owner`
-     */
+    /// @notice Get the underlying balance of the `owner`
+    /// @dev This also accrues interest in a transaction
+    /// @param owner The address of the account to query
+    /// @return The amount of underlying owned by `owner`
     function balanceOfUnderlying(address owner) external override returns (uint) {
         Exp memory exchangeRate = Exp({mantissa : exchangeRateCurrent()});
         (MathError mErr, uint balance) = mulScalarTruncate(exchangeRate, accountTokens[owner]);
@@ -205,11 +192,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
     /*** User Interface ***/
 
-    /**
-     * Sender supplies assets into the market and receives lTokens in exchange
-     * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param mintAmount The amount of the underlying asset to supply
-     */
+    /// @notice Sender supplies assets into the market and receives lTokens in exchange
+    /// @dev Accrues interest whether or not the operation succeeds, unless reverted
+    /// @param mintAmount The amount of the underlying asset to supply
     function mint(uint mintAmount) external override nonReentrant {
         accrueInterest();
         mintFresh(msg.sender, mintAmount, false);
@@ -230,22 +215,18 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         mintFresh(msg.sender, msg.value, false);
     }
 
-    /**
-     * Sender redeems lTokens in exchange for the underlying asset
-     * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemTokens The number of lTokens to redeem into underlying
-     */
+    /// @notice Sender redeems lTokens in exchange for the underlying asset
+    /// @dev Accrues interest whether or not the operation succeeds, unless reverted
+    /// @param redeemTokens The number of lTokens to redeem into underlying
     function redeem(uint redeemTokens) external override nonReentrant {
         accrueInterest();
         // redeemFresh emits redeem-specific logs on errors, so we don't need to
         redeemFresh(msg.sender, redeemTokens, 0);
     }
 
-    /**
-     * Sender redeems lTokens in exchange for a specified amount of underlying asset
-     * @dev Accrues interest whether or not the operation succeeds, unless reverted
-     * @param redeemAmount The amount of underlying to redeem
-     */
+    /// @notice Sender redeems lTokens in exchange for a specified amount of underlying asset
+    /// @dev Accrues interest whether or not the operation succeeds, unless reverted
+    /// @param redeemAmount The amount of underlying to redeem
     function redeemUnderlying(uint redeemAmount) external override nonReentrant {
         accrueInterest();
         // redeemFresh emits redeem-specific logs on errors, so we don't need to
@@ -258,11 +239,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         borrowFresh(payable(borrower), msg.sender, borrowAmount);
     }
 
-    /**
-     * Sender repays a borrow belonging to borrower
-     * @param borrower the account with the debt being payed off
-     * @param repayAmount The amount to repay
-     */
+    /// @notice Sender repays a borrow belonging to borrower
+    /// @param borrower the account with the debt being payed off
+    /// @param repayAmount The amount to repay
     function repayBorrowBehalf(address borrower, uint repayAmount) external override nonReentrant {
         accrueInterest();
         // repayBorrowFresh emits repay-borrow-specific logs on errors, so we don't need to
@@ -277,11 +256,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
     /*** Safe Token ***/
 
-    /**
-     * Gets balance of this contract in terms of the underlying
-     * @dev This excludes the value of the current message, if any
-     * @return The quantity of underlying tokens owned by this contract
-     */
+    /// Gets balance of this contract in terms of the underlying
+    /// @dev This excludes the value of the current message, if any
+    /// @return The quantity of underlying tokens owned by this contract
     function getCashPrior() internal view returns (uint) {
         return IERC20(underlying).balanceOf(address(this));
     }
@@ -340,12 +317,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     }
 
 
-    /**
-     * Get a snapshot of the account's balances, and the cached exchange rate
-     * @dev This is used by controller to more efficiently perform liquidity checks.
-     * @param account Address of the account to snapshot
-     * @return ( token balance, borrow balance, exchange rate mantissa)
-     */
+    /// @notice Get a snapshot of the account's balances, and the cached exchange rate
+    /// @dev This is used by controller to more efficiently perform liquidity checks.
+    /// @param account Address of the account to snapshot
+    /// @return ( token balance, borrow balance, exchange rate mantissa)
     function getAccountSnapshot(address account) external override view returns (uint, uint, uint) {
         uint cTokenBalance = accountTokens[account];
         uint borrowBalance;
@@ -366,26 +341,21 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         return (cTokenBalance, borrowBalance, exchangeRateMantissa);
     }
 
-    /**
-     * @dev Function to simply retrieve block number
-     *  This exists mainly for inheriting test contracts to stub this result.
-     */
+    /// @dev Function to simply retrieve block number
+    ///  This exists mainly for inheriting test contracts to stub this result.
     function getBlockNumber() internal view returns (uint) {
         return block.number;
     }
 
-    /**
-     * Returns the current per-block borrow interest rate for this cToken
-     * @return The borrow interest rate per block, scaled by 1e18
-     */
+    /// @notice Returns the current per-block borrow interest rate for this cToken
+    /// @return The borrow interest rate per block, scaled by 1e18
     function borrowRatePerBlock() external override view returns (uint) {
         return getBorrowRateInternal(getCashPrior(), totalBorrows, totalReserves);
     }
 
-    /**
-     * Returns the current per-block supply interest rate for this cToken
-     * @return The supply interest rate per block, scaled by 1e18
-     */
+    
+    /// @notice Returns the current per-block supply interest rate for this cToken
+    /// @return The supply interest rate per block, scaled by 1e18
     function supplyRatePerBlock() external override view returns (uint) {
         return getSupplyRateInternal(getCashPrior(), totalBorrows, totalReserves, reserveFactorMantissa);
     }
@@ -398,12 +368,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         return borrows.mul(1e18).div(cash.add(borrows).sub(reserves));
     }
 
-    /**
-     * Calculates the current borrow rate per block, with the error code expected by the market
-     * @param cash The amount of cash in the market
-     * @param borrows The amount of borrows in the market
-     * @return The borrow rate percentage per block as a mantissa (scaled by 1e18)
-     */
+    /// @notice Calculates the current borrow rate per block, with the error code expected by the market
+    /// @param cash The amount of cash in the market
+    /// @param borrows The amount of borrows in the market
+    /// @return The borrow rate percentage per block as a mantissa (scaled by 1e18)
     function getBorrowRateInternal(uint cash, uint borrows, uint reserves) internal view returns (uint) {
         uint util = utilizationRate(cash, borrows, reserves);
         if (util <= kink) {
@@ -415,22 +383,19 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         }
     }
 
-    /**
-     * Calculates the current supply rate per block
-     * @param cash The amount of cash in the market
-     * @param borrows The amount of borrows in the market
-     * @return The supply rate percentage per block as a mantissa (scaled by 1e18)
-     */
+    /// @notice Calculates the current supply rate per block
+    /// @param cash The amount of cash in the market
+    /// @param borrows The amount of borrows in the market
+    /// @return The supply rate percentage per block as a mantissa (scaled by 1e18)
     function getSupplyRateInternal(uint cash, uint borrows, uint reserves, uint reserveFactor) internal view returns (uint) {
         uint oneMinusReserveFactor = uint(1e18).sub(reserveFactor);
         uint borrowRate = getBorrowRateInternal(cash, borrows, reserves);
         uint rateToPool = borrowRate.mul(oneMinusReserveFactor).div(1e18);
         return utilizationRate(cash, borrows, reserves).mul(rateToPool).div(1e18);
     }
-    /**
-     * Returns the current total borrows plus accrued interest
-     * @return The total borrows with interest
-     */
+
+    /// @notice Returns the current total borrows plus accrued interest
+    /// @return The total borrows with interest
     function totalBorrowsCurrent() external override view returns (uint) {
         /* Remember the initial block number */
         uint currentBlockNumber = getBlockNumber();
@@ -469,11 +434,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
         return totalBorrowsNew;
     }
-    /**
-     * Accrue interest to updated borrowIndex and then calculate account's borrow balance using the updated borrowIndex
-     * @param account The address whose balance should be calculated after updating borrowIndex
-     * @return The calculated balance
-     */
+
+    /// @notice Accrue interest to updated borrowIndex and then calculate account's borrow balance using the updated borrowIndex
+    /// @param account The address whose balance should be calculated after updating borrowIndex
+    /// @return The calculated balance
     function borrowBalanceCurrent(address account) external view override returns (uint) {
         (MathError err0, uint borrowIndex) = calCurrentBorrowIndex();
         require(err0 == MathError.NO_ERROR, "calc borrow index fail");
@@ -487,19 +451,16 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     }
 
 
-    /**
-     * Return the borrow balance of account based on stored data
-     * @param account The address whose balance should be calculated
-     * @return (error code, the calculated balance or 0 if error code is non-zero)
-     */
+    /// @notice Return the borrow balance of account based on stored data
+    /// @param account The address whose balance should be calculated
+    /// @return (error code, the calculated balance or 0 if error code is non-zero)
     function borrowBalanceStoredInternal(address account) internal view returns (MathError, uint) {
         return borrowBalanceStoredInternalWithBorrowerIndex(account, borrowIndex);
     }
-    /**
-     * Return the borrow balance of account based on stored data
-     * @param account The address whose balance should be calculated
-     * @return (error code, the calculated balance or 0 if error code is non-zero)
-     */
+
+    /// @notice Return the borrow balance of account based on stored data
+    /// @param account The address whose balance should be calculated
+    /// @return (error code, the calculated balance or 0 if error code is non-zero)
     function borrowBalanceStoredInternalWithBorrowerIndex(address account, uint borrowIndex) internal view returns (MathError, uint) {
         /* Note: we do not assert that the market is up to date */
         MathError mathErr;
@@ -531,31 +492,26 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
         return (MathError.NO_ERROR, result);
     }
-    /**
-     * Accrue interest then return the up-to-date exchange rate
-     * @return Calculated exchange rate scaled by 1e18
-     */
+
+    /// @notice Accrue interest then return the up-to-date exchange rate
+    /// @return Calculated exchange rate scaled by 1e18
     function exchangeRateCurrent() public override nonReentrant returns (uint) {
         accrueInterest();
         return exchangeRateStored();
     }
 
-    /**
-     * Calculates the exchange rate from the underlying to the LToken
-     * @dev This function does not accrue interest before calculating the exchange rate
-     * @return Calculated exchange rate scaled by 1e18
-     */
+    /// Calculates the exchange rate from the underlying to the LToken
+    /// @dev This function does not accrue interest before calculating the exchange rate
+    /// @return Calculated exchange rate scaled by 1e18
     function exchangeRateStored() public override view returns (uint) {
         (MathError err, uint result) = exchangeRateStoredInternal();
         require(err == MathError.NO_ERROR, "calc fail");
         return result;
     }
 
-    /**
-     * Calculates the exchange rate from the underlying to the LToken
-     * @dev This function does not accrue interest before calculating the exchange rate
-     * @return (error code, calculated exchange rate scaled by 1e18)
-     */
+    /// @notice Calculates the exchange rate from the underlying to the LToken
+    /// @dev This function does not accrue interest before calculating the exchange rate
+    /// @return (error code, calculated exchange rate scaled by 1e18)
     function exchangeRateStoredInternal() internal view returns (MathError, uint) {
         uint _totalSupply = totalSupply;
         if (_totalSupply == 0) {
@@ -588,10 +544,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         }
     }
 
-    /**
-     * Get cash balance of this cToken in the underlying asset
-     * @return The quantity of underlying asset owned by this contract
-     */
+    /// @notice Get cash balance of this cToken in the underlying asset
+    /// @return The quantity of underlying asset owned by this contract
     function getCash() external override view returns (uint) {
         return IERC20(underlying).balanceOf(address(this));
     }
@@ -617,11 +571,9 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         return (mathErr, borrowIndexNew);
     }
 
-    /**
-     * Applies accrued interest to total borrows and reserves
-     * @dev This calculates interest accrued from the last checkpointed block
-     *   up to the current block and writes new checkpoint to storage.
-     */
+    /// @notice Applies accrued interest to total borrows and reserves
+    /// @dev This calculates interest accrued from the last checkpointed block
+    ///   up to the current block and writes new checkpoint to storage.
     function accrueInterest() public override {
         /* Remember the initial block number */
         uint currentBlockNumber = getBlockNumber();
@@ -697,13 +649,11 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint actualMintAmount;
     }
 
-    /**
-     * User supplies assets into the market and receives lTokens in exchange
-     * @dev Assumes interest has already been accrued up to the current block
-     * @param minter The address of the account which is supplying the assets
-     * @param mintAmount The amount of the underlying asset to supply
-     * @return uint the actual mint amount.
-     */
+    /// @notice User supplies assets into the market and receives lTokens in exchange
+    /// @dev Assumes interest has already been accrued up to the current block
+    /// @param minter The address of the account which is supplying the assets
+    /// @param mintAmount The amount of the underlying asset to supply
+    /// @return uint the actual mint amount.
     function mintFresh(address minter, uint mintAmount, bool isDelegete) internal sameBlock returns (uint) {
         MintLocalVars memory vars;
         (vars.mathErr, vars.exchangeRateMantissa) = exchangeRateStoredInternal();
@@ -770,13 +720,11 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint accountTokensNew;
     }
 
-    /**
-     * User redeems lTokens in exchange for the underlying asset
-     * @dev Assumes interest has already been accrued up to the current block
-     * @param redeemer The address of the account which is redeeming the tokens
-     * @param redeemTokensIn The number of lTokens to redeem into underlying (only one of redeemTokensIn or redeemAmountIn may be non-zero)
-     * @param redeemAmountIn The number of underlying tokens to receive from redeeming lTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
-     */
+    /// @notice User redeems lTokens in exchange for the underlying asset
+    /// @dev Assumes interest has already been accrued up to the current block
+    /// @param redeemer The address of the account which is redeeming the tokens
+    /// @param redeemTokensIn The number of lTokens to redeem into underlying (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+    /// @param redeemAmountIn The number of underlying tokens to receive from redeeming lTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
     function redeemFresh(address payable redeemer, uint redeemTokensIn, uint redeemAmountIn) internal sameBlock {
         require(redeemTokensIn == 0 || redeemAmountIn == 0, "one be zero");
 
@@ -850,10 +798,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint totalBorrowsNew;
     }
 
-    /**
-      * Users borrow assets from the protocol to their own address
-      * @param borrowAmount The amount of the underlying asset to borrow
-      */
+    /// @notice Users borrow assets from the protocol to their own address
+    /// @param borrowAmount The amount of the underlying asset to borrow
     function borrowFresh(address payable borrower, address payable payee, uint borrowAmount) internal sameBlock {
         /* Fail if borrow not allowed */
         (ControllerInterface(controller)).borrowAllowed(borrower, payee, borrowAmount);
@@ -907,12 +853,10 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         uint badDebtsAmount;
     }
 
-    /**
-     * Borrows are repaid by another user (possibly the borrower).
-     * @param payer the account paying off the borrow
-     * @param borrower the account with the debt being payed off
-     * @param repayAmount the amount of undelrying tokens being returned
-     */
+    /// @notice Borrows are repaid by another user (possibly the borrower).
+    /// @param payer the account paying off the borrow
+    /// @param borrower the account with the debt being payed off
+    /// @param repayAmount the amount of undelrying tokens being returned
     function repayBorrowFresh(address payer, address borrower, uint repayAmount, bool isEnd) internal sameBlock returns (uint) {
         /* Fail if repayBorrow not allowed */
         (ControllerInterface(controller)).repayBorrowAllowed(payer, borrower, repayAmount, isEnd);
@@ -980,10 +924,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
 
     /*** Admin Functions ***/
 
-    /**
-      * Sets a new CONTROLLER for the market
-      * @dev Admin function to set a new controller
-      */
+    /// @notice Sets a new CONTROLLER for the market
+    /// @dev Admin function to set a new controller
     function setController(address newController) external override onlyAdmin {
         require(address(0) != newController, "0x");
         address oldController = controller;

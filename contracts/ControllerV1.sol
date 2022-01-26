@@ -13,14 +13,23 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./OpenLevInterface.sol";
 import "./XOLEInterface.sol";
 
-/**
-  * @title Controller
-  * @author OpenLeverage
-  */
+/// @title OpenLeverage Controller Logic
+/// @author OpenLeverage
+/// @notice You can use this contract for operating trades and find trading intel.
+/// @dev Admin of this contract is the address of Timelock. Admin set configs and transfer insurance expected to XOLE.
 contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, ControllerStorage {
     using SafeMath for uint;
     constructor () {}
 
+    /// @notice Initialize proxy contract
+    /// @dev This function is not supposed to call multiple times. All configs can be set through other functions.
+    /// @param _oleToken Address of OLEToken.
+    /// @param _xoleToken address of XOLEToken.
+    /// @param _wETH Address of wrapped native coin.
+    /// @param _lpoolImplementation Address of lending pool logic contract.
+    /// @param _openlev Address of openLev aggregator contract.
+    /// @param _dexAggregator Address of DexAggregatorDelegator.
+    /// @param _oleWethDexData Index and feeRate of ole/weth pair.
     function initialize(
         IERC20 _oleToken,
         address _xoleToken,
@@ -49,6 +58,12 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         string tokenSymbol;
     }
 
+    /// @notice Create Lending pools for token0, token1. create market on OpenLev
+    /// @dev Caluclate ratio with current price and twap price.
+    /// @param token0 Address of token0
+    /// @param token1 Address of token1
+    /// @param marginLimit The liquidation trigger ratio of deposit token value to borrowed token value.
+    /// @param dexData Index and fee rate for the trading Dex.
     function createLPoolPair(address token0, address token1, uint16 marginLimit, bytes memory dexData) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
@@ -406,10 +421,12 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         require(!lpoolUnAlloweds[msg.sender], "LPool paused");
         _;
     }
+
     modifier onlyNotSuspended() {
         require(!suspend, 'Suspended');
         _;
     }
+    
     modifier onlyOpenLevOperator(address operator) {
         require(openLev == operator || openLev == address(0), "Operator not openLev");
         _;
