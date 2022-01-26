@@ -2,7 +2,7 @@
 pragma solidity ^0.7.6;
 pragma experimental ABIEncoderV2;
 
-// DexDataFormat add pair = byte(dexID) + bytes3(feeRate) + bytes(arrayLength) + byte3[arrayLength](trasferFeeRate Lpool <-> openlev) + byte3[arrayLength](transferFeeRate openLev -> Dex) + byte3[arrayLength](Dex -> transferFeeRate openLev)
+// DexDataFormat addPair = byte(dexID) + bytes3(feeRate) + bytes(arrayLength) + byte3[arrayLength](trasferFeeRate Lpool <-> openlev) + byte3[arrayLength](transferFeeRate openLev -> Dex) + byte3[arrayLength](Dex -> transferFeeRate openLev)
 // DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + path
 // uniV2Path = bytes20[arraylength](address)
 // uniV3Path = bytes20(address)+ bytes20[arraylength-1](address + fee)
@@ -121,7 +121,7 @@ library DexData {
     }
 
     function isUniV2Class(bytes memory data) internal pure returns(bool){
-        return toDex(data) == DEX_UNIV2 || toDex(data) == DEX_PANCAKE;
+        return toDex(data) != DEX_UNIV3;
     }
 
     function toUniV3Path(bytes memory data) internal pure returns (V3PoolData[] memory path) {

@@ -457,10 +457,12 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         }
     }
 
+    /// @dev All credited on this contract and share with all token holder if any rewards for the transfer.
     function transferIn(address from, IERC20 token, uint amount) internal returns (uint) {
         return OpenLevV1Lib.transferIn(from, token, addressConfig.wETH, amount);
     }
 
+    /// @dev All credited on "to" if any taxes for the transfer.
     function doTransferOut(address to, IERC20 token, uint amount) internal {
         OpenLevV1Lib.doTransferOut(to, token, addressConfig.wETH, amount);
     }

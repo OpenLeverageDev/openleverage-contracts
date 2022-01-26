@@ -37,6 +37,7 @@ contract UniV2Dex {
         address payee
     ) internal returns (uint buyAmount){
         address pair = getUniV2ClassPair(buyToken, sellToken, dexInfo.factory);
+        IUniswapV2Pair(pair).sync();
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
         uint balanceBefore = IERC20(buyToken).balanceOf(payee);
