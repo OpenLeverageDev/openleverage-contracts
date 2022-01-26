@@ -497,7 +497,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @notice List of all supporting Dexes.
     /// @param poolIndex index of insurance pool, 0 for token0, 1 for token1
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
-        OpenLevV1Lib.moveInsurance(poolIndex, to, amount, markets[marketId]);
+        Types.Market storage market = markets[marketId];
+        if (poolIndex == 0) {
+            market.pool0Insurance = market.pool0Insurance.sub(amount);
+            (IERC20(market.token0)).safeTransfer(to, OpenLevV1Lib.shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
+            return;
+        }
+        market.pool1Insurance = market.pool1Insurance.sub(amount);
+        (IERC20(market.token1)).safeTransfer(to, OpenLevV1Lib.shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
     }
 
     function setSupportDex(uint8 dex, bool support) public override onlyAdmin() {
