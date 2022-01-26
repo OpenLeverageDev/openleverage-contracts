@@ -2,10 +2,12 @@
 pragma solidity ^0.7.6;
 pragma experimental ABIEncoderV2;
 
-// DexDataFormat addPair = byte(dexID) + bytes3(feeRate) + bytes(arrayLength) + byte3[arrayLength](trasferFeeRate Lpool <-> openlev) + byte3[arrayLength](transferFeeRate openLev -> Dex) + byte3[arrayLength](Dex -> transferFeeRate openLev)
-// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + path
-// uniV2Path = bytes20[arraylength](address)
-// uniV3Path = bytes20(address)+ bytes20[arraylength-1](address + fee)
+/// @dev DexDataFormat addPair = byte(dexID) + bytes3(feeRate) + bytes(arrayLength) + byte3[arrayLength](trasferFeeRate Lpool <-> openlev) 
+/// + byte3[arrayLength](transferFeeRate openLev -> Dex) + byte3[arrayLength](Dex -> transferFeeRate openLev)
+/// exp: 0x0100000002011170000000011170000000011170000000
+/// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + path
+/// uniV2Path = bytes20[arraylength](address)
+/// uniV3Path = bytes20(address)+ bytes20[arraylength-1](address + fee)
 library DexData {
     // in byte
     uint constant DEX_INDEX = 0;
