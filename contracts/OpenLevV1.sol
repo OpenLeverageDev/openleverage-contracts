@@ -59,7 +59,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @dev This function is typically called by ControllerDelegator.
     /// @param pool0 Contract LpoolDelegator, lending pool of token0.
     /// @param pool1 Contract LpoolDelegator, lending pool of token1.
-    /// @param marginLimit The liquidation trigger ratio of deposit token value to borrowed token value.
+    /// @param marginLimit The liquidation trigger ratio of deposited token value to borrowed token value.
     /// @param dexData Pair initiate data including index, feeRate of the Dex and tax rate of the underlying tokens.
     /// @return The new created pair ID.
     function addMarket(
@@ -195,6 +195,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         if (trade.depositToken != longToken) {
             minOrMaxAmount = Utils.maxOf(closeTradeVars.repayAmount, minOrMaxAmount);
             closeTradeVars.receiveAmount = flashSell(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
+            require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
             marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
@@ -345,7 +346,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             market.dexs);
     }
 
-    /// @notice Get ratios of deposit token value to borrowed token value.
+    /// @notice Get ratios of deposited token value to borrowed token value.
     /// @dev Caluclate ratio with current price and twap price.
     /// @param owner Owner of the trade to liquidate.
     /// @param longToken Token to long. False for token0, true for token1.
@@ -353,7 +354,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @return current Margin ratio calculated using current price.
     /// @return cAvg Margin ratio calculated using twap price.
     /// @return hAvg Margin ratio calculated using last recorded twap price.
-    /// @return limit The liquidation trigger ratio of deposit token value to borrowed token value.
+    /// @return limit The liquidation trigger ratio of deposited token value to borrowed token value.
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint cAvg, uint hAvg, uint32 limit) {
         Types.MarketVars memory vars = toMarketVar(longToken, false, markets[marketId]);
         limit = vars.marginLimit;
@@ -496,7 +497,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @notice List of all supporting Dexes.
     /// @param poolIndex index of insurance pool, 0 for token0, 1 for token1
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
-        OpenLevV1Lib.moveInsurance(poolIndex, to, amount, markets[marketId]);
+        Types.Market storage market = markets[marketId];
+        if (poolIndex == 0) {
+            market.pool0Insurance = market.pool0Insurance.sub(amount);
+            (IERC20(market.token0)).safeTransfer(to, OpenLevV1Lib.shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
+            return;
+        }
+        market.pool1Insurance = market.pool1Insurance.sub(amount);
+        (IERC20(market.token1)).safeTransfer(to, OpenLevV1Lib.shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
     }
 
     function setSupportDex(uint8 dex, bool support) public override onlyAdmin() {

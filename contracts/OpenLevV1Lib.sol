@@ -197,16 +197,6 @@ library OpenLevV1Lib {
         }
     }
 
-    function moveInsurance(uint8 poolIndex, address to, uint amount, Types.Market storage market) external {
-        if (poolIndex == 0) {
-            market.pool0Insurance = market.pool0Insurance.sub(amount);
-            (IERC20(market.token0)).safeTransfer(to, amount);
-            return;
-        }
-        market.pool1Insurance = market.pool1Insurance.sub(amount);
-        (IERC20(market.token1)).safeTransfer(to, amount);
-    }
-
     function updatePriceInternal(address token0, address token1, bytes memory dexData) internal returns (bool){
         (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
         (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();

@@ -205,8 +205,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '172703685066108');
-        assert.equal(market.pool0Insurance, '3742693360042');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '172704135202825');
+        assert.equal(market.pool0Insurance, '3742693820334');
     });
 
     it("should long token0 with deposit token0 and liquidate with insurance properly", async() =>{
@@ -254,7 +254,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool0Insurance, '3742693360042');
+        assert.equal(market.pool0Insurance, '3742693820334');
     });
 
     it("should long token0 with deposit eth and closed properly", async() =>{
@@ -365,7 +365,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '106250940087058');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '106250907452217');
         assert.equal(market.pool0Insurance, '1826738399574');
     });
 
@@ -519,7 +519,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn,26417598612900 );
+        assert.equal(liquidationTx.logs[0].args.depositReturn, "26416496606265");
         assert.equal(market.pool0Insurance, '1910700460350');
     });
 
@@ -672,8 +672,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool1Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, 55700357469250);
-        assert.equal( market.pool1Insurance, '3817465747773');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, "55699940539392");
+        assert.equal(market.pool1Insurance, '3817465321438');
     });
 
     it("should short token0 with deposit eth and liquidate with insurance properly", async() =>{
@@ -722,7 +722,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool1Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool1Insurance, "3817465747773");
+        assert.equal(market.pool1Insurance, "3817465321438");
     });
 
     // ------------------------------------------12--------------------------------------------
@@ -850,8 +850,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '91903270513481');
-        assert.equal(market.pool0Insurance, '3950106911229');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '91903272451548');
+        assert.equal(market.pool0Insurance, '3950106913211');
     });
 
     it("should long token0 with deposit token0 and liquidate with insurance properly with sell tax only", async() =>{
@@ -907,7 +907,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool0Insurance, '3950106911229');
+        assert.equal(market.pool0Insurance, '3950106913211');
     });
 
     it("should long token0 with deposit eth and closed properly with sell tax only", async() =>{
@@ -1034,7 +1034,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '49580919671354');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '49580886375853');
         assert.equal(market.pool0Insurance, '1964232889659');
     });
 
@@ -1212,7 +1212,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, "114675196669489");
+        assert.equal(liquidationTx.logs[0].args.depositReturn, "114675194432980");
         assert.equal(market.pool0Insurance, '1980000000000');
     });
 
@@ -1575,8 +1575,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '152754330301147');
-        assert.equal(market.pool0Insurance, '3881084575166');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '152754332103553');
+        assert.equal(market.pool0Insurance, '3881084577009');
     });
 
     it("should long token0 with deposit token0 and liquidate with insurance properly with buy tax only", async() =>{
@@ -1632,7 +1632,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool0Insurance, '3881084575166');
+        assert.equal(market.pool0Insurance, '3881084577009');
     });
 
     it("should long token0 with deposit eth and closed properly with buy tax only", async() =>{
@@ -1759,7 +1759,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '48624019182690');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '48623988246043');
         assert.equal(market.pool0Insurance, '1826738399574');
     });
 
@@ -1937,7 +1937,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '114079676008099');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '114079673773085');
         assert.equal(market.pool0Insurance, '1980000000000');
     });
 
@@ -2294,8 +2294,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '24483949137728');
-        assert.equal(market.pool0Insurance, '3881084575166');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '24483950940285');
+        assert.equal(market.pool0Insurance, '3881084577009');
     });
 
     it("should long token0 with deposit token0 and liquidate with insurance properly with uni tax only", async() =>{
@@ -2348,7 +2348,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool0Insurance, '3881084575166');
+        assert.equal(market.pool0Insurance, '3881084577009');
     });
 
     it("should long token0 with deposit eth and closed properly with uni tax only", async() =>{
@@ -2475,7 +2475,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '48624019182690');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '48623988246043');
         assert.equal(market.pool0Insurance, '1826738399574');
     });
 
@@ -2647,7 +2647,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '36646563807834');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '36646561727879');
         assert.equal(market.pool0Insurance, '1980000000000');
     });
 
@@ -2990,8 +2990,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '172702963493837');
-        assert.equal(market.pool0Insurance, '3742693360042');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '172703413630546');
+        assert.equal(market.pool0Insurance, '3742693820334');
     });
 
     it("should long token0 with deposit token0 and liquidate with insurance properly tax increase after deposit", async() =>{
@@ -3043,7 +3043,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool0Insurance, '3742693360042');
+        assert.equal(market.pool0Insurance, '3742693820334');
     });
 
     it("should long token0 with deposit eth and closed properly tax increase after deposit", async() =>{
@@ -3162,7 +3162,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '106250511973058');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '106250459757314');
         assert.equal(market.pool0Insurance, '1826738399574');
     });
 
@@ -3332,7 +3332,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '26417138258324');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '26416036251689');
         assert.equal(market.pool0Insurance, '1910700460350');
     });
 
@@ -3502,7 +3502,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool1Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         // assert.equal(liquidationTx.logs[0].args.depositReturn, 55700357469250);
-        assert.equal( market.pool1Insurance, '3817465747773');
+        assert.equal( market.pool1Insurance, '3817465321438');
     });
 
     it("should short token0 with deposit eth and liquidate with insurance properly tax increase after deposit", async() =>{
@@ -3555,7 +3555,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool1Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool1Insurance, "3817465747773");
+        assert.equal(market.pool1Insurance, "3817465321438");
     });
 
     // ------------------------------------------60---------------------------------------------
@@ -3675,8 +3675,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '172703011376839');
-        assert.equal(market.pool0Insurance, '3742693360042');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '172703461513560');
+        assert.equal(market.pool0Insurance, '3742693820334');
     });
 
     it("should long token0 with deposit token0 and liquidate with insurance properly tax cut after deposit", async() =>{
@@ -3728,7 +3728,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool0Insurance, '3742693360042');
+        assert.equal(market.pool0Insurance, '3742693820334');
     });
 
     it("should long token0 with deposit eth and closed properly tax cut after deposit", async() =>{
@@ -3847,7 +3847,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '106250511946795');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '106250492365891');
         assert.equal(market.pool0Insurance, '1826738399574');
     });
 
@@ -4013,7 +4013,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool0Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, '26417138258324');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, '26416036251689');
         assert.equal(market.pool0Insurance, '1910700460350');
     });
 
@@ -4178,8 +4178,8 @@ contract("OpenLev UniV2", async accounts => {
         m.log("balance:", balance);
         m.log("insurance", market.pool1Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
-        assert.equal(liquidationTx.logs[0].args.depositReturn, 55699612078345);
-        assert.equal( market.pool1Insurance, '3817465747773');
+        assert.equal(liquidationTx.logs[0].args.depositReturn, "55699195148487");
+        assert.equal( market.pool1Insurance, '3817465321438');
     });
 
     it("should short token0 with deposit eth and liquidate with insurance properly tax cut after deposit", async() =>{
@@ -4232,7 +4232,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("insurance", market.pool1Insurance);
         assert.equal(tradeAfterLiquidate.held.toString(), 0);
         assert.equal(liquidationTx.logs[0].args.depositReturn, 0);
-        assert.equal(market.pool1Insurance, "3817465747773");
+        assert.equal(market.pool1Insurance, "3817465321438");
     });
 
     // ------------------------------------------72---------------------------------------------

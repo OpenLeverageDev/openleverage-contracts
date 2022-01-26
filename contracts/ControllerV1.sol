@@ -59,11 +59,10 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
     }
 
     /// @notice Create Lending pools for token0, token1. create market on OpenLev
-    /// @dev Caluclate ratio with current price and twap price.
     /// @param token0 Address of token0
     /// @param token1 Address of token1
-    /// @param marginLimit The liquidation trigger ratio of deposit token value to borrowed token value.
-    /// @param dexData Index and fee rate for the trading Dex.
+    /// @param marginLimit The liquidation trigger ratio of deposited token value to borrowed token value.
+    /// @param dexData Pair initiate data including index, feeRate of the Dex and tax rate of the underlying tokens.
     function createLPoolPair(address token0, address token1, uint16 marginLimit, bytes memory dexData) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
