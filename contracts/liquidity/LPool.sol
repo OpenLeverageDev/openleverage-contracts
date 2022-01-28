@@ -966,7 +966,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         emit NewReserveFactor(oldReserveFactorMantissa, newReserveFactorMantissa);
     }
 
-    function addReserves(uint addAmount) external override nonReentrant {
+    function addReserves(uint addAmount) external payable override nonReentrant {
         accrueInterest();
         uint totalReservesNew;
         uint actualAddAmount = doTransferIn(msg.sender, addAmount, true);
