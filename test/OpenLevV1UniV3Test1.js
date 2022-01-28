@@ -418,6 +418,14 @@ contract("OpenLev UniV3", async accounts => {
     })
 
 
+    it("Admin setAllowedDepositTokens test", async () => {
+        let {timeLock, openLev} = await instanceSimpleOpenLev();
+        await timeLock.executeTransaction(openLev.address, 0, 'setAllowedDepositTokens(address[],bool)',
+            web3.eth.abi.encodeParameters(['address[]', 'bool'], [[accounts[1]], true]), 0)
+        assert.equal(true, await openLev.allowedDepositTokens(accounts[1]));
+        await assertThrows(openLev.setAllowedDepositTokens([accounts[1]], true), 'caller must be admin');
+
+    })
     it("Admin setSupportDexs test", async () => {
         let {timeLock, openLev} = await instanceSimpleOpenLev();
         await timeLock.executeTransaction(openLev.address, 0, 'setSupportDex(uint8,bool)',

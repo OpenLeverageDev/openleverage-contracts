@@ -28,8 +28,6 @@ library DexData {
     uint8 constant DEX_QUICK = 8;
     uint8 constant DEX_SHIBA = 9;
     uint8 constant DEX_APE = 10;
-    uint8 constant DEX_PANCAKEV1 = 11;
-    uint8 constant DEX_BABY = 12;
 
     bytes constant UNIV2 = hex"01";
 
