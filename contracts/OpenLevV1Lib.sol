@@ -230,10 +230,10 @@ library OpenLevV1Lib {
         bool updateResult = updatePriceInternal(market.token0, market.token1, dexData);
         if (updateResult) {
             //Discount
-            market.priceUpdater = tx.origin;
+            market.priceUpdater = msg.sender;
             //Reward OLE
             if (shouldUpdate) {
-                (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId);
+                (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId, msg.sender);
             }
         }
     }

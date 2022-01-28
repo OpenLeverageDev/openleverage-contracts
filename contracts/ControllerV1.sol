@@ -149,7 +149,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         return true;
     }
 
-    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator(msg.sender) {
+    function updatePriceAllowed(uint marketId, address payee) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         marketId;
         // market no distribution
@@ -160,9 +160,9 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         if (reward > oleTokenDistribution.extraBalance) {
             return;
         }
-        if (transferOut(tx.origin, reward)) {
+        if (transferOut(payee, reward)) {
             oleTokenDistribution.extraBalance = oleTokenDistribution.extraBalance.sub(reward);
-            emit UpdatePriceReward(marketId, tx.origin, reward, oleTokenDistribution.extraBalance);
+            emit UpdatePriceReward(marketId, payee, reward, oleTokenDistribution.extraBalance);
         }
     }
 

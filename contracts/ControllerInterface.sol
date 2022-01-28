@@ -116,7 +116,7 @@ interface ControllerInterface {
 
     function marginTradeAllowed(uint marketId) external view returns (bool);
 
-    function updatePriceAllowed(uint marketId) external;
+    function updatePriceAllowed(uint marketId, address to) external;
 
     /*** Admin Functions ***/
 
