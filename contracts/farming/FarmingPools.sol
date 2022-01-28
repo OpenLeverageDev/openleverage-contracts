@@ -75,7 +75,7 @@ contract FarmingPools is Adminable {
             return distribution.rewardPerTokenStored;
         }
         uint64 lastTimeRewardApplicable = lastTimeRewardApplicable(stakeToken);
-        assert(lastTimeRewardApplicable >= distribution.lastUpdateTime);
+        require(lastTimeRewardApplicable >= distribution.lastUpdateTime);
         return distribution.rewardPerTokenStored.add(
             distribution.rewardRate
             .mul(lastTimeRewardApplicable - distribution.lastUpdateTime)
