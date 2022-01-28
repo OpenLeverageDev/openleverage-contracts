@@ -36,9 +36,8 @@ contract OLETokenLock {
         }
     }
 
-    function release(address beneficiary) external {
-        require(beneficiary != address(0), "beneficiary address cannot be 0");
-        releaseInternal(beneficiary);
+    function release() external {
+        releaseInternal(msg.sender);
     }
 
     function releaseInternal(address beneficiary) internal {
