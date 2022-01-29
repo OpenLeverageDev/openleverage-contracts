@@ -294,7 +294,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     function doTransferOut(address payable to, uint amount, bool convertWeth) internal {
         if (isWethPool && convertWeth) {
             IWETH(underlying).withdraw(amount);
-            to.transfer(amount);
+            (bool success, ) = to.call{value: amount}("");
+            require(success);
         } else {
             IERC20(underlying).safeTransfer(to, amount);
         }
