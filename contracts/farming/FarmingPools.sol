@@ -129,7 +129,11 @@ contract FarmingPools is Adminable {
     }
 
     function initDistributions(address[] memory stakeTokens, uint64[] memory startTimes, uint64[] memory durations) external onlyAdmin {
-        for (uint256 i = 0; i < stakeTokens.length; i++) {
+        uint stakeTokensLength = stakeTokens.length;
+        require(stakeTokensLength == startTimes.length, "array length wrong");
+        require(stakeTokensLength == durations.length, "array length wrong");
+
+        for (uint256 i = 0; i < stakeTokensLength; i++) {
             require(distributions[stakeTokens[i]].starttime == 0, 'Init once');
             distributions[stakeTokens[i]] = Distribution(durations[i], startTimes[i], 0, 0, 0, 0, 0);
         }
@@ -161,6 +165,7 @@ contract FarmingPools is Adminable {
     }
 
     function notifyRewardAmounts(address[] memory stakeTokens, uint256[] memory reward) external {
+        require(stakeTokens.length == reward.length, "token length wrong");
         for (uint256 i = 0; i < stakeTokens.length; i++) {
             notifyRewardAmount(stakeTokens[i], reward[i]);
         }
