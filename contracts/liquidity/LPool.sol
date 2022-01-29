@@ -96,7 +96,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         require(dst != address(0), "dst address cannot be 0");
         /* Do not allow self-transfers */
         require(src != dst, "src = dst");
-        /* Fail if transfer not allowed */
+
         (ControllerInterface(controller)).transferAllowed(src, dst, tokens);
 
         /* Get the allowance, infinite for the account owner */
@@ -685,7 +685,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         (vars.mathErr, vars.mintTokens) = divScalarByExpTruncate(vars.actualMintAmount, Exp({mantissa : vars.exchangeRateMantissa}));
         require(vars.mathErr == MathError.NO_ERROR, "calc mint token error");
 
-        /* Fail if mint not allowed */
         (ControllerInterface(controller)).mintAllowed(minter, vars.mintTokens);
         /*
          * We calculate the new total supply of lTokens and minter token balance, checking for overflow:
@@ -758,7 +757,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
             vars.redeemAmount = redeemAmountIn;
         }
 
-        /* Fail if redeem not allowed */
         (ControllerInterface(controller)).redeemAllowed(redeemer, vars.redeemTokens);
 
         /*
@@ -802,7 +800,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     /// @notice Users borrow assets from the protocol to their own address
     /// @param borrowAmount The amount of the underlying asset to borrow
     function borrowFresh(address payable borrower, address payable payee, uint borrowAmount) internal sameBlock {
-        /* Fail if borrow not allowed */
         (ControllerInterface(controller)).borrowAllowed(borrower, payee, borrowAmount);
 
         /* Fail gracefully if protocol has insufficient underlying cash */
@@ -859,7 +856,6 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     /// @param borrower the account with the debt being payed off
     /// @param repayAmount the amount of undelrying tokens being returned
     function repayBorrowFresh(address payer, address borrower, uint repayAmount, bool isEnd) internal sameBlock returns (uint) {
-        /* Fail if repayBorrow not allowed */
         (ControllerInterface(controller)).repayBorrowAllowed(payer, borrower, repayAmount, isEnd);
 
         RepayBorrowLocalVars memory vars;
