@@ -568,6 +568,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint minimalDeposit = decimals > 4 ? 10 ** (decimals - 4) : 1;
         uint actualDeposit = depositTokenAddr == addressConfig.wETH ? msg.value : deposit;
         require(actualDeposit > minimalDeposit, "DTS");
+        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "DNS");
 
         Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
         // New trade
@@ -578,7 +579,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             // For new trade, these checks are not needed
             require(depositToken == trade.depositToken, "DTS");
             require(trade.lastBlockNum != uint128(block.number), "SBK");
-            require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "DNS");
         }
     }
 
