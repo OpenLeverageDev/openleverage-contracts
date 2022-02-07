@@ -42,6 +42,7 @@ contract UniV2ClassDex {
         sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
         uint balanceBefore = IERC20(buyToken).balanceOf(payee);
         dexInfo.fees = getPairFees(dexInfo, pair);
+
         if (buyToken < sellToken) {
             buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
@@ -49,10 +50,8 @@ contract UniV2ClassDex {
             buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
-
+        buyAmount = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
-        uint bought = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
-        return bought;
     }
 
     function uniClassSellMul(DexInfo memory dexInfo, uint sellAmount, uint minBuyAmount, address[] memory tokens)
@@ -78,7 +77,8 @@ contract UniV2ClassDex {
         uint buyAmount,
         uint maxSellAmount,
         uint24 buyTokenFeeRate,
-        uint24 sellTokenFeeRate) internal returns (uint sellAmount){
+        uint24 sellTokenFeeRate) 
+    internal returns (uint sellAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         IUniswapV2Pair(pair).sync();
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
@@ -168,10 +168,7 @@ contract UniV2ClassDex {
         if (currentBlockTime < (priceOracle.blockTimestampLast + timeWindow)) {
             return (priceOracle, false);
         }
-        (,,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
-        if (uniBlockTimeLast != currentBlockTime) {
-            IUniswapV2Pair(pair).sync();
-        }
+        IUniswapV2Pair(pair).sync();
         uint32 timeElapsed = currentBlockTime - priceOracle.blockTimestampLast;
         uint currentPrice0CumulativeLast = IUniswapV2Pair(pair).price0CumulativeLast();
         uint currentPrice1CumulativeLast = IUniswapV2Pair(pair).price1CumulativeLast();
