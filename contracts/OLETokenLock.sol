@@ -31,6 +31,7 @@ contract OLETokenLock {
             && beneficiaries.length == endTimes.length, "Array length must be same");
         token = token_;
         for (uint i = 0; i < beneficiaries.length; i++) {
+            require(endTimes[i] > startTimes[i], "StartTime must be earlier than endTime");
             address beneficiary = beneficiaries[i];
             releaseVars[beneficiary] = ReleaseVar(amounts[i], startTimes[i], endTimes[i], startTimes[i]);
         }
