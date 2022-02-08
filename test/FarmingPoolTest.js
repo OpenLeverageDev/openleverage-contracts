@@ -30,7 +30,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("One pool and one account: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(10000));
@@ -53,7 +53,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("One pool and two account: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(10000));
@@ -72,7 +72,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("Two pool and one account: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address, stakeToken2.address], [lastTs, lastTs], [day1, day1 * 2]);
         await oleToken.mint(farmingPools.address, toWei(30000));
         await farmingPools.notifyRewardAmounts([stakeToken1.address, stakeToken2.address], [toWei(10000), toWei(20000)]);
@@ -103,7 +103,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("Two pool and two account: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address, stakeToken2.address], [lastTs, lastTs], [day1, day1 * 2]);
         await oleToken.mint(farmingPools.address, toWei(30000));
         await farmingPools.notifyRewardAmounts([stakeToken1.address, stakeToken2.address], [toWei(10000), toWei(20000)]);
@@ -134,7 +134,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("One pool exit: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(10000));
@@ -150,7 +150,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("One pool withdraw half: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(10000));
@@ -176,7 +176,7 @@ contract("FarmingPools", async accounts => {
 
 
     it("One pool distribute more: ", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(10000));
@@ -201,7 +201,7 @@ contract("FarmingPools", async accounts => {
     });
 
     it("Not start test", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await farmingPools.notifyRewardAmount(stakeToken1.address, toWei(20000), {from: admin});
@@ -211,25 +211,25 @@ contract("FarmingPools", async accounts => {
     })
 
     it("Init once test", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]);
         await assertThrows(farmingPools.initDistributions([stakeToken1.address], [lastTs + day1], [day1]), 'Init once');
     })
 
     // Admin Test
     it("Admin initDistributions test", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await assertThrows(farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1], {from: stakeAcc1}), 'caller must be admin');
     })
 
     it("Admin notifyRewardAmount test", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await assertThrows(farmingPools.notifyRewardAmount(stakeToken1.address, toWei(20000), {from: stakeAcc1}), 'caller must be admin');
     })
     it("Admin notifyRewardAmounts test", async () => {
-        let lastTs = (await web3.eth.getBlock('latest')).timestamp;
+        let lastTs = (await web3.eth.getBlock('latest')).timestamp + 100;
         await farmingPools.initDistributions([stakeToken1.address], [lastTs], [day1]);
         await oleToken.mint(farmingPools.address, toWei(10000));
         await assertThrows(farmingPools.notifyRewardAmounts([stakeToken1.address], [toWei(20000)], {from: stakeAcc1}), 'caller must be admin');

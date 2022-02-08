@@ -134,8 +134,10 @@ contract FarmingPools is Adminable {
         require(stakeTokensLength == durations.length, "array length wrong");
 
         for (uint256 i = 0; i < stakeTokensLength; i++) {
+            uint64 startTime = startTimes[i];
+            require(startTime >= block.timestamp, "Start time elapsed");
             require(distributions[stakeTokens[i]].starttime == 0, 'Init once');
-            distributions[stakeTokens[i]] = Distribution(durations[i], startTimes[i], 0, 0, 0, 0, 0);
+            distributions[stakeTokens[i]] = Distribution(durations[i], startTime, 0, 0, 0, 0, 0);
         }
     }
 
