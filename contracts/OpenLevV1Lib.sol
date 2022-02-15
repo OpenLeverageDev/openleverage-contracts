@@ -250,7 +250,8 @@ library OpenLevV1Lib {
     function doTransferOut(address to, IERC20 token, address weth, uint amount) external {
         if (address(token) == weth) {
             IWETH(weth).withdraw(amount);
-            payable(to).transfer(amount);
+            (bool success, ) = to.call{value: amount}("");
+            require(success);
         } else {
             token.safeTransfer(to, amount);
         }
