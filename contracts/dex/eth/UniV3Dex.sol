@@ -58,17 +58,23 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         if (checkPool) {
             require(isPoolObservationsEnough(callData.pool), "Pool observations not enough");
         }
-        (int256 amount0, int256 amount1) =
-        callData.pool.swap(
-            callData.recipient,
-            callData.zeroForOne,
-            callData.amountSpecified,
-            callData.sqrtPriceLimitX96,
-            abi.encode(data)
-        );
-        amountOut = uint256(- (callData.zeroForOne ? amount1 : amount0));
+
+        uint256 balanceBuyToken = IERC20(buyToken).balanceOf(payee);
+        
+        {
+            (int256 amount0, int256 amount1) =
+            callData.pool.swap(
+                callData.recipient,
+                callData.zeroForOne,
+                callData.amountSpecified,
+                callData.sqrtPriceLimitX96,
+                abi.encode(data)
+            );
+            require(sellAmount == uint256(callData.zeroForOne ? amount0 : amount1), 'Cannot sell all');
+        }
+
+        amountOut = IERC20(buyToken).balanceOf(payee).sub(balanceBuyToken);
         require(amountOut >= minBuyAmount, 'buy amount less than min');
-        require(sellAmount == uint256(callData.zeroForOne ? amount0 : amount1), 'Cannot sell all');
     }
 
     function uniV3SellMul(uint sellAmount, uint minBuyAmount, DexData.V3PoolData[] memory path) internal returns (uint buyAmount){
