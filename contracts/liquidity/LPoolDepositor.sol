@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 
 import "./LPoolInterface.sol";
 import "../lib/Exponential.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "../lib/TransferHelper.sol";
 import "../dex/DexAggregatorInterface.sol";
 import "../IWETH.sol";
@@ -11,7 +10,7 @@ import "../IWETH.sol";
 /// @title User Deposit Contract
 /// @author OpenLeverage
 /// @notice Use this contract for supplying lending pool funds  
-contract LPoolDepositor is ReentrancyGuard {
+contract LPoolDepositor {
     using TransferHelper for IERC20;
 
     mapping(address => mapping(address => uint)) allowedToTransfer;
