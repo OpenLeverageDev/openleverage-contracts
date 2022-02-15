@@ -239,7 +239,7 @@ abstract contract LPoolInterface is LPoolStorage {
 
     function setReserveFactor(uint newReserveFactorMantissa) external virtual;
 
-    function addReserves(uint addAmount) external virtual;
+    function addReserves(uint addAmount) external payable virtual;
 
     function reduceReserves(address payable to, uint reduceAmount) external virtual;
 
