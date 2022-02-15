@@ -139,6 +139,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param secondsAgo Time period of the average
     /// @param data Dex to use for swap
     function getAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory data) external view override returns (uint256 price, uint8 decimals, uint256 timestamp){
+        require(data.isUniV2Class(), "unsupported dex");
         // Shh - currently unused
         secondsAgo;
         decimals = priceDecimals;
@@ -163,6 +164,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         uint32 secondsAgo,
         bytes memory dexData
     ) external view override returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
+        require(dexData.isUniV2Class(), "unsupported dex");
         secondsAgo;
         decimals = priceDecimals;
         address pair = getUniClassPair(desToken, quoteToken, dexInfo[dexData.toDex()].factory);
@@ -178,6 +180,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @return If updated
     function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external override returns (bool){
         require(msg.sender == openLev, "Only openLev can update price");
+        require(data.isUniV2Class(), "unsupported dex");
         address pair = getUniClassPair(desToken, quoteToken, dexInfo[data.toDex()].factory);
         V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
         (V2PriceOracle memory updatedPriceOracle, bool updated) = uniClassUpdatePriceOracle(pair, priceOracle, timeWindow, priceDecimals);
