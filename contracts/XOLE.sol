@@ -324,7 +324,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// @dev Only possible if the lock has expired
     function withdraw() external override nonReentrant() updateReward(msg.sender) {
         LockedBalance memory _locked = locked[msg.sender];
-        require(_locked.amount >= 0, "Nothing to withdraw");
+        require(_locked.amount > 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
         uint256 value = _locked.amount;
         totalLocked = totalLocked.sub(value);
