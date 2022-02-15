@@ -8,7 +8,6 @@ import "../../lib/DexData.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../DelegateInterface.sol";
 import "../../Adminable.sol";
-import "./UniV2ClassDex.sol";
 
 contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex {
     using DexData for bytes;
@@ -32,7 +31,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         dexInfo[DexData.DEX_PANCAKE] = DexInfo(_pancakeFactory, 25);
     }
 
-    function setDexInfo(uint8[] memory dexName, IUniswapV2Factory[] memory factoryAddr, uint16[] memory fees) external onlyAdmin {
+    function setDexInfo(uint8[] memory dexName, IUniswapV2Factory[] memory factoryAddr, uint16[] memory fees) external override onlyAdmin {
         require(dexName.length == factoryAddr.length && dexName.length == fees.length, 'EOR');
         for (uint i = 0; i < dexName.length; i++) {
             DexInfo memory info = DexInfo(factoryAddr[i], fees[i]);

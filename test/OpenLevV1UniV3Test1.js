@@ -71,7 +71,25 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
         m.log("Reset OpenLev instance: ", last8(openLev.address));
     });
-
+    it("Open in unsupport dex", async () => {
+        let pairId = 0;
+        await printBlockNum();
+        // provide some funds for trader and saver
+        await utils.mint(token0, trader, 10000);
+        await utils.mint(token0, saver, 10000);
+        // Trader to approve openLev to spend
+        let deposit = utils.toWei(400);
+        await token0.approve(openLev.address, deposit, {from: trader});
+        // Saver deposit to pool1
+        let saverSupply = utils.toWei(1000);
+        let pool0 = await LPool.at((await openLev.markets(pairId)).pool0);
+        await token0.approve(await pool0.address, utils.toWei(1000), {from: saver});
+        await pool0.mint(saverSupply, {from: saver});
+        let borrow = utils.toWei(500);
+        //"0x02000bb8"=>"0x02001710"
+        await assertThrows(openLev.marginTrade(0, true, false, deposit,
+            borrow, 0, "0x02001710", {from: trader}), 'DNS');
+    });
 
     it("LONG Token0,  Add deposit, Close", async () => {
         let pairId = 0;
@@ -418,14 +436,6 @@ contract("OpenLev UniV3", async accounts => {
     })
 
 
-    it("Admin setAllowedDepositTokens test", async () => {
-        let {timeLock, openLev} = await instanceSimpleOpenLev();
-        await timeLock.executeTransaction(openLev.address, 0, 'setAllowedDepositTokens(address[],bool)',
-            web3.eth.abi.encodeParameters(['address[]', 'bool'], [[accounts[1]], true]), 0)
-        assert.equal(true, await openLev.allowedDepositTokens(accounts[1]));
-        await assertThrows(openLev.setAllowedDepositTokens([accounts[1]], true), 'caller must be admin');
-
-    })
     it("Admin setSupportDexs test", async () => {
         let {timeLock, openLev} = await instanceSimpleOpenLev();
         await timeLock.executeTransaction(openLev.address, 0, 'setSupportDex(uint8,bool)',

@@ -44,6 +44,7 @@ abstract contract OpenLevStorage {
     // owner => marketId => long0(true)/long1(false) => Trades
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
+    //useless
     mapping(address => bool) public allowedDepositTokens;
 
     CalculateConfig internal calculateConfig;
