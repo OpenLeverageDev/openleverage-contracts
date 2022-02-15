@@ -46,8 +46,7 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     function setDexInfo(uint8[] memory dexName, IUniswapV2Factory[] memory factoryAddr, uint16[] memory fees) external override onlyAdmin {
         require(dexName.length == factoryAddr.length && dexName.length == fees.length, 'EOR');
         for (uint i = 0; i < dexName.length; i++) {
-            DexInfo memory info = DexInfo(factoryAddr[i], fees[i]);
-            dexInfo[dexName[i]] = info;
+            dexInfo[dexName[i]] = DexInfo(factoryAddr[i], fees[i]);
         }
     }
 
