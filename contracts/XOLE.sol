@@ -301,7 +301,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         locked[_addr] = _locked;
 
         if (_value != 0) {
-            assert(IERC20(oleToken).transferFrom(msg.sender, address(this), _value));
+            require(IERC20(oleToken).transferFrom(msg.sender, address(this), _value));
         }
 
         uint calExtraValue = _value;
