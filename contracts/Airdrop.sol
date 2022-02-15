@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Adminable.sol";
 
-contract Airdrop is Ownable {
+contract Airdrop is Adminable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     event TrancheAdded (uint256 tranchId, bytes32 merkleRoot, uint64 startTime, uint64 endTime, uint256 totalAmount);
@@ -28,10 +28,11 @@ contract Airdrop is Ownable {
     uint256 public trancheIdx;
 
     constructor (IERC20 _token){
+        admin = msg.sender;
         token = _token;
     }
 
-    function newTranche(bytes32 merkleRoot, uint64 startTime, uint64 endTime, uint256 totalAmount) external onlyOwner
+    function newTranche(bytes32 merkleRoot, uint64 startTime, uint64 endTime, uint256 totalAmount) external onlyAdmin
     {
         require(endTime > block.timestamp, 'Incorrect endtime');
         uint trancheId = trancheIdx;
@@ -40,12 +41,12 @@ contract Airdrop is Ownable {
         emit TrancheAdded(trancheId, merkleRoot, startTime, endTime, totalAmount);
     }
 
-    function expireTranche(uint256 _trancheId) external onlyOwner {
+    function expireTranche(uint256 _trancheId) external onlyAdmin {
         Tranche memory tranche = tranches[_trancheId];
         require(block.timestamp > tranche.endTime, 'Not End');
         uint expireAmount = tranche.totalAmount.sub(tranche.claimedAmount);
         if (expireAmount > 0) {
-            token.safeTransfer(owner(), expireAmount);
+            token.safeTransfer(admin, expireAmount);
         }
         delete tranches[_trancheId];
         emit TrancheExpired(_trancheId, expireAmount);

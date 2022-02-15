@@ -1,22 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity >=0.6.0 <0.8.0;
+pragma solidity ^0.7.6;
 pragma experimental ABIEncoderV2;
 
-
+/// @dev DexDataFormat addPair = byte(dexID) + bytes3(feeRate) + bytes(arrayLength) + byte3[arrayLength](trasferFeeRate Lpool <-> openlev) 
+/// + byte3[arrayLength](transferFeeRate openLev -> Dex) + byte3[arrayLength](Dex -> transferFeeRate openLev)
+/// exp: 0x0100000002011170000000011170000000011170000000
+/// DexDataFormat dexdata = byte(dexID）+ bytes3(feeRate) + byte(arrayLength) + path
+/// uniV2Path = bytes20[arraylength](address)
+/// uniV3Path = bytes20(address)+ bytes20[arraylength-1](address + fee)
 library DexData {
-    uint256 private constant ADDR_SIZE = 20;
-    uint256 private constant FEE_SIZE = 3;
-    uint256 private constant NEXT_OFFSET = ADDR_SIZE + FEE_SIZE;
-    uint256 private constant POP_OFFSET = NEXT_OFFSET + ADDR_SIZE;
-    uint256 private constant MULTIPLE_POOLS_MIN_LENGTH = POP_OFFSET + NEXT_OFFSET;
-
-
-    uint constant dexNameStart = 0;
-    uint constant dexNameLength = 1;
-    uint constant feeStart = 1;
-    uint constant feeLength = 3;
-    uint constant uniV3QuoteFlagStart = 4;
-    uint constant uniV3QuoteFlagLength = 1;
+    // in byte
+    uint constant DEX_INDEX = 0;
+    uint constant FEE_INDEX = 1;
+    uint constant ARRYLENTH_INDEX = 4;
+    uint constant TRANSFERFEE_INDEX = 5;
+    uint constant PATH_INDEX = 5;
+    uint constant FEE_SIZE = 3;
+    uint constant ADDRESS_SIZE = 20;
+    uint constant NEXT_OFFSET = ADDRESS_SIZE + FEE_SIZE;
 
     uint8 constant DEX_UNIV2 = 1;
     uint8 constant DEX_UNIV3 = 2;
@@ -31,8 +32,6 @@ library DexData {
     uint8 constant DEX_PANCAKEV1 = 11;
     uint8 constant DEX_BABY = 12;
 
-    bytes constant UNIV2 = hex"01";
-
     struct V3PoolData {
         address tokenA;
         address tokenB;
@@ -40,169 +39,129 @@ library DexData {
     }
 
     function toDex(bytes memory data) internal pure returns (uint8) {
-        require(data.length >= dexNameLength, 'dex error');
+        require(data.length >= FEE_INDEX, "DexData: toDex wrong data format");
         uint8 temp;
         assembly {
-            temp := byte(0, mload(add(data, add(0x20, dexNameStart))))
+            temp := byte(0, mload(add(data, add(0x20, DEX_INDEX))))
         }
         return temp;
     }
 
     function toFee(bytes memory data) internal pure returns (uint24) {
-        require(data.length >= dexNameLength + feeLength, 'fee error');
+        require(data.length >= ARRYLENTH_INDEX, "DexData: toFee wrong data format");
         uint temp;
         assembly {
-            temp := mload(add(data, add(0x20, feeStart)))
+            temp := mload(add(data, add(0x20, FEE_INDEX)))
         }
-        return uint24(temp >> (256 - (feeLength * 8)));
+        return uint24(temp >> (256 - (ARRYLENTH_INDEX - FEE_INDEX) * 8));
     }
 
     function toDexDetail(bytes memory data) internal pure returns (uint32) {
-        if (data.length == dexNameLength) {
+        require (data.length >= FEE_INDEX, "DexData: toDexDetail wrong data format");
+        if (isUniV2Class(data)){
             uint8 temp;
             assembly {
-                temp := byte(0, mload(add(data, add(0x20, dexNameStart))))
+                temp := byte(0, mload(add(data, add(0x20, DEX_INDEX))))
             }
             return uint32(temp);
         } else {
             uint temp;
             assembly {
-                temp := mload(add(data, add(0x20, dexNameStart)))
+                temp := mload(add(data, add(0x20, DEX_INDEX)))
             }
-            return uint32(temp >> (256 - ((feeLength + dexNameLength) * 8)));
+            return uint32(temp >> (256 - ((FEE_SIZE + FEE_INDEX) * 8)));
         }
     }
-    // true ,sell all
-    function toUniV3QuoteFlag(bytes memory data) internal pure returns (bool) {
-        require(data.length >= dexNameLength + feeLength + uniV3QuoteFlagLength, 'v3flag error');
-        uint8 temp;
+
+    function toArrayLength(bytes memory data) internal pure returns(uint8 length){
+        require(data.length >= TRANSFERFEE_INDEX, "DexData: toArrayLength wrong data format");
+
         assembly {
-            temp := byte(0, mload(add(data, add(0x20, uniV3QuoteFlagStart))))
-        }
-        return temp > 0;
-    }
-
-    // univ2 class
-    function isUniV2Class(bytes memory data) internal pure returns (bool) {
-        return (data.length - dexNameLength) % 20 == 0;
-    }
-    // v2 path
-    function toUniV2Path(bytes memory data) internal pure returns (address[] memory path) {
-        data = slice(data, dexNameLength, data.length - dexNameLength);
-        uint pathLength = data.length / 20;
-        path = new address[](pathLength);
-        for (uint i = 0; i < pathLength; i++) {
-            path[i] = toAddress(data, 20 * i);
+            length := byte(0, mload(add(data, add(0x20, ARRYLENTH_INDEX))))
         }
     }
 
-    // v3 path
-    function toUniV3Path(bytes memory data) internal pure returns (V3PoolData[] memory path) {
-        data = slice(data, uniV3QuoteFlagStart + uniV3QuoteFlagLength, data.length - (uniV3QuoteFlagStart + uniV3QuoteFlagLength));
-        uint pathLength = numPools(data);
-        path = new V3PoolData[](pathLength);
-        for (uint i = 0; i < pathLength; i++) {
-            V3PoolData memory pool;
-            if (i != 0) {
-                data = slice(data, NEXT_OFFSET, data.length - NEXT_OFFSET);
+    // only for add pair
+    function toTransferFeeRates(bytes memory data) internal pure returns (uint24[] memory transferFeeRates){
+        uint8 length = toArrayLength(data) * 3;
+        uint start = TRANSFERFEE_INDEX;
+
+        transferFeeRates = new uint24[](length);
+        for (uint i = 0; i < length; i++){
+            // use default value
+            if (data.length <= start){
+                transferFeeRates[i] = 0;
+                continue;
             }
-            pool.tokenA = toAddress(data, 0);
-            pool.fee = toUint24(data, ADDR_SIZE);
-            pool.tokenB = toAddress(data, NEXT_OFFSET);
+
+            // use input value
+            uint temp;
+            assembly {
+                temp := mload(add(data, add(0x20, start)))
+            }
+
+            transferFeeRates[i] = uint24(temp >> (256 - FEE_SIZE * 8));
+            start += FEE_SIZE;
+        }
+    }
+
+    function toUniV2Path(bytes memory data) internal pure returns (address[] memory path) {
+        uint8 length = toArrayLength(data);
+        uint end =  PATH_INDEX + ADDRESS_SIZE * length;
+        require(data.length >= end, "DexData: toUniV2Path wrong data format");
+
+        uint start = PATH_INDEX;
+        path = new address[](length);
+        for (uint i = 0; i < length; i++) {
+            uint startIndex = start + ADDRESS_SIZE * i;
+            uint temp;
+            assembly {
+                temp := mload(add(data, add(0x20, startIndex)))
+            }
+
+            path[i] = address(temp >> (256 - ADDRESS_SIZE * 8));
+        }
+    }
+
+    function isUniV2Class(bytes memory data) internal pure returns(bool){
+        return toDex(data) != DEX_UNIV3;
+    }
+
+    function toUniV3Path(bytes memory data) internal pure returns (V3PoolData[] memory path) {
+        uint8 length = toArrayLength(data);
+        uint end = PATH_INDEX + (FEE_SIZE  + ADDRESS_SIZE) * length - FEE_SIZE;
+        require(data.length >= end, "DexData: toUniV3Path wrong data format");
+        require(length > 1, "DexData: toUniV3Path path too short");
+
+        uint temp;
+        uint index = PATH_INDEX;
+        path = new V3PoolData[](length - 1);
+
+        for (uint i = 0; i < length - 1; i++) {
+            V3PoolData memory pool;
+
+            // get tokenA
+            if (i == 0) {
+                assembly {
+                    temp := mload(add(data, add(0x20, index)))
+                }
+                pool.tokenA = address(temp >> (256 - ADDRESS_SIZE * 8));
+                index += ADDRESS_SIZE;
+            }else{
+                pool.tokenA = path[i-1].tokenB;
+                index += NEXT_OFFSET;
+            }
+
+            // get TokenB
+            assembly {
+                temp := mload(add(data, add(0x20, index)))
+            }
+
+            uint tokenBAndFee = temp >> (256 - NEXT_OFFSET * 8);
+            pool.tokenB = address(tokenBAndFee >> (FEE_SIZE * 8));
+            pool.fee = uint24(tokenBAndFee - (tokenBAndFee << (FEE_SIZE * 8)));
+
             path[i] = pool;
         }
     }
-
-    function numPools(bytes memory path) internal pure returns (uint256) {
-        // Ignore the first token address. From then on every fee and token offset indicates a pool.
-        return ((path.length - ADDR_SIZE) / NEXT_OFFSET);
-    }
-
-    function toUint24(bytes memory _bytes, uint256 _start) internal pure returns (uint24) {
-        require(_start + 3 >= _start, 'toUint24_overflow');
-        require(_bytes.length >= _start + 3, 'toUint24_outOfBounds');
-        uint24 tempUint;
-        assembly {
-            tempUint := mload(add(add(_bytes, 0x3), _start))
-        }
-        return tempUint;
-    }
-
-    function toAddress(bytes memory _bytes, uint256 _start) internal pure returns (address) {
-        require(_start + 20 >= _start, 'toAddress_overflow');
-        require(_bytes.length >= _start + 20, 'toAddress_outOfBounds');
-        address tempAddress;
-        assembly {
-            tempAddress := div(mload(add(add(_bytes, 0x20), _start)), 0x1000000000000000000000000)
-        }
-        return tempAddress;
-    }
-
-
-    function slice(
-        bytes memory _bytes,
-        uint256 _start,
-        uint256 _length
-    ) internal pure returns (bytes memory) {
-        require(_length + 31 >= _length, 'slice_overflow');
-        require(_start + _length >= _start, 'slice_overflow');
-        require(_bytes.length >= _start + _length, 'slice_outOfBounds');
-
-        bytes memory tempBytes;
-
-        assembly {
-            switch iszero(_length)
-            case 0 {
-            // Get a location of some free memory and store it in tempBytes as
-            // Solidity does for memory variables.
-                tempBytes := mload(0x40)
-
-            // The first word of the slice result is potentially a partial
-            // word read from the original array. To read it, we calculate
-            // the length of that partial word and start copying that many
-            // bytes into the array. The first word we copy will start with
-            // data we don't care about, but the last `lengthmod` bytes will
-            // land at the beginning of the contents of the new array. When
-            // we're done copying, we overwrite the full first word with
-            // the actual length of the slice.
-                let lengthmod := and(_length, 31)
-
-            // The multiplication in the next line is necessary
-            // because when slicing multiples of 32 bytes (lengthmod == 0)
-            // the following copy loop was copying the origin's length
-            // and then ending prematurely not copying everything it should.
-                let mc := add(add(tempBytes, lengthmod), mul(0x20, iszero(lengthmod)))
-                let end := add(mc, _length)
-
-                for {
-                // The multiplication in the next line has the same exact purpose
-                // as the one above.
-                    let cc := add(add(add(_bytes, lengthmod), mul(0x20, iszero(lengthmod))), _start)
-                } lt(mc, end) {
-                    mc := add(mc, 0x20)
-                    cc := add(cc, 0x20)
-                } {
-                    mstore(mc, mload(cc))
-                }
-
-                mstore(tempBytes, _length)
-
-            //update free-memory pointer
-            //allocating the array padded to 32 bytes like the compiler does now
-                mstore(0x40, and(add(mc, 31), not(31)))
-            }
-            //if we want a zero-length slice let's just return a zero-length array
-            default {
-                tempBytes := mload(0x40)
-            //zero out the 32 bytes slice we are about to return
-            //we need to do it because Solidity does not garbage collect
-                mstore(tempBytes, 0)
-
-                mstore(0x40, add(tempBytes, 0x20))
-            }
-        }
-
-        return tempBytes;
-    }
-
 }

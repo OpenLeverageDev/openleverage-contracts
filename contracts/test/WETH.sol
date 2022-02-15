@@ -19,14 +19,14 @@ contract WETH {
 
     function deposit() public payable {
         balanceOf[msg.sender] += msg.value;
-        Deposit(msg.sender, msg.value);
+        emit Deposit(msg.sender, msg.value);
     }
 
     function withdraw(uint wad) public {
         require(balanceOf[msg.sender] >= wad,'no balance');
         balanceOf[msg.sender] -= wad;
         msg.sender.transfer(wad);
-        Withdrawal(msg.sender, wad);
+        emit Withdrawal(msg.sender, wad);
     }
 
     function mint(address to, uint256 amount) public {
@@ -61,7 +61,7 @@ contract WETH {
         balanceOf[src] -= wad;
         balanceOf[dst] += wad;
 
-        Transfer(src, dst, wad);
+        emit Transfer(src, dst, wad);
 
         return true;
     }

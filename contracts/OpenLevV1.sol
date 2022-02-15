@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./OpenLevInterface.sol";
 import "./Types.sol";
@@ -13,20 +12,29 @@ import "./ControllerInterface.sol";
 import "./IWETH.sol";
 import "./XOLEInterface.sol";
 import "./Types.sol";
+import "./OpenLevV1Lib.sol";
 
-/**
-  * @title OpenLevV1
-  * @author OpenLeverage
-  */
+/// @title OpenLeverage margin trade logic
+/// @author OpenLeverage
+/// @notice Use this contract for margin trade.
+/// @dev Admin of this contract is the address of Timelock. Admin set configs and transfer insurance expected to XOLE.
 contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInterface, OpenLevStorage {
     using SafeMath for uint;
-    using SafeERC20 for IERC20;
+    using TransferHelper for IERC20;
     using DexData for bytes;
 
     constructor ()
     {
     }
 
+    /// @notice initialize proxy contract
+    /// @dev This function is not supposed to call multiple times. All configs can be set through other functions.
+    /// @param _controller Address of contract ControllerDelegator.
+    /// @param _dexAggregator contract DexAggregatorDelegator.
+    /// @param depositTokens Tokens allowed to deposit. Removed from logic. Allows all tokens.
+    /// @param _wETH Address of wrapped native coin.
+    /// @param _xOLE Address of XOLEDelegator.
+    /// @param _supportDexs Indexes of Dexes supported. Indexes are listed in contracts/lib/DexData.sol.
     function initialize(
         address _controller,
         DexAggregatorInterface _dexAggregator,
@@ -35,6 +43,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         address _xOLE,
         uint8[] memory _supportDexs
     ) public {
+        depositTokens;
         require(msg.sender == admin, "NAD");
         addressConfig.controller = _controller;
         addressConfig.dexAggregator = _dexAggregator;
@@ -43,42 +52,37 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         for (uint i = 0; i < _supportDexs.length; i++) {
             supportDexs[_supportDexs[i]] = true;
         }
-        setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 500, 5, 60);
+        OpenLevV1Lib.setCalculateConfigInternal(22, 33, 2500, 5, 25, 25, 5000e18, 500, 5, 60, calculateConfig);
     }
 
+    /// @notice Create new trading pair.
+    /// @dev This function is typically called by ControllerDelegator.
+    /// @param pool0 Contract LpoolDelegator, lending pool of token0.
+    /// @param pool1 Contract LpoolDelegator, lending pool of token1.
+    /// @param marginLimit The liquidation trigger ratio of deposited token value to borrowed token value.
+    /// @param dexData Pair initiate data including index, feeRate of the Dex and tax rate of the underlying tokens.
+    /// @return The new created pair ID.
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
         uint16 marginLimit,
         bytes memory dexData
     ) external override returns (uint16) {
-        uint8 dex = dexData.toDex();
-        CalculateConfig memory config = calculateConfig;
-        require(isSupportDex(dex), "UDX");
-        require(msg.sender == address(addressConfig.controller), "NCN");
-        require(marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "MLI");
-        address token0 = pool0.underlying();
-        address token1 = pool1.underlying();
-        // Approve the max number for pools
-        IERC20(token0).safeApprove(address(pool0), 0);
-        IERC20(token0).safeApprove(address(pool0), uint256(- 1));
-        IERC20(token1).safeApprove(address(pool1), 0);
-        IERC20(token1).safeApprove(address(pool1), uint256(- 1));
-        //Create Market
         uint16 marketId = numPairs;
-        uint32[] memory dexs = new uint32[](1);
-        dexs[0] = dexData.toDexDetail();
-        markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
+        OpenLevV1Lib.addMarket(pool0, pool1, marginLimit, dexData, marketId, markets, calculateConfig, addressConfig, supportDexs, taxes);
+        require(numPairs < 65535, "TMP");
         numPairs ++;
-        // Init price oracle
-        if (dexData.isUniV2Class()) {
-            updatePriceInternal(token0, token1, dexData);
-        } else if (dex == DexData.DEX_UNIV3) {
-            addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
-        }
         return marketId;
     }
 
+    /// @notice Margin trade or just add more deposit tokens.
+    /// @dev To support token with tax and reward. Stores share of all token balances of this contract.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param depositToken Token to deposit. False for token0, true for token1.
+    /// @param deposit Amount of ERC20 tokens to deposit. WETH deposit is not supported.
+    /// @param borrow Amount of ERC20 to borrow from the short token pool.
+    /// @param minBuyAmount Slippage for Dex trading.
+    /// @param dexData Index and fee rate for the trading Dex.
     function marginTrade(
         uint16 marketId,
         bool longToken,
@@ -88,430 +92,359 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint minBuyAmount,
         bytes memory dexData
     ) external payable override nonReentrant onlySupportDex(dexData) {
-        // Check if the market is enabled for trading
-        Types.MarketVars memory vars = toMarketVar(marketId, longToken, true);
-        verifyTrade(vars, marketId, longToken, depositToken, deposit, borrow, dexData);
-        (ControllerInterface(addressConfig.controller)).marginTradeAllowed(marketId);
-        if (dexData.isUniV2Class()) {
-            updatePriceInternal(address(vars.buyToken), address(vars.sellToken), dexData);
-        }
         Types.TradeVars memory tv;
-        tv.dexDetail = dexData.toDexDetail();
-        // if deposit token is NOT the same as the long token
-        if (depositToken != longToken) {
-            tv.depositErc20 = vars.sellToken;
-            deposit = transferIn(msg.sender, tv.depositErc20, deposit);
-            tv.fees = feesAndInsurance(msg.sender, deposit.add(borrow), address(tv.depositErc20), marketId);
-            tv.depositAfterFees = deposit.sub(tv.fees);
-            tv.tradeSize = tv.depositAfterFees.add(borrow);
-            require(borrow == 0 || deposit.mul(10000).div(borrow) > vars.marginLimit, "MAM");
-        } else {
-            if (borrow > 0) {
-                (uint currentPrice, uint8 priceDecimals) = addressConfig.dexAggregator.getPrice(address(vars.sellToken), address(vars.buyToken), dexData);
-                tv.borrowValue = borrow.mul(currentPrice).div(10 ** uint(priceDecimals));
+        Types.MarketVars memory vars = toMarketVar(longToken, true, markets[marketId]);
+        {
+            Types.Trade memory t = activeTrades[msg.sender][marketId][longToken];
+            OpenLevV1Lib.verifyTrade(vars, longToken, depositToken, deposit, borrow, dexData, addressConfig, t);
+            (ControllerInterface(addressConfig.controller)).marginTradeAllowed(marketId);
+            if (dexData.isUniV2Class()) {
+                OpenLevV1Lib.updatePriceInternal(address(vars.buyToken), address(vars.sellToken), dexData);
             }
-            tv.depositErc20 = vars.buyToken;
-            deposit = transferIn(msg.sender, tv.depositErc20, deposit);
-            tv.fees = feesAndInsurance(msg.sender, deposit.add(tv.borrowValue), address(tv.depositErc20), marketId);
-            tv.depositAfterFees = deposit.sub(tv.fees);
-            tv.tradeSize = borrow;
-            require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "MAM");
         }
 
-        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
-        trade.lastBlockNum = uint128(block.number);
-        trade.depositToken = depositToken;
+        tv.totalHeld = totalHelds[address(vars.buyToken)];
+        tv.depositErc20 = depositToken == longToken ? vars.buyToken : vars.sellToken;
+
+        deposit = transferIn(msg.sender, tv.depositErc20, deposit);
+
         // Borrow
+        uint borrowed;
         if (borrow > 0) {
-            vars.sellPool.borrowBehalf(msg.sender, borrow);
+            {
+                uint balance = vars.sellToken.balanceOf(address(this));
+                vars.sellPool.borrowBehalf(msg.sender, borrow);
+                borrowed = vars.sellToken.balanceOf(address(this)).sub(balance);
+            }
+
+            if (depositToken == longToken){
+                (uint currentPrice, uint8 priceDecimals) = addressConfig.dexAggregator.getPrice(address(vars.sellToken), address(vars.buyToken), dexData);
+                tv.borrowValue = borrow.mul(currentPrice).div(10 ** uint(priceDecimals));
+            }else{
+                tv.borrowValue = borrow;
+            }
         }
-        // Trade in exchange
-        if (tv.tradeSize > 0) {
-            tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData);
+
+        require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "MAM");
+        tv.fees = feesAndInsurance(
+            msg.sender, 
+            deposit.add(tv.borrowValue), 
+            address(tv.depositErc20), 
+            marketId, 
+            totalHelds[address(tv.depositErc20)], 
+            depositToken == longToken ? vars.reserveBuyToken : vars.reserveSellToken
+        );
+        tv.depositAfterFees = deposit.sub(tv.fees);
+        tv.dexDetail = dexData.toDexDetail();
+
+        if (depositToken == longToken ){
+            if (borrowed > 0){
+                tv.newHeld = flashSell(marketId, address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData);
+                tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(borrowed) : borrowed.mul(1e18).div(tv.newHeld);
+            }
+            tv.newHeld = tv.newHeld.add(tv.depositAfterFees);
+        }else{
+            tv.tradeSize = tv.depositAfterFees.add(borrowed);
+            tv.newHeld = flashSell(marketId, address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData);
             tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(tv.tradeSize) : tv.tradeSize.mul(1e18).div(tv.newHeld);
         }
 
-        if (depositToken == longToken) {
-            tv.newHeld = tv.newHeld.add(tv.depositAfterFees);
-        }
-        trade.deposited = trade.deposited.add(tv.depositAfterFees);
+        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
+        tv.newHeld = OpenLevV1Lib.amountToShare(tv.newHeld, tv.totalHeld, vars.reserveBuyToken);
         trade.held = trade.held.add(tv.newHeld);
-        //verify
-        require(isPositionHealthy(msg.sender, true, trade.held, vars, dexData), "PNH");
+        trade.depositToken = depositToken;
+        trade.deposited = trade.deposited.add(tv.depositAfterFees);
+        trade.lastBlockNum = uint128(block.number);
+
+        totalHelds[address(vars.buyToken)] = totalHelds[address(vars.buyToken)].add(tv.newHeld);
+
+        require(OpenLevV1Lib.isPositionHealthy(
+                msg.sender,
+                true,
+                OpenLevV1Lib.shareToAmount(trade.held, totalHelds[address(vars.buyToken)], vars.buyToken.balanceOf(address(this))),
+                vars,
+                dexData
+            ), "PNH");
+
         emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.token0Price, tv.dexDetail);
     }
 
-    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
+    /// @notice Close trade by shares.
+    /// @dev To support token with tax, function expect to fail if share of borrowed funds not repayed.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param closeHeld Amount of shares to close.
+    /// @param minOrMaxAmount Slippage for Dex trading.
+    /// @param dexData Index and fee rate for the trading Dex.
+    function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
-        Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
+        Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
+
         //verify
-        verifyCloseBefore(trade, marketVars, closeAmount, dexData);
-        trade.lastBlockNum = uint128(block.number);
+        require(closeHeld <= trade.held, "CBH");
+        require(trade.held != 0 && trade.lastBlockNum != block.number && OpenLevV1Lib.isInSupportDex(marketVars.dexs, dexData.toDexDetail()), "HI0");
+        
+        uint closeAmount = OpenLevV1Lib.shareToAmount(closeHeld, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
+
         Types.CloseTradeVars memory closeTradeVars;
-        closeTradeVars.marketId = marketId;
-        closeTradeVars.longToken = longToken;
-        closeTradeVars.depositToken = trade.depositToken;
-        closeTradeVars.closeRatio = closeAmount.mul(1e18).div(trade.held);
-        closeTradeVars.isPartialClose = closeAmount != trade.held ? true : false;
-        closeTradeVars.fees = feesAndInsurance(msg.sender, closeAmount, address(marketVars.sellToken), closeTradeVars.marketId);
+        closeTradeVars.fees = feesAndInsurance(msg.sender, closeAmount, address(marketVars.sellToken), marketId, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
         closeTradeVars.closeAmountAfterFees = closeAmount.sub(closeTradeVars.fees);
-        closeTradeVars.repayAmount = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+        closeTradeVars.closeRatio = closeHeld.mul(1e18).div(trade.held);
+        closeTradeVars.isPartialClose = closeHeld != trade.held;
+        closeTradeVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+        closeTradeVars.repayAmount = Utils.toAmountBeforeTax(closeTradeVars.borrowed, taxes[marketId][address(marketVars.buyToken)][0]);
         closeTradeVars.dexDetail = dexData.toDexDetail();
+
         //partial close
         if (closeTradeVars.isPartialClose) {
             closeTradeVars.repayAmount = closeTradeVars.repayAmount.mul(closeTradeVars.closeRatio).div(1e18);
-            trade.held = trade.held.sub(closeAmount);
             closeTradeVars.depositDecrease = trade.deposited.mul(closeTradeVars.closeRatio).div(1e18);
             trade.deposited = trade.deposited.sub(closeTradeVars.depositDecrease);
         } else {
             closeTradeVars.depositDecrease = trade.deposited;
         }
-        if (closeTradeVars.depositToken != closeTradeVars.longToken) {
-            closeTradeVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
-            require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, 'LON');
+
+        if (trade.depositToken != longToken) {
+            minOrMaxAmount = Utils.maxOf(closeTradeVars.repayAmount, minOrMaxAmount);
+            closeTradeVars.receiveAmount = flashSell(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
+            require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
+
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
             marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
+
             closeTradeVars.depositReturn = closeTradeVars.receiveAmount.sub(closeTradeVars.repayAmount);
             doTransferOut(msg.sender, marketVars.buyToken, closeTradeVars.depositReturn);
         } else {
-            closeTradeVars.sellAmount = flashBuy(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, closeTradeVars.closeAmountAfterFees, dexData);
-            require(minOrMaxAmount >= closeTradeVars.sellAmount, 'BLM');
-            closeTradeVars.receiveAmount = closeTradeVars.repayAmount;
+            uint balance = marketVars.buyToken.balanceOf(address(this));
+            minOrMaxAmount = Utils.minOf(closeTradeVars.closeAmountAfterFees, minOrMaxAmount);
+            closeTradeVars.sellAmount = flashBuy(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, minOrMaxAmount, dexData);
+            closeTradeVars.receiveAmount = marketVars.buyToken.balanceOf(address(this)).sub(balance);
+            require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
+
             marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
             closeTradeVars.depositReturn = closeTradeVars.closeAmountAfterFees.sub(closeTradeVars.sellAmount);
+            require(marketVars.sellToken.balanceOf(address(this)) >= closeTradeVars.depositReturn, "ISB");
             doTransferOut(msg.sender, marketVars.sellToken, closeTradeVars.depositReturn);
         }
+
+        uint repayed = closeTradeVars.borrowed.sub(marketVars.buyPool.borrowBalanceCurrent(msg.sender));
+        require(repayed >= closeTradeVars.borrowed.mul(closeTradeVars.closeRatio).div(1e18), "IRP");
+
         if (!closeTradeVars.isPartialClose) {
-            delete activeTrades[msg.sender][closeTradeVars.marketId][closeTradeVars.longToken];
+            delete activeTrades[msg.sender][marketId][longToken];
+        }else{
+            trade.held = trade.held.sub(closeHeld);
+            trade.lastBlockNum = uint128(block.number);
         }
+
+        totalHelds[address(marketVars.sellToken)] = totalHelds[address(marketVars.sellToken)].sub(closeHeld);
+
         closeTradeVars.token0Price = longToken ? closeTradeVars.sellAmount.mul(1e18).div(closeTradeVars.receiveAmount) : closeTradeVars.receiveAmount.mul(1e18).div(closeTradeVars.sellAmount);
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
+            OpenLevV1Lib.updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         }
-        emit TradeClosed(msg.sender, closeTradeVars.marketId, closeTradeVars.longToken, closeTradeVars.depositToken, closeAmount, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
+
+        emit TradeClosed(msg.sender, marketId, longToken, trade.depositToken, closeHeld, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
             closeTradeVars.token0Price, closeTradeVars.dexDetail);
     }
 
-
-    function liquidate(address owner, uint16 marketId, bool longToken, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
+    /// @notice Liquidate if trade below margin limit.
+    /// @dev For trades without sufficient funds to repay, use insurance.
+    /// @param owner Owner of the trade to liquidate.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param minBuy Slippage for Dex trading.
+    /// @param maxSell Slippage for Dex trading.
+    /// @param dexData Index and fee rate for the trading Dex.
+    function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxSell, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
-        Types.MarketVars memory marketVars = toMarketVar(marketId, longToken, false);
+        Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
+            OpenLevV1Lib.updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         }
-        //verify
-        verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, marketVars.dexs, dexData.toDexDetail());
-        //controller
-        (ControllerInterface(addressConfig.controller)).liquidateAllowed(marketId, msg.sender, trade.held, dexData);
-        require(!isPositionHealthy(owner, false, trade.held, marketVars, dexData), "PIH");
+
+        require(trade.held != 0 && trade.lastBlockNum != block.number && OpenLevV1Lib.isInSupportDex(marketVars.dexs, dexData.toDexDetail()), "HI0");
+        uint closeAmount = OpenLevV1Lib.shareToAmount(trade.held, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
+
+        (ControllerInterface(addressConfig.controller)).liquidateAllowed(marketId, msg.sender, closeAmount, dexData);
+        require(!OpenLevV1Lib.isPositionHealthy(owner, false, closeAmount, marketVars, dexData), "PIH");
+
         Types.LiquidateVars memory liquidateVars;
-        liquidateVars.dexDetail = dexData.toDexDetail();
-        liquidateVars.marketId = marketId;
-        liquidateVars.longToken = longToken;
-        liquidateVars.fees = feesAndInsurance(owner, trade.held, address(marketVars.sellToken), liquidateVars.marketId);
-        liquidateVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(owner);
-        liquidateVars.isSellAllHeld = true;
-        liquidateVars.depositDecrease = trade.deposited;
-        //penalty
-        liquidateVars.penalty = trade.held.mul(calculateConfig.penaltyRatio).div(10000);
+        liquidateVars.fees = feesAndInsurance(owner, closeAmount, address(marketVars.sellToken), marketId, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
+        liquidateVars.penalty = closeAmount.mul(calculateConfig.penaltyRatio).div(10000);
         if (liquidateVars.penalty > 0) {
             doTransferOut(msg.sender, marketVars.sellToken, liquidateVars.penalty);
         }
-        liquidateVars.remainHeldAfterFees = trade.held.sub(liquidateVars.fees).sub(liquidateVars.penalty);
-        // Check need to sell all held,base on longToken=depositToken
+        liquidateVars.remainAmountAfterFees = closeAmount.sub(liquidateVars.fees).sub(liquidateVars.penalty);
+        liquidateVars.dexDetail = dexData.toDexDetail();
+        liquidateVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(owner);
+        liquidateVars.borrowed = Utils.toAmountBeforeTax(liquidateVars.borrowed, taxes[marketId][address(marketVars.buyToken)][0]);
+        liquidateVars.marketId = marketId;
+        liquidateVars.longToken = longToken;
+
+        bool buySuccess;
+        bytes memory sellAmountData;
         if (longToken == trade.depositToken) {
-            // uniV3 can't cal buy amount on chain,so get from dexdata
-            if (dexData.toDex() == DexData.DEX_UNIV3) {
-                liquidateVars.isSellAllHeld = dexData.toUniV3QuoteFlag();
-            } else {
-                liquidateVars.isSellAllHeld = calBuyAmount(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.remainHeldAfterFees, dexData) > liquidateVars.borrowed ? false : true;
-            }
+            maxSell = Utils.minOf(maxSell, liquidateVars.remainAmountAfterFees);
+            marketVars.sellToken.safeApprove(address(addressConfig.dexAggregator), maxSell);
+            (buySuccess, sellAmountData) = address(addressConfig.dexAggregator).call(
+                abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[liquidateVars.marketId][address(marketVars.buyToken)][2],
+                taxes[liquidateVars.marketId][address(marketVars.sellToken)][1], liquidateVars.borrowed, maxSell, dexData)
+            );
         }
-        // need't to sell all held
-        if (!liquidateVars.isSellAllHeld) {
-            liquidateVars.sellAmount = flashBuy(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.borrowed, liquidateVars.remainHeldAfterFees, dexData);
-            require(minOrMaxAmount >= liquidateVars.sellAmount, 'BLM');
-            liquidateVars.receiveAmount = liquidateVars.borrowed;
+
+        if (buySuccess) {
+            {
+                uint temp;
+                assembly {
+                    temp := mload(add(sellAmountData, 0x20))
+                }
+                liquidateVars.sellAmount = temp;
+            }
+
+            liquidateVars.receiveAmount = marketVars.buyToken.balanceOf(address(this)).sub(marketVars.reserveBuyToken);
             marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
-            liquidateVars.depositReturn = liquidateVars.remainHeldAfterFees.sub(liquidateVars.sellAmount);
+            liquidateVars.depositReturn = liquidateVars.remainAmountAfterFees.sub(liquidateVars.sellAmount);
             doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
         } else {
-            liquidateVars.sellAmount = liquidateVars.remainHeldAfterFees;
-            liquidateVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minOrMaxAmount, dexData);
-            // can repay
-            if (liquidateVars.receiveAmount > liquidateVars.borrowed) {
+            liquidateVars.sellAmount = liquidateVars.remainAmountAfterFees;
+            liquidateVars.receiveAmount = flashSell(marketId, address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minBuy, dexData);
+            if (liquidateVars.receiveAmount >= liquidateVars.borrowed) {
+                // fail if buy failed but sell succeeded
+                require (longToken != trade.depositToken, "PH");
                 marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
-                // buy back depositToken
-                if (longToken == trade.depositToken) {
-                    liquidateVars.depositReturn = flashSell(address(marketVars.sellToken), address(marketVars.buyToken), liquidateVars.receiveAmount - liquidateVars.borrowed, 0, dexData);
-                    doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
-                } else {
-                    liquidateVars.depositReturn = liquidateVars.receiveAmount - liquidateVars.borrowed;
-                    doTransferOut(owner, marketVars.buyToken, liquidateVars.depositReturn);
-                }
+                liquidateVars.depositReturn = liquidateVars.receiveAmount.sub(liquidateVars.borrowed);
+                doTransferOut(owner, marketVars.buyToken, liquidateVars.depositReturn);
             } else {
-                uint finalRepayAmount = reduceInsurance(liquidateVars.borrowed, liquidateVars.receiveAmount, liquidateVars.marketId, liquidateVars.longToken);
-                liquidateVars.outstandingAmount = liquidateVars.borrowed.sub(finalRepayAmount);
-                marketVars.buyPool.repayBorrowEndByOpenLev(owner, finalRepayAmount);
+                liquidateVars.finalRepayAmount = reduceInsurance(liquidateVars.borrowed, liquidateVars.receiveAmount, liquidateVars.marketId, liquidateVars.longToken, address(marketVars.buyToken), marketVars.reserveBuyToken);
+                liquidateVars.outstandingAmount = liquidateVars.borrowed.sub(liquidateVars.finalRepayAmount);
+                marketVars.buyPool.repayBorrowEndByOpenLev(owner, liquidateVars.finalRepayAmount);
             }
         }
-        liquidateVars.token0Price = longToken ? liquidateVars.sellAmount.mul(1e18).div(liquidateVars.receiveAmount) : liquidateVars.receiveAmount.mul(1e18).div(liquidateVars.sellAmount);
 
-        emit Liquidation(owner, liquidateVars.marketId, longToken, trade.depositToken, trade.held, liquidateVars.outstandingAmount, msg.sender,
-            liquidateVars.depositDecrease, liquidateVars.depositReturn, liquidateVars.fees, liquidateVars.token0Price, liquidateVars.penalty, liquidateVars.dexDetail);
+        liquidateVars.token0Price = longToken ? liquidateVars.sellAmount.mul(1e18).div(liquidateVars.receiveAmount) : liquidateVars.receiveAmount.mul(1e18).div(liquidateVars.sellAmount);
+        totalHelds[address(marketVars.sellToken)] = totalHelds[address(marketVars.sellToken)].sub(trade.held);
+
+        emit Liquidation(owner, marketId, longToken, trade.depositToken, trade.held, liquidateVars.outstandingAmount, msg.sender,
+            trade.deposited, liquidateVars.depositReturn, liquidateVars.fees, liquidateVars.token0Price, liquidateVars.penalty, liquidateVars.dexDetail);
+
         delete activeTrades[owner][marketId][longToken];
     }
 
+    function toMarketVar(bool longToken, bool open, Types.Market storage market) internal view returns (Types.MarketVars memory) {
+        return open == longToken ?
+        Types.MarketVars(
+            market.pool1,
+            market.pool0,
+            IERC20(market.token1),
+            IERC20(market.token0),
+            IERC20(market.token1).balanceOf(address(this)),
+            IERC20(market.token0).balanceOf(address(this)),
+            market.pool1Insurance,
+            market.pool0Insurance,
+            market.marginLimit,
+            market.priceDiffientRatio,
+            market.dexs) :
+        Types.MarketVars(
+            market.pool0,
+            market.pool1,
+            IERC20(market.token0),
+            IERC20(market.token1),
+            IERC20(market.token0).balanceOf(address(this)),
+            IERC20(market.token1).balanceOf(address(this)),
+            market.pool0Insurance,
+            market.pool1Insurance,
+            market.marginLimit,
+            market.priceDiffientRatio,
+            market.dexs);
+    }
+
+    /// @notice Get ratios of deposited token value to borrowed token value.
+    /// @dev Caluclate ratio with current price and twap price.
+    /// @param owner Owner of the trade to liquidate.
+    /// @param longToken Token to long. False for token0, true for token1.
+    /// @param dexData Index and fee rate for the trading Dex.
+    /// @return current Margin ratio calculated using current price.
+    /// @return cAvg Margin ratio calculated using twap price.
+    /// @return hAvg Margin ratio calculated using last recorded twap price.
+    /// @return limit The liquidation trigger ratio of deposited token value to borrowed token value.
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint cAvg, uint hAvg, uint32 limit) {
-        Types.MarketVars memory vars = toMarketVar(marketId, longToken, false);
-        Types.Trade memory trade = activeTrades[owner][marketId][longToken];
-        Types.MarginRatioVars memory ratioVars;
-        ratioVars.held = trade.held;
-        ratioVars.dexData = dexData;
-        ratioVars.owner = owner;
-        limit = vars.marginLimit;
-        (current, cAvg, hAvg,,) = marginRatioInternal(ratioVars.owner, ratioVars.held, address(vars.sellToken), address(vars.buyToken), vars.buyPool, false, ratioVars.dexData);
-    }
-
-    function marginRatioInternal(address owner, uint held, address heldToken, address sellToken, LPoolInterface borrowPool, bool isOpen, bytes memory dexData)
-    internal view returns (uint, uint, uint, uint, uint)
-    {
-        Types.MarginRatioVars memory ratioVars;
-        ratioVars.held = held;
-        ratioVars.dexData = dexData;
-        ratioVars.heldToken = heldToken;
-        ratioVars.sellToken = sellToken;
-        ratioVars.owner = owner;
-        ratioVars.multiplier = 10000;
-        uint borrowed = isOpen ? borrowPool.borrowBalanceStored(ratioVars.owner) : borrowPool.borrowBalanceCurrent(ratioVars.owner);
-        if (borrowed == 0) {
-            return (ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier);
-        }
-        (uint price, uint cAvgPrice, uint hAvgPrice, uint8 decimals,uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, calculateConfig.twapDuration, ratioVars.dexData);
-        //Ignore hAvgPrice
-        if (block.timestamp > lastUpdateTime.add(calculateConfig.twapDuration)) {
-            hAvgPrice = cAvgPrice;
-        }
-        //marginRatio=(marketValue-borrowed)/borrowed
-        uint marketValue = ratioVars.held.mul(price).div(10 ** uint(decimals));
-        uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
-        marketValue = ratioVars.held.mul(cAvgPrice).div(10 ** uint(decimals));
-        uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
-        marketValue = ratioVars.held.mul(hAvgPrice).div(10 ** uint(decimals));
-        uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
-        return (current, cAvg, hAvg, price, cAvgPrice);
-    }
-
-    function updatePrice(uint16 marketId, bytes memory dexData) external override {
+        address tokenToLong;
         Types.Market memory market = markets[marketId];
-        bool shouldUpdate = shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData);
-        bool updateResult = updatePriceInternal(market.token0, market.token1, dexData);
-        if (updateResult) {
-            //Discount
-            markets[marketId].priceUpdater = tx.origin;
-            //Reward OLE
-            if (shouldUpdate) {
-                (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId);
-            }
-        }
+        tokenToLong = longToken ? market.token1 : market.token0;
+        limit = market.marginLimit;
+        
+        uint amount = activeTrades[owner][marketId][longToken].held;
+        amount = OpenLevV1Lib.shareToAmount(
+            amount,
+            totalHelds[tokenToLong],
+            IERC20(tokenToLong).balanceOf(address(this))
+        );
+
+        (current, cAvg, hAvg,,) =
+        OpenLevV1Lib.marginRatio(
+            owner,
+            amount,
+            tokenToLong,
+            longToken ? market.token0 : market.token1,
+            longToken ? market.pool0 : market.pool1,
+            dexData
+        );
     }
 
+    /// @notice Check if a price update is required on Dex.
+    /// @param dexData Index and fee rate for the trading Dex.
     function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external override view returns (bool){
         Types.Market memory market = markets[marketId];
-        return shouldUpdatePriceInternal(market.priceDiffientRatio, market.token1, market.token0, dexData);
+        return OpenLevV1Lib.shouldUpdatePriceInternal(addressConfig.dexAggregator, calculateConfig.twapDuration,  market.priceDiffientRatio, market.token0, market.token1, dexData);
     }
 
+    /// @notice Update price on Dex.
+    /// @param dexData Index and fee rate for the trading Dex.
+    function updatePrice(uint16 marketId, bytes memory dexData) external override {
+        OpenLevV1Lib.updatePrice(marketId, markets[marketId], addressConfig, calculateConfig, dexData);
+    }
+
+    /// @notice List of all supporting Dexes.
     function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
         return markets[marketId].dexs;
     }
 
-    function getCalculateConfig() external override view returns (OpenLevStorage.CalculateConfig memory){
-        return calculateConfig;
-    }
-
-    function updatePriceInternal(address token0, address token1, bytes memory dexData) internal returns (bool){
-        return addressConfig.dexAggregator.updatePriceOracle(token0, token1, calculateConfig.twapDuration, dexData);
-    }
-
-    function shouldUpdatePriceInternal(uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) internal view returns (bool){
-        if (!dexData.isUniV2Class()) {
-            return false;
-        }
-        (, uint cAvgPrice, uint hAvgPrice,, uint lastUpdateTime) = addressConfig.dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, calculateConfig.twapDuration, dexData);
-        if (block.timestamp < lastUpdateTime.add(calculateConfig.twapDuration)) {
-            return false;
-        }
-        //Not initialized yet
-        if (cAvgPrice == 0 || hAvgPrice == 0) {
-            return true;
-        }
-        //price difference
-        uint one = 100;
-        uint differencePriceRatio = cAvgPrice.mul(one).div(hAvgPrice);
-        if (differencePriceRatio >= (one.add(priceDiffientRatio)) || differencePriceRatio <= (one.sub(priceDiffientRatio))) {
-            return true;
-        }
-        return false;
-    }
-
-    function isPositionHealthy(address owner, bool isOpen, uint held, Types.MarketVars memory vars, bytes memory dexData) internal view returns (bool)
-    {
-        (uint current, uint cAvg, uint hAvg, uint price, uint cAvgPrice) = marginRatioInternal(owner,
-            held,
-            isOpen ? address(vars.buyToken) : address(vars.sellToken),
-            isOpen ? address(vars.sellToken) : address(vars.buyToken),
-            isOpen ? vars.sellPool : vars.buyPool,
-            isOpen, dexData);
-        if (isOpen) {
-            return current >= vars.marginLimit && cAvg >= vars.marginLimit && hAvg >= vars.marginLimit;
-        } else {
-            // Avoid flash loan
-            if (price < cAvgPrice) {
-                uint differencePriceRatio = cAvgPrice.mul(100).div(price);
-                require(differencePriceRatio - 100 < calculateConfig.maxLiquidationPriceDiffientRatio, 'MPT');
-            }
-            return current >= vars.marginLimit || cAvg >= vars.marginLimit || hAvg >= vars.marginLimit;
-        }
-    }
-
-    function reduceInsurance(uint totalRepayment, uint remaining, uint16 marketId, bool longToken) internal returns (uint) {
-        uint maxCanRepayAmount = totalRepayment;
+    function reduceInsurance(uint totalRepayment, uint remaining, uint16 marketId, bool longToken, address token, uint reserve) internal returns (uint maxCanRepayAmount) {
         Types.Market storage market = markets[marketId];
-        uint needed = totalRepayment.sub(remaining);
-        if (longToken) {
-            if (market.pool0Insurance >= needed) {
-                market.pool0Insurance = market.pool0Insurance - needed;
-            } else {
-                maxCanRepayAmount = market.pool0Insurance.add(remaining);
-                market.pool0Insurance = 0;
-            }
-        } else {
-            if (market.pool1Insurance >= needed) {
-                market.pool1Insurance = market.pool1Insurance - needed;
-            } else {
-                maxCanRepayAmount = market.pool1Insurance.add(remaining);
-                market.pool1Insurance = 0;
-            }
-        }
-        return maxCanRepayAmount;
+        return OpenLevV1Lib.reduceInsurance(totalRepayment, remaining, longToken, token, reserve, market, totalHelds);
     }
 
-    function toMarketVar(uint16 marketId, bool longToken, bool open) internal view returns (Types.MarketVars memory) {
-        Types.MarketVars memory vars;
-        Types.Market memory market = markets[marketId];
-        if (open == longToken) {
-            vars.buyPool = market.pool1;
-            vars.buyToken = IERC20(market.token1);
-            vars.buyPoolInsurance = market.pool1Insurance;
-            vars.sellPool = market.pool0;
-            vars.sellToken = IERC20(market.token0);
-            vars.sellPoolInsurance = market.pool0Insurance;
-        } else {
-            vars.buyPool = market.pool0;
-            vars.buyToken = IERC20(market.token0);
-            vars.buyPoolInsurance = market.pool0Insurance;
-            vars.sellPool = market.pool1;
-            vars.sellToken = IERC20(market.token1);
-            vars.sellPoolInsurance = market.pool1Insurance;
-        }
-        vars.marginLimit = market.marginLimit;
-        vars.dexs = market.dexs;
-        vars.priceDiffientRatio = market.priceDiffientRatio;
-        return vars;
-    }
-
-
-    function feesAndInsurance(address trader, uint tradeSize, address token, uint16 marketId) internal returns (uint) {
+    function feesAndInsurance(address trader, uint tradeSize, address token, uint16 marketId, uint totalHeld, uint reserve) internal returns (uint) {
         Types.Market storage market = markets[marketId];
-        uint defaultFees = tradeSize.mul(market.feesRate).div(10000);
-        uint newFees = defaultFees;
-        CalculateConfig memory config = calculateConfig;
-        // if trader holds more xOLE, then should enjoy trading discount.
-        if (XOLEInterface(addressConfig.xOLE).balanceOf(trader) > config.feesDiscountThreshold) {
-            newFees = defaultFees.sub(defaultFees.mul(config.feesDiscount).div(100));
+        return OpenLevV1Lib.feeAndInsurance(trader, tradeSize, token, addressConfig.xOLE, totalHeld, reserve, market, totalHelds, calculateConfig);
+    }
+
+    function flashSell(uint16 marketId, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) internal returns (uint buyAmount){
+        if (sellAmount > 0){
+            DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
+            IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
+            buyAmount = dexAggregator.sell(buyToken, sellToken, taxes[marketId][buyToken][2], taxes[marketId][sellToken][1], sellAmount, minBuyAmount, data);
         }
-        // if trader update price, then should enjoy trading discount.
-        if (market.priceUpdater == trader) {
-            newFees = newFees.sub(defaultFees.mul(config.updatePriceDiscount).div(100));
+    }
+
+    function flashBuy(uint16 marketId, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) internal returns (uint sellAmount){
+        if (buyAmount > 0){
+            DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
+            IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
+            sellAmount = dexAggregator.buy(buyToken, sellToken, taxes[marketId][buyToken][2], taxes[marketId][sellToken][1], buyAmount, maxSellAmount, data);
         }
-        uint newInsurance = newFees.mul(config.insuranceRatio).div(100);
-
-        IERC20(token).safeTransfer(addressConfig.xOLE, newFees.sub(newInsurance));
-        if (token == market.token1) {
-            market.pool1Insurance = market.pool1Insurance.add(newInsurance);
-        } else {
-            market.pool0Insurance = market.pool0Insurance.add(newInsurance);
-        }
-        return newFees;
     }
 
-    function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) internal returns (uint){
-        DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
-        IERC20(sellToken).safeApprove(address(dexAggregator), 0);
-        IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
-        uint buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
-        return buyAmount;
-    }
-
-    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) internal returns (uint){
-        DexAggregatorInterface dexAggregator = addressConfig.dexAggregator;
-        IERC20(sellToken).safeApprove(address(dexAggregator), 0);
-        IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
-        return dexAggregator.buy(buyToken, sellToken, buyAmount, maxSellAmount, data);
-    }
-
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) internal view returns (uint){
-        return addressConfig.dexAggregator.calBuyAmount(buyToken, sellToken, sellAmount, data);
-    }
-
+    /// @dev All credited on this contract and share with all token holder if any rewards for the transfer.
     function transferIn(address from, IERC20 token, uint amount) internal returns (uint) {
-        uint balanceBefore = token.balanceOf(address(this));
-        if (address(token) == addressConfig.wETH) {
-            IWETH(address(token)).deposit{value : msg.value}();
-        } else {
-            token.safeTransferFrom(from, address(this), amount);
-        }
-        // Calculate the amount that was *actually* transferred
-        uint balanceAfter = token.balanceOf(address(this));
-        return balanceAfter.sub(balanceBefore);
+        return OpenLevV1Lib.transferIn(from, token, addressConfig.wETH, amount);
     }
 
+    /// @dev All credited on "to" if any taxes for the transfer.
     function doTransferOut(address to, IERC20 token, uint amount) internal {
-        if (address(token) == addressConfig.wETH) {
-            IWETH(address(token)).withdraw(amount);
-            payable(to).transfer(amount);
-        } else {
-            token.safeTransfer(to, amount);
-        }
+        OpenLevV1Lib.doTransferOut(to, token, addressConfig.wETH, amount);
     }
 
     /*** Admin Functions ***/
-    function setCalculateConfigInternal(uint16 defaultFeesRate,
-        uint8 insuranceRatio,
-        uint16 defaultMarginLimit,
-        uint16 priceDiffientRatio,
-        uint16 updatePriceDiscount,
-        uint16 feesDiscount,
-        uint128 feesDiscountThreshold,
-        uint16 penaltyRatio,
-        uint8 maxLiquidationPriceDiffientRatio,
-        uint16 twapDuration) internal {
-        require(defaultFeesRate < 10000 && insuranceRatio < 100 && defaultMarginLimit > 0 && updatePriceDiscount <= 100
-        && feesDiscount <= 100 && penaltyRatio < 10000 && twapDuration > 0, 'PRI');
-        calculateConfig.defaultFeesRate = defaultFeesRate;
-        calculateConfig.insuranceRatio = insuranceRatio;
-        calculateConfig.defaultMarginLimit = defaultMarginLimit;
-        calculateConfig.priceDiffientRatio = priceDiffientRatio;
-        calculateConfig.updatePriceDiscount = updatePriceDiscount;
-        calculateConfig.feesDiscount = feesDiscount;
-        calculateConfig.feesDiscountThreshold = feesDiscountThreshold;
-        calculateConfig.penaltyRatio = penaltyRatio;
-        calculateConfig.maxLiquidationPriceDiffientRatio = maxLiquidationPriceDiffientRatio;
-        calculateConfig.twapDuration = twapDuration;
-        emit NewCalculateConfig(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount,
-            feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration);
-    }
-
     function setCalculateConfig(uint16 defaultFeesRate,
         uint8 insuranceRatio,
         uint16 defaultMarginLimit,
@@ -522,97 +455,43 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint16 penaltyRatio,
         uint8 maxLiquidationPriceDiffientRatio,
         uint16 twapDuration) external override onlyAdmin() {
-        setCalculateConfigInternal(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount,
-            feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration);
+        OpenLevV1Lib.setCalculateConfigInternal(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount,
+            feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration, calculateConfig);
+        emit NewCalculateConfig(defaultFeesRate, insuranceRatio, defaultMarginLimit, priceDiffientRatio, updatePriceDiscount, feesDiscount, feesDiscountThreshold, penaltyRatio, maxLiquidationPriceDiffientRatio, twapDuration);
     }
 
-
-    function setAddressConfig(address controller,
-        DexAggregatorInterface dexAggregator) external override onlyAdmin(){
-        require(controller != address(0) && address(dexAggregator) != address(0), 'CD0');
-        addressConfig.controller = controller;
-        addressConfig.dexAggregator = dexAggregator;
+    function setAddressConfig(address controller, DexAggregatorInterface dexAggregator) external override onlyAdmin() {
+        OpenLevV1Lib.setAddressConfigInternal(controller, dexAggregator, addressConfig);
         emit NewAddressConfig(controller, address(dexAggregator));
     }
 
     function setMarketConfig(uint16 marketId, uint16 feesRate, uint16 marginLimit, uint16 priceDiffientRatio, uint32[] memory dexs) external override onlyAdmin() {
-        require(feesRate < 10000 && marginLimit > 0 && dexs.length > 0, 'PRI');
-        Types.Market storage market = markets[marketId];
-        market.feesRate = feesRate;
-        market.marginLimit = marginLimit;
-        market.dexs = dexs;
-        market.priceDiffientRatio = priceDiffientRatio;
+        OpenLevV1Lib.setMarketConfigInternal(feesRate, marginLimit, priceDiffientRatio, dexs, markets[marketId]);
         emit NewMarketConfig(marketId, feesRate, marginLimit, priceDiffientRatio, dexs);
     }
 
+    /// @notice List of all supporting Dexes.
+    /// @param poolIndex index of insurance pool, 0 for token0, 1 for token1
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external override nonReentrant() onlyAdmin() {
         Types.Market storage market = markets[marketId];
-        if (poolIndex == 0) {
-            market.pool0Insurance = market.pool0Insurance.sub(amount);
-            (IERC20(market.token0)).safeTransfer(to, amount);
-            return;
-        }
-        market.pool1Insurance = market.pool1Insurance.sub(amount);
-        (IERC20(market.token1)).safeTransfer(to, amount);
+        OpenLevV1Lib.moveInsurance(market, poolIndex, to, amount, totalHelds);
     }
 
     function setSupportDex(uint8 dex, bool support) public override onlyAdmin() {
         supportDexs[dex] = support;
     }
 
-    function verifyTrade(Types.MarketVars memory vars, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData) internal view {
-        //verify if deposit token allowed
-        address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
-        //verify minimal deposit > absolute value 0.0001
-        uint decimals = ERC20(depositTokenAddr).decimals();
-        uint minimalDeposit = decimals > 4 ? 10 ** (decimals - 4) : 1;
-        uint actualDeposit = depositTokenAddr == addressConfig.wETH ? msg.value : deposit;
-        require(actualDeposit > minimalDeposit, "DTS");
-        require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "DNS");
-
-        Types.Trade memory trade = activeTrades[msg.sender][marketId][longToken];
-        // New trade
-        if (trade.lastBlockNum == 0) {
-            require(borrow > 0, "BB0");
-            return;
-        } else {
-            // For new trade, these checks are not needed
-            require(depositToken == trade.depositToken, "DTS");
-            require(trade.lastBlockNum != uint128(block.number), "SBK");
-        }
+    function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external override onlyAdmin(){
+        taxes[marketId][token][index] = tax;
     }
 
-    function verifyCloseBefore(Types.Trade memory trade, Types.MarketVars memory vars, uint closeAmount, bytes memory dexData) internal view {
-        verifyCloseOrLiquidateBefore(trade.held, trade.lastBlockNum, vars.dexs, dexData.toDexDetail());
-        require(closeAmount <= trade.held, "CBH");
+    // should remove in later version call on update contract should be atomic
+    function updateLegacy(address[] calldata tokens) external onlyAdmin() {
+        OpenLevV1Lib.updateLegacy(tokens, totalHelds);
     }
 
-
-    function verifyCloseOrLiquidateBefore(uint held, uint lastBlockNumber, uint32[] memory dexs, uint32 dex) internal view {
-        require(held != 0, "HI0");
-        require(lastBlockNumber != block.number, "SBK");
-        require(isInSupportDex(dexs, dex), "DNS");
-    }
-
-
-    function isSupportDex(uint8 dex) internal view returns (bool){
-        return supportDexs[dex];
-    }
-
-    function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){
-        for (uint i = 0; i < dexs.length; i++) {
-            if (dexs[i] == 0) {
-                break;
-            }
-            if (dexs[i] == dex) {
-                supported = true;
-                break;
-            }
-        }
-    }
     modifier onlySupportDex(bytes memory dexData) {
-        require(isSupportDex(dexData.toDex()), "UDX");
+        require(OpenLevV1Lib.isSupportDex(supportDexs, dexData.toDex()), "UDX");
         _;
     }
 }
-

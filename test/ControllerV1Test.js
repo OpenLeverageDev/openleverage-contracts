@@ -144,22 +144,22 @@ contract("ControllerV1", async accounts => {
 
         await openLev.marginTrade(0, false, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData);
 
-
-        await pair.setPrice(tokenA.address, tokenB.address, 1);
-        await pair.setPreviousPrice(tokenA.address, tokenB.address, 1);
+        await pair.setPrice(tokenA.address, tokenB.address, "300000000000000000");
+        await pair.setPreviousPrice(tokenA.address, tokenB.address, "300000000000000000");
         let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, Uni3DexData);
         m.log("Margin Ratio_2 current:", marginRatio_2.current / 100, "%");
-        m.log("Margin Ratio_2 avg:", marginRatio_2.avg / 100, "%");
-
+        m.log("Margin Ratio_2 havg:", marginRatio_2.hAvg / 100, "%"); 
 
         // ole token price 1 10gwei
-        let txLiq = await openLev.liquidate(trader, 0, 0, 0, Uni3DexData, {
+        let txLiq = await openLev.liquidate(trader, 0, 0, 0, utils.maxUint() ,Uni3DexData, {
             from: liquidator,
             gasPrice: 10000000000,
             gas: 1000000
         });
 
         m.log("txLiq gasUsed:", txLiq.receipt.gasUsed);
+        m.log("txLiq log:", txLiq.receipt.logs[0])
+        m.log("txLiq log:", txLiq.receipt.logs[1])
 
         m.log("liquidator ole balance:", (await oleToken.balanceOf(liquidator)).toString());
 
@@ -199,13 +199,12 @@ contract("ControllerV1", async accounts => {
         await timeMachine.revertToSnapshot(snapshotId);
         m.log("minted added reward", addReward);
         assert.equal('98888', addReward.div(toBN(1E14)).toString());
-
     });
+
     it("Distribution more by not enough balance test", async () => {
         let {controller, tokenA, tokenB, oleToken} = await instanceController();
         await oleToken.mint(controller.address, utils.toWei(700));
         await assertThrows(controller.setOLETokenDistribution(utils.toWei(400), utils.toWei(500), 0, utils.toWei(4), 300, 0, 0), 'not enough balance');
-
     });
 
     it("Get all supply distribution test", async () => {

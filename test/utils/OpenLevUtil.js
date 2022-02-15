@@ -14,6 +14,7 @@ const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 
 const UniswapV2Router = artifacts.require("IUniswapV2Router");
 const uniRouterV2Address_kovan = exports.uniRouterV2Address_kovan = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib")
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const MockUniswapV2Pair = artifacts.require("MockUniswapV2Pair");
@@ -27,9 +28,9 @@ const Timelock = artifacts.require('Timelock');
 
 const m = require('mocha-logger');
 const zeroAddr = "0x0000000000000000000000000000000000000000";
-exports.Uni2DexData = "0x01";
-exports.Uni3DexData = "0x02" + "000bb8" + "01";
-exports.PancakeDexData = "0x03";
+exports.Uni2DexData = "0x01" + "000000" + "02";
+exports.Uni3DexData = "0x02" + "000bb8" + "02";
+exports.PancakeDexData = "0x03"+ "000000" + "02";
 
 exports.createLPoolImpl = async () => {
     return await LPool.new();
@@ -62,7 +63,7 @@ exports.createUniswapV3Pool = async (factory, tokenA, tokenB, admin) => {
     let token0 = await TestToken.at(await gotPair.token0());
     let token1 = await TestToken.at(await gotPair.token1());
 
-    await gotPair.initialize(toBN(1).mul(toBN(2)).pow(toBN(96)));
+    await gotPair.initialize(toBN(1).mul(toBN(2).pow(toBN(96))));
     await gotPair.increaseObservationCardinalityNext(3);
 
     await gotPair.mint(admin, toBN(-69060), 69060, toWei(100000), '0x');
@@ -100,6 +101,8 @@ exports.tokenAt = async (address) => {
     return await TestToken.at(address);
 }
 exports.createOpenLev = async (controller, admin, dexAgg, xOLE, depositTokens) => {
+    let openLevV1Lib = await OpenLevV1Lib.new();
+    await OpenLevV1.link("OpenLevV1Lib", openLevV1Lib.address);
     let delegate = await OpenLevV1.new();
     let openLev = await OpenLevDelegator.new(
         controller,

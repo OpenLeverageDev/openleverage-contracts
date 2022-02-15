@@ -160,13 +160,13 @@ contract("Airdrop", async accounts => {
         let accountIdx = 2;
         await airdrop.claim(users[accountIdx].address, 0, users[accountIdx].amount, merkleTree.getHexProof(leaves[accountIdx]));
         await timeMachine.advanceTime(lastbk.timestamp + 10001);
-        await assertThrows(airdrop.expireTranche(0, {from: accounts[2]}), 'caller is not the owner');
+        await assertThrows(airdrop.expireTranche(0, {from: accounts[2]}), 'caller must be admin');
     });
 
     it("should new tranche error for not admin", async () => {
         const merkleTree = new MerkleTree(leaves, keccak256, {sort: true});
         const root = merkleTree.getHexRoot();
         let lastbk = await web3.eth.getBlock('latest');
-        await assertThrows(airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75), {from: accounts[2]}), 'caller is not the owner');
+        await assertThrows(airdrop.newTranche(root, lastbk.timestamp - 2, lastbk.timestamp + 10000, toWei(75), {from: accounts[2]}), 'caller must be admin');
     });
 })

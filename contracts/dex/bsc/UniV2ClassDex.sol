@@ -6,11 +6,14 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "../../lib/TransferHelper.sol";
+import "../../lib/DexData.sol";
+import "../../lib/Utils.sol";
 
 contract UniV2ClassDex {
     using SafeMath for uint;
-    using SafeERC20 for IERC20;
+    using Utils for uint;
+    using TransferHelper for IERC20;
 
     struct V2PriceOracle {
         uint32 blockTimestampLast;  // Last block timestamp when price updated
@@ -34,18 +37,21 @@ contract UniV2ClassDex {
         address payee
     ) internal returns (uint buyAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
+        IUniswapV2Pair(pair).sync();
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
+        sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
+        uint balanceBefore = IERC20(buyToken).balanceOf(payee);
+        dexInfo.fees = getPairFees(dexInfo, pair);
+
         if (buyToken < sellToken) {
-            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
-            require(buyAmount >= minBuyAmount, 'buy amount less than min');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
+            buyAmount = getAmountOut(sellAmount, token1Reserves, token0Reserves, dexInfo.fees);
             IUniswapV2Pair(pair).swap(buyAmount, 0, payee, "");
         } else {
-            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
-            require(buyAmount >= minBuyAmount, 'buy amount less than min');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
+            buyAmount = getAmountOut(sellAmount, token0Reserves, token1Reserves, dexInfo.fees);
             IUniswapV2Pair(pair).swap(0, buyAmount, payee, "");
         }
+        buyAmount = IERC20(buyToken).balanceOf(payee).sub(balanceBefore);
+        require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
     function uniClassSellMul(DexInfo memory dexInfo, uint sellAmount, uint minBuyAmount, address[] memory tokens)
@@ -64,22 +70,36 @@ contract UniV2ClassDex {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-    function uniClassBuy(DexInfo memory dexInfo, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount)
+    function uniClassBuy(
+        DexInfo memory dexInfo,
+        address buyToken,
+        address sellToken,
+        uint buyAmount,
+        uint maxSellAmount,
+        uint24 buyTokenFeeRate,
+        uint24 sellTokenFeeRate) 
     internal returns (uint sellAmount){
-        address payer = msg.sender;
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
+        IUniswapV2Pair(pair).sync();
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
+        uint balanceBefore = IERC20(buyToken).balanceOf(msg.sender);
+        dexInfo.fees = getPairFees(dexInfo, pair);
         if (buyToken < sellToken) {
-            sellAmount = getAmountIn(buyAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves, dexInfo.fees);
+            sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(buyAmount, 0, payer, "");
+            transferOut(IERC20(sellToken), msg.sender, pair, sellAmount);
+            IUniswapV2Pair(pair).swap(buyAmount.toAmountBeforeTax(buyTokenFeeRate), 0, msg.sender, "");
         } else {
-            sellAmount = getAmountIn(buyAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves, dexInfo.fees);
+            sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
-            transferOut(IERC20(sellToken), payer, pair, sellAmount);
-            IUniswapV2Pair(pair).swap(0, buyAmount, payer, "");
+            transferOut(IERC20(sellToken), msg.sender, pair, sellAmount);
+            IUniswapV2Pair(pair).swap(0, buyAmount.toAmountBeforeTax(buyTokenFeeRate), msg.sender, "");
         }
+
+        uint balanceAfter = IERC20(buyToken).balanceOf(msg.sender);
+        require(buyAmount <= balanceAfter.sub(balanceBefore), "wrong amount bought");
     }
 
     function uniClassCalBuyAmount(DexInfo memory dexInfo, address buyToken, address sellToken, uint sellAmount) internal view returns (uint) {
@@ -92,14 +112,20 @@ contract UniV2ClassDex {
         }
     }
 
-    function uniClassCalSellAmount(DexInfo memory dexInfo, address buyToken, address sellToken, uint buyAmount) internal view returns (uint) {
+    function uniClassCalSellAmount(
+        DexInfo memory dexInfo,
+        address buyToken,
+        address sellToken,
+        uint buyAmount,
+        uint24 buyTokenFeeRate,
+        uint24 sellTokenFeeRate) internal view returns (uint sellAmount) {
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
-        if (buyToken < sellToken) {
-            return getAmountIn(buyAmount, token1Reserves, token0Reserves, getPairFees(dexInfo, pair));
-        } else {
-            return getAmountIn(buyAmount, token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
-        }
+        sellAmount = buyToken < sellToken ?
+        getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token1Reserves, token0Reserves, getPairFees(dexInfo, pair)) :
+        getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves, getPairFees(dexInfo, pair));
+
+        return sellAmount.toAmountBeforeTax(sellTokenFeeRate);
     }
 
     function uniClassGetPrice(IUniswapV2Factory factory, address desToken, address quoteToken, uint8 decimals) internal view returns (uint256){
@@ -142,10 +168,7 @@ contract UniV2ClassDex {
         if (currentBlockTime < (priceOracle.blockTimestampLast + timeWindow)) {
             return (priceOracle, false);
         }
-        (,,uint32 uniBlockTimeLast) = IUniswapV2Pair(pair).getReserves();
-        if (uniBlockTimeLast != currentBlockTime) {
-            IUniswapV2Pair(pair).sync();
-        }
+        IUniswapV2Pair(pair).sync();
         uint32 timeElapsed = currentBlockTime - priceOracle.blockTimestampLast;
         uint currentPrice0CumulativeLast = IUniswapV2Pair(pair).price0CumulativeLast();
         uint currentPrice1CumulativeLast = IUniswapV2Pair(pair).price1CumulativeLast();
@@ -186,13 +209,12 @@ contract UniV2ClassDex {
         amountIn = (numerator / denominator).add(1);
     }
 
-    function transferOut(IERC20 token, address payer, address to, uint amount) private {
+    function transferOut(IERC20 token, address payer, address to, uint amount) private returns (uint256 amountReceived) {
         if (payer == address(this)) {
-            token.safeTransfer(to, amount);
+            amountReceived = token.safeTransfer(to, amount);
         } else {
-            token.safeTransferFrom(payer, to, amount);
+            amountReceived = token.safeTransferFrom(payer, to, amount);
         }
-
     }
 
     function getUniClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){

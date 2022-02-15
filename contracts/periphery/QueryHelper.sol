@@ -2,8 +2,12 @@
 pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../Types.sol";
 import "../lib/DexData.sol";
+import "../lib/Utils.sol";
+import "../XOLEInterface.sol";
+import "../dex/DexAggregatorInterface.sol";
 
 
 contract QueryHelper {
@@ -62,6 +66,11 @@ contract QueryHelper {
         uint balanceOf;
     }
 
+    struct Balance {
+        uint balance;
+        uint totalHelds;
+    }
+
     function getTraderPositons(IOpenLev openLev, uint16 marketId, address[] calldata traders, bool[] calldata longTokens, bytes calldata dexData) external view returns (PositionVars[] memory results){
         results = new PositionVars[](traders.length);
         IOpenLev.MarketVar memory market = openLev.markets(marketId);
@@ -102,7 +111,7 @@ contract QueryHelper {
         reqVar.dexData = dexData;
         IOpenLev.MarketVar memory market = reqVar.openLev.markets(reqVar.marketId);
         IOpenLev.AddressConfig memory adrConf = reqVar.openLev.addressConfig();
-        IOpenLev.CalculateConfig memory calConf = reqVar.openLev.getCalculateConfig();
+        IOpenLev.CalculateConfig memory calConf = reqVar.openLev.calculateConfig();
         (,,,, reqVar.timestamp) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
         openLev.updatePrice(marketId, dexData);
         (reqVar.token0price, reqVar.token0cAvgPrice,,,) = adrConf.dexAggregator.getPriceCAvgPriceHAvgPrice(market.token0, market.token1, calConf.twapDuration, reqVar.dexData);
@@ -173,21 +182,34 @@ contract QueryHelper {
         uint currentBuyAmount;
         uint currentSellAmount;
         bool canRepayBorrows;
+        address buyToken;
+        address sellToken;
+        uint24 txTax;
+        uint24 buyTax;
+        uint24 sellTax;
+        uint totalHeld;
+        uint balance;
     }
     //offchain call slippage 10%=>100
-    function getLiqCallData(IOpenLev openLev, IV3Quoter v3Quoter, uint16 marketId, uint16 slippage, address trader, bool longToken, bytes memory dexData) external returns (uint minOrMaxAmount,
-        bytes memory callDexData)
+    function getLiqCallData(IOpenLev openLev, IV3Quoter v3Quoter, uint16 marketId, uint16 slippage, address trader, bool longToken, bytes memory dexData)
+    external returns (uint minBuy, uint maxSell)
     {
         IOpenLev.MarketVar memory market = openLev.markets(marketId);
         Types.Trade memory trade = openLev.activeTrades(trader, marketId, longToken);
         LiqCallVars memory callVars;
+        // held -> amount
+        callVars.totalHeld = openLev.totalHelds(longToken ? market.token1 : market.token0);
+        callVars.balance = IERC20(longToken ? market.token1 : market.token0).balanceOf(address(openLev));
+        trade.held = trade.held.mul(callVars.balance).div(callVars.totalHeld);
+        callVars.buyToken = longToken ? market.token0 : market.token1;
+        callVars.sellToken = longToken ? market.token1 : market.token0;
         // cal remain held after fees and penalty
         callVars.defaultFees = trade.held.mul(market.feesRate).div(10000);
         callVars.newFees = callVars.defaultFees;
         IOpenLev.AddressConfig memory adrConf = openLev.addressConfig();
-        IOpenLev.CalculateConfig memory calConf = openLev.getCalculateConfig();
+        IOpenLev.CalculateConfig memory calConf = openLev.calculateConfig();
         // if trader holds more xOLE, then should enjoy trading discount.
-        if (IXOLE(adrConf.xOLE).balanceOf(trader) > calConf.feesDiscountThreshold) {
+        if (XOLEInterface(adrConf.xOLE).balanceOf(trader) > calConf.feesDiscountThreshold) {
             callVars.newFees = callVars.defaultFees.sub(callVars.defaultFees.mul(calConf.feesDiscount).div(100));
         }
         // if trader update price, then should enjoy trading discount.
@@ -196,26 +218,24 @@ contract QueryHelper {
         }
         callVars.penalty = trade.held.mul(calConf.penaltyRatio).div(10000);
         callVars.heldAfterFees = trade.held.sub(callVars.penalty).sub(callVars.newFees);
-        callVars.borrows = longToken ? market.pool0.borrowBalanceCurrent(trader) : market.pool1.borrowBalanceCurrent(trader);
-
+        callVars.txTax = openLev.taxes(marketId, callVars.buyToken, 0);
+        callVars.buyTax = openLev.taxes(marketId, callVars.buyToken, 2);
+        callVars.sellTax = openLev.taxes(marketId, callVars.sellToken, 1);
+        callVars.borrows = Utils.toAmountBeforeTax(longToken ? market.pool0.borrowBalanceCurrent(trader) : market.pool1.borrowBalanceCurrent(trader), callVars.txTax);
         callVars.currentBuyAmount = dexData.isUniV2Class() ?
-        adrConf.dexAggregator.calBuyAmount(longToken ?
-            market.token0 : market.token1, longToken ? market.token1 : market.token0, callVars.heldAfterFees, dexData) :
-        v3Quoter.quoteExactInputSingle(longToken ? market.token1 : market.token0, longToken ? market.token0 : market.token1, dexData.toFee(), callVars.heldAfterFees, 0);
+        adrConf.dexAggregator.calBuyAmount(callVars.buyToken, callVars.sellToken, callVars.buyTax, callVars.sellTax, callVars.heldAfterFees, dexData) :
+        v3Quoter.quoteExactInputSingle(callVars.sellToken, callVars.buyToken, dexData.toFee(), callVars.heldAfterFees, 0);
         callVars.canRepayBorrows = callVars.currentBuyAmount >= callVars.borrows;
         //flash sell,cal minBuyAmount
         if (trade.depositToken != longToken || !callVars.canRepayBorrows) {
-            minOrMaxAmount = callVars.currentBuyAmount.sub(callVars.currentBuyAmount.mul(slippage).div(1000));
-            callDexData = dexData.isUniV2Class() ? dexData : abi.encodePacked(dexData, hex"01");
+            minBuy = callVars.currentBuyAmount.sub(callVars.currentBuyAmount.mul(slippage).div(1000));
         }
         // flash buy,cal maxSellAmount
         else {
             callVars.currentSellAmount = dexData.isUniV2Class() ?
-            adrConf.dexAggregator.calSellAmount(longToken ?
-                market.token0 : market.token1, longToken ? market.token1 : market.token0, callVars.borrows, dexData) :
-            v3Quoter.quoteExactOutputSingle(longToken ? market.token1 : market.token0, longToken ? market.token0 : market.token1, dexData.toFee(), callVars.borrows, 0);
-            minOrMaxAmount = callVars.currentSellAmount.add(callVars.currentSellAmount.mul(slippage).div(1000));
-            callDexData = dexData.isUniV2Class() ? dexData : abi.encodePacked(dexData, hex"00");
+            adrConf.dexAggregator.calSellAmount(callVars.buyToken, callVars.sellToken, callVars.buyTax, callVars.sellTax, callVars.borrows, dexData) :
+            v3Quoter.quoteExactOutputSingle(callVars.sellToken, callVars.buyToken, dexData.toFee(), callVars.borrows, 0);
+            maxSell = callVars.currentSellAmount.add(callVars.currentSellAmount.mul(slippage).div(1000));
         }
     }
 
@@ -252,6 +272,16 @@ contract QueryHelper {
             vars.balanceOf = balanceOfToken.balanceOf(address(xole));
         }
     }
+
+    function getOpenLevBalances(IOpenLev openLev, address[] calldata tokens) external view returns (Balance[] memory results){
+        results = new Balance[](tokens.length);
+        for (uint i = 0; i < tokens.length; i++) {
+            uint balance = IERC20(tokens[i]).balanceOf(address(openLev));
+            uint totalHelds = openLev.totalHelds(tokens[i]);
+            results[i] = Balance(balance, totalHelds);
+        }
+        return results;
+    }
 }
 
 interface IXOLE {
@@ -262,18 +292,6 @@ interface IXOLE {
     function withdrewReward() external view returns (uint256);
 
     function devFund() external view returns (uint256);
-
-    function balanceOf(address addr) external view returns (uint256);
-
-
-}
-
-interface DexAggregatorInterface {
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) external view returns (uint);
-
-    function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view returns (uint);
-
-    function getPriceCAvgPriceHAvgPrice(address desToken, address quoteToken, uint32 secondsAgo, bytes memory dexData) external view returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp);
 
 }
 
@@ -339,8 +357,11 @@ interface IOpenLev {
 
     function addressConfig() external view returns (AddressConfig memory);
 
-    function getCalculateConfig() external view returns (CalculateConfig memory);
+    function calculateConfig() external view returns (CalculateConfig memory);
 
     function updatePrice(uint16 marketId, bytes memory dexData) external;
 
+    function taxes(uint16 marketId, address token, uint index) external view returns (uint24);
+
+    function totalHelds(address token) external view returns (uint);
 }
