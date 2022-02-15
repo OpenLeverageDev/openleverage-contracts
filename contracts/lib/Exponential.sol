@@ -163,7 +163,7 @@ contract Exponential is CarefulMath {
 
         (MathError err2, uint product) = divUInt(doubleScaledProductWithHalfScale, expScale);
         // The only error `div` can return is MathError.DIVISION_BY_ZERO but we control `expScale` and it is not zero.
-        assert(err2 == MathError.NO_ERROR);
+        require(err2 == MathError.NO_ERROR);
 
         return (MathError.NO_ERROR, Exp({mantissa: product}));
     }
