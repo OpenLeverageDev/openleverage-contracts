@@ -59,7 +59,7 @@ library OpenLevV1Lib {
         markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
         // Init price oracle
         if (dexData.isUniV2Class()) {
-            OpenLevV1Lib.updatePriceInternal(token0, token1, dexData);
+            updatePriceInternal(token0, token1, dexData);
         } else if (dex == DexData.DEX_UNIV3) {
             addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
         }
@@ -122,10 +122,9 @@ library OpenLevV1Lib {
         address heldToken,
         address sellToken,
         LPoolInterface borrowPool,
-        bool isOpen,
         bytes memory dexData
     ) external view returns (uint, uint, uint, uint, uint){
-        return marginRatioPrivate(owner, held, heldToken, sellToken, borrowPool, isOpen, dexData);
+        return marginRatioPrivate(owner, held, heldToken, sellToken, borrowPool, false, dexData);
     }
 
     function marginRatioPrivate(
@@ -265,6 +264,95 @@ library OpenLevV1Lib {
             if (dexs[i] == dex) {
                 supported = true;
                 break;
+            }
+        }
+    }
+
+    function feeAndInsurance(
+        address trader, 
+        uint tradeSize, 
+        address token, 
+        address xOLE,
+        uint totalHeld, 
+        uint reserve,
+        Types.Market storage  market, 
+        mapping(address => uint) storage totalHelds,
+        OpenLevStorage.CalculateConfig memory calculateConfig
+    ) external returns (uint newFees) {
+        uint defaultFees = tradeSize.mul(market.feesRate).div(10000);
+        newFees = defaultFees;
+        // if trader holds more xOLE, then should enjoy trading discount.
+        if (XOLEInterface(xOLE).balanceOf(trader) > calculateConfig.feesDiscountThreshold) {
+            newFees = defaultFees.sub(defaultFees.mul(calculateConfig.feesDiscount).div(100));
+        }
+        // if trader update price, then should enjoy trading discount.
+        if (market.priceUpdater == trader) {
+            newFees = newFees.sub(defaultFees.mul(calculateConfig.updatePriceDiscount).div(100));
+        }
+        uint newInsurance = newFees.mul(calculateConfig.insuranceRatio).div(100);
+        IERC20(token).safeTransfer(xOLE, newFees.sub(newInsurance));
+
+        newInsurance = OpenLevV1Lib.amountToShare(newInsurance, totalHeld, reserve);
+        if (token == market.token1) {
+            market.pool1Insurance = market.pool1Insurance.add(newInsurance);
+        } else {
+            market.pool0Insurance = market.pool0Insurance.add(newInsurance);
+        }
+
+        totalHelds[token] = totalHelds[token].add(newInsurance);
+        return newFees;
+    }
+
+    function reduceInsurance(
+        uint totalRepayment, 
+        uint remaining, 
+        bool longToken, 
+        address token, 
+        uint reserve, 
+        Types.Market storage  market, 
+        mapping(address => uint
+    ) storage totalHelds) external returns (uint maxCanRepayAmount) {
+        uint needed = totalRepayment.sub(remaining);
+        needed = amountToShare(needed, totalHelds[token], reserve);
+        maxCanRepayAmount = totalRepayment;
+        if (longToken) {
+            if (market.pool0Insurance >= needed) {
+                market.pool0Insurance = market.pool0Insurance - needed;
+                totalHelds[token] = totalHelds[token].sub(needed);
+            } else {
+                maxCanRepayAmount = shareToAmount(market.pool0Insurance, totalHelds[token], reserve);
+                maxCanRepayAmount = maxCanRepayAmount.add(remaining);
+                totalHelds[token] = totalHelds[token].sub(market.pool0Insurance);
+                market.pool0Insurance = 0;
+            }
+        } else {
+            if (market.pool1Insurance >= needed) {
+                market.pool1Insurance = market.pool1Insurance - needed;
+            } else {
+                maxCanRepayAmount = shareToAmount(market.pool1Insurance, totalHelds[token], reserve);
+                maxCanRepayAmount = maxCanRepayAmount.add(remaining);
+                totalHelds[token] = totalHelds[token].sub(market.pool1Insurance);
+                market.pool1Insurance = 0;
+            }
+        }
+    }  
+
+    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount,  mapping(address => uint) storage totalHelds) external{
+        if (poolIndex == 0) {
+            market.pool0Insurance = market.pool0Insurance.sub(amount);
+            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
+        }else{
+            market.pool1Insurance = market.pool1Insurance.sub(amount);
+            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
+        }
+    }
+
+    function updateLegacy(address[] calldata tokens, mapping(address => uint) storage totalHelds) external{
+        for(uint i; i < tokens.length; i++){
+            address token = tokens[i];
+            uint balance = IERC20(token).balanceOf(address(this));
+            if (totalHelds[token] == 0 && balance > 0){
+                totalHelds[token] = balance;
             }
         }
     }
