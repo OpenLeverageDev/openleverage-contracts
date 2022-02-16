@@ -50,7 +50,7 @@ contract("DexAggregator Eth", async accounts => {
         await token0.transfer(swapper, swapIn);
         await token0.approve(dexAgg.address, swapIn, {from: swapper});
 
-        r = await dexAgg.sell(weth.address, token0.address, 0, 70000, swapIn, minOut, utils.Uni2DexData, {from: swapper});
+        r = await dexAgg.sell(weth.address, token0.address, swapIn, minOut, utils.Uni2DexData, {from: swapper});
         m.log("sell exact amount Gas Used:", r.receipt.gasUsed);
         assert.equal(await weth.balanceOf(swapper), "926849117619924", "sell exact amount");
     });
@@ -96,7 +96,7 @@ contract("DexAggregator Eth", async accounts => {
         await weth.deposit({from: swapper, value: swapIn});
         await weth.approve(dexAgg.address, swapIn, {from: swapper});
 
-        r = await dexAgg.sell(token0.address, weth.address, 70000, 0, swapIn, minOut, utils.Uni2DexData, {from: swapper});
+        r = await dexAgg.sell(token0.address, weth.address, swapIn, minOut, utils.Uni2DexData, {from: swapper});
         m.log("sell exact amount Gas Used:", r.receipt.gasUsed);
         assert.equal(await token0.balanceOf(swapper), "926286953661246", "sell exact amount");
     });

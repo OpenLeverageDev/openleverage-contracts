@@ -60,19 +60,17 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @dev Sell exact amount of token with tax applied
     /// @param buyToken Address of token transfer from Dex pair
     /// @param sellToken Address of token transfer into Dex pair
-    /// @param buyTax Tax applyed by buyToken while transfer from Dex pair
-    /// @param sellTax Tax applyed by SellToken while transfer into Dex pair
     /// @param sellAmount Exact amount to sell
     /// @param minBuyAmount minmum amount of token to receive.
     /// @param data Dex to use for swap
     /// @return buyAmount Exact Amount bought
-    function sell(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
         if (data.isUniV2Class()) {
             buyAmount = uniV2Sell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            buyAmount = uniV3Sell(buyToken, sellToken, buyTax, sellTax, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
+            buyAmount = uniV3Sell(buyToken, sellToken, sellAmount, minBuyAmount, data.toFee(), true, payer, payer);
         }
         else {
             revert('Unsupported dex');
@@ -111,7 +109,7 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
             sellAmount = uniV2Buy(dexInfo[data.toDex()], buyToken, sellToken, buyAmount, maxSellAmount, buyTax, sellTax);
         }
         else if (data.toDex() == DexData.DEX_UNIV3) {
-            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true, buyTax, sellTax);
+            sellAmount = uniV3Buy(buyToken, sellToken, buyAmount, maxSellAmount, data.toFee(), true);
         }
         else {
             revert('Unsupported dex');

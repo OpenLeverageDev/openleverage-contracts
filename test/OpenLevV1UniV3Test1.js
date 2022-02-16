@@ -314,7 +314,7 @@ contract("OpenLev UniV3", async accounts => {
 
         await utils.mint(token0, saver, 1000000);
         await token0.approve(dexAgg.address, utils.toWei(108000), {from: saver});
-        await dexAgg.sell(token1.address, token0.address, 0, 0, utils.toWei(108000), 0, Uni3DexData, {from: saver});
+        await dexAgg.sell(token1.address, token0.address, utils.toWei(108000), 0, Uni3DexData, {from: saver});
         await gotPair.setPreviousPrice(token0.address, token1.address, utils.toWei(10));
         m.log("Liquidating trade ... ");
         await assertThrows(openLev.liquidate(trader, 0, 0, 0, utils.maxUint(), Uni3DexData, {from: liquidator2}), 'MPT');

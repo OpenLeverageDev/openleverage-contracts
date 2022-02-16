@@ -58,15 +58,11 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @dev Sell exact amount of token with tax applied
     /// @param buyToken Address of token transfer from Dex pair
     /// @param sellToken Address of token transfer into Dex pair
-    /// @param buyTax Tax applyed by buyToken while transfer from Dex pair
-    /// @param sellTax Tax applyed by SellToken while transfer into Dex pair
     /// @param sellAmount Exact amount to sell
     /// @param minBuyAmount minmum amount of token to receive.
     /// @param data Dex to use for swap
     /// @return buyAmount Exact Amount bought
-    function sell(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
-        buyTax;
-        sellTax;
+    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
         buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
     }
