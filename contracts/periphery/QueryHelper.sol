@@ -128,27 +128,24 @@ contract QueryHelper {
                 continue;
             }
             item.lastUpdateTime = reqVar.timestamp;
+            bool canUpdatePrice = block.timestamp - calConf.twapDuration > item.lastUpdateTime;
             (item.currentMarginRatio, item.cAvgMarginRatio, item.hAvgMarginRatio, item.marginLimit) = reqVar.openLev.marginRatio(reqVar.owner, reqVar.marketId, reqVar.longToken, reqVar.dexData);
             if (item.currentMarginRatio > item.marginLimit && item.cAvgMarginRatio > item.marginLimit && item.hAvgMarginRatio > item.marginLimit) {
                 item.status = LiqStatus.HEALTHY;
             }
             else if (item.currentMarginRatio < item.marginLimit && item.cAvgMarginRatio > item.marginLimit && item.hAvgMarginRatio > item.marginLimit) {
-                if (dexData.isUniV2Class()) {
-                    if (block.timestamp - calConf.twapDuration > item.lastUpdateTime) {
-                        item.status = LiqStatus.UPDATE;
-                    } else {
-                        item.status = LiqStatus.WAITING;
-                    }
+                if (dexData.isUniV2Class() && canUpdatePrice) {
+                    item.status = LiqStatus.UPDATE;
                 } else {
                     item.status = LiqStatus.WAITING;
                 }
             } else if (item.currentMarginRatio < item.marginLimit && item.cAvgMarginRatio < item.marginLimit) {
                 //Liq
-                if (block.timestamp - calConf.twapDuration > item.lastUpdateTime || item.hAvgMarginRatio < item.marginLimit) {
+                if (canUpdatePrice || item.hAvgMarginRatio < item.marginLimit) {
                     // cAvgRatio diff currentRatio >+-5% ,waiting
                     if ((longTokens[i] == false && reqVar.token0cAvgPrice > reqVar.token0price && reqVar.token0cAvgPrice.mul(100).div(reqVar.token0price) - 100 >= calConf.maxLiquidationPriceDiffientRatio)
                         || (longTokens[i] == true && reqVar.token1cAvgPrice > reqVar.token1price && reqVar.token1cAvgPrice.mul(100).div(reqVar.token1price) - 100 >= calConf.maxLiquidationPriceDiffientRatio)) {
-                        if (dexData.isUniV2Class()) {
+                        if (dexData.isUniV2Class() && canUpdatePrice) {
                             item.status = LiqStatus.UPDATE;
                         } else {
                             item.status = LiqStatus.WAITING;
