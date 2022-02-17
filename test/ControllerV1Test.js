@@ -601,6 +601,23 @@ contract("ControllerV1", async accounts => {
         await assertThrows(openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData), 'Suspended');
 
     });
+
+    it("CloseTrade Suspend test", async () => {
+        let {controller, tokenA, tokenB, openLev} = await instanceController();
+        let transaction = await createMarket(controller, tokenA, tokenB);
+        let pool0 = transaction.logs[0].args.pool0;
+        //supply
+        let pool0Ctr = await LPool.at(pool0);
+        let token0Ctr = await utils.tokenAt(await pool0Ctr.underlying());
+        await token0Ctr.mint(accounts[0], utils.toWei(10));
+        await token0Ctr.approve(pool0, utils.toWei(10));
+        await pool0Ctr.mint(utils.toWei(5));
+        await token0Ctr.approve(openLev.address, utils.toWei(10));
+        openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData)
+        await controller.setSuspendAll(true);
+        await assertThrows(openLev.closeTrade(0, true, 1, 0, Uni3DexData), 'Suspended');
+    });
+
     /*** Admin Test ***/
 
     it("Admin setLPoolImplementation test", async () => {
@@ -721,7 +738,6 @@ contract("ControllerV1", async accounts => {
             web3.eth.abi.encodeParameters(['address'], [instance.address]), 0)
         assert.equal(instance.address, await controller.implementation());
         await assertThrows(controller.setImplementation(instance.address), 'caller must be admin');
-
     });
 
     async function createMarket(controller, token0, token1) {
