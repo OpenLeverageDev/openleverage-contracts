@@ -149,6 +149,11 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         return true;
     }
 
+    function closeTradeAllowed(uint marketId) external view override returns (bool){
+        require(!suspendAll, 'Suspended');
+        return true;
+    }
+
     function updatePriceAllowed(uint marketId, address payee) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         marketId;
@@ -408,6 +413,10 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         suspend = _uspend;
     }
 
+    function setSuspendAll(bool _uspend) external override onlyAdminOrDeveloper {
+        suspendAll = _uspend;
+    }
+
     function setMarketSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
         marketSuspend[marketId] = suspend;
     }
@@ -423,6 +432,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
 
     modifier onlyNotSuspended() {
         require(!suspend, 'Suspended');
+        require(!suspendAll, 'Suspended all');
         _;
     }
     
