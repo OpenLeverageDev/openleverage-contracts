@@ -48,15 +48,25 @@ module.exports = {
       network_id: "*",
       disableConfirmationListener: true
     },
+
     local: {
-      host: "127.0.0.1",     // Localhost (default: none)
-      port: 7545,            // Standard Ethereum port (default: none)
-      network_id: "*",
+      provider: () => new HDWalletProvider("345e5243a1c0391e14f80c8ab051b1561748782861a756a756d7a5cd087be505", `http://127.0.0.1:8545`),
+      network_id: "31",
+      gas: 5500000,        
+      disableConfirmationListener: true
+    },
+
+    kovan: {
+      provider: () => new HDWalletProvider("345e5243a1c0391e14f80c8ab051b1561748782861a756a756d7a5cd087be505", `wss://kovan.infura.io/ws/v3/03a7564eded64ff7a333247174b480ab`),
+      network_id: "42",
+      gas: 5500000,        
+      confirmations: 2,    
+      skipDryRun: true,
+      websockets: true,
       disableConfirmationListener: true
     },
 
     bscTestnet: {
-      provider: () => new HDWalletProvider("secret", `wss://testnet.binance.vision/ws`),
       network_id: 97,       
       gas: 5500000,        
       confirmations: 1,    
