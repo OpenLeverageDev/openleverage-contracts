@@ -6,11 +6,13 @@ import "../lib/Exponential.sol";
 import "../lib/TransferHelper.sol";
 import "../dex/DexAggregatorInterface.sol";
 import "../IWETH.sol";
+import "../Adminable.sol";
+import "../DelegatorInterface.sol";
 
 /// @title User Deposit Contract
 /// @author OpenLeverage
 /// @notice Use this contract for supplying lending pool funds  
-contract LPoolDepositor {
+contract LPoolDepositor is DelegatorInterface, Adminable {
     using TransferHelper for IERC20;
 
     mapping(address => mapping(address => uint)) allowedToTransfer;
