@@ -38,8 +38,8 @@ contract UniV2Dex {
     ) internal returns (uint buyAmount){
         address pair = getUniV2ClassPair(buyToken, sellToken, dexInfo.factory);
         IUniswapV2Pair(pair).sync();
-        (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
+        (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         uint balanceBefore = IERC20(buyToken).balanceOf(payee);
         dexInfo.fees = getPairFees(dexInfo, pair);
 
@@ -91,7 +91,7 @@ contract UniV2Dex {
             transferOut(IERC20(sellToken), msg.sender, pair, sellAmount);
             IUniswapV2Pair(pair).swap(buyAmount.toAmountBeforeTax(buyTokenFeeRate), 0, msg.sender, "");
         } else {
-            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate),token0Reserves, token1Reserves, dexInfo.fees);
+            sellAmount = getAmountIn(buyAmount.toAmountBeforeTax(buyTokenFeeRate), token0Reserves, token1Reserves, dexInfo.fees);
             sellAmount = sellAmount.toAmountBeforeTax(sellTokenFeeRate);
             require(sellAmount <= maxSellAmount, 'sell amount not enough');
             transferOut(IERC20(sellToken), msg.sender, pair, sellAmount);
