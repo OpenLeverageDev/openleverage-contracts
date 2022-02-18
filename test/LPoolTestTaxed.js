@@ -4,9 +4,6 @@ const {toWei, assertPrint, assertThrows} = require("./utils/OpenLevUtil");
 const {toBN, maxUint, advanceMultipleBlocks} = require("./utils/EtheUtil");
 const m = require('mocha-logger');
 const timeMachine = require('ganache-time-traveler');
-const LPool = artifacts.require('LPool');
-const LPoolDelegator = artifacts.require('LPoolDelegator');
-const LPoolDepositor = artifacts.require('LPoolDepositor');
 
 contract("LPoolDelegator", async accounts => {
 
