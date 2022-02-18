@@ -13,6 +13,7 @@ truffle run verify XOLE --network $1
 truffle run verify ControllerDelegator --network  $1
 truffle run verify DexAggregatorDelegator --network $1
 truffle run verify LPoolDelegator --network $1
+truffle run verify LPoolDepositor --network $1
 truffle run verify OpenLevDelegator --network $1
 truffle run verify XOLEDelegator --network $1
 

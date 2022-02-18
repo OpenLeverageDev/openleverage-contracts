@@ -7,6 +7,7 @@ const timeMachine = require('ganache-time-traveler');
 const LPool = artifacts.require('LPool');
 const LPoolDelegator = artifacts.require('LPoolDelegator');
 const LPoolDepositor = artifacts.require('LPoolDepositor');
+const LPoolDepositorDelegator = artifacts.require("LPoolDepositorDelegator")
 
 contract("LPoolDelegator", async accounts => {
 
@@ -219,7 +220,8 @@ contract("LPoolDelegator", async accounts => {
         let controller = await utils.createController(accounts[0]);
         let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
         let erc20Pool = createPoolResult.pool;
-        let poolDepositor = await LPoolDepositor.new();
+        let poolDepositor = await LPoolDepositorDelegator.new((await LPoolDepositor.new()).address, accounts[0]);
+        poolDepositor = await LPoolDepositor.at(poolDepositor.address);
         let mintAmount = toWei(1);
         //deposit 1
         let ethBegin = await web3.eth.getBalance(admin);
@@ -245,7 +247,8 @@ contract("LPoolDelegator", async accounts => {
         let erc20Pool = createPoolResult.pool;
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 1);
-        let poolDepositor = await LPoolDepositor.new();
+        let poolDepositor = await LPoolDepositorDelegator.new((await LPoolDepositor.new()).address, accounts[0]);
+        poolDepositor = await LPoolDepositor.at(poolDepositor.address);
         let mintAmount = toWei(1);
         //deposit 1
         await testToken.approve(poolDepositor.address, maxUint());
