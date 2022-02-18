@@ -40,6 +40,8 @@ contract UniV2Dex {
         IUniswapV2Pair(pair).sync();
         sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
         (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
+        sellAmount = buyToken < sellToken ? IERC20(sellToken).balanceOf(pair).sub(token1Reserves) : IERC20(sellToken).balanceOf(pair).sub(token0Reserves);
+
         uint balanceBefore = IERC20(buyToken).balanceOf(payee);
         dexInfo.fees = getPairFees(dexInfo, pair);
 
