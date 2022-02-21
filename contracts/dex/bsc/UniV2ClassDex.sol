@@ -38,8 +38,10 @@ contract UniV2ClassDex {
     ) internal returns (uint buyAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         IUniswapV2Pair(pair).sync();
-        (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
         sellAmount = transferOut(IERC20(sellToken), payer, pair, sellAmount);
+        (uint256 token0Reserves, uint256 token1Reserves,) = IUniswapV2Pair(pair).getReserves();
+        sellAmount = buyToken < sellToken ? IERC20(sellToken).balanceOf(pair).sub(token1Reserves) : IERC20(sellToken).balanceOf(pair).sub(token0Reserves);
+
         uint balanceBefore = IERC20(buyToken).balanceOf(payee);
         dexInfo.fees = getPairFees(dexInfo, pair);
 
@@ -77,7 +79,7 @@ contract UniV2ClassDex {
         uint buyAmount,
         uint maxSellAmount,
         uint24 buyTokenFeeRate,
-        uint24 sellTokenFeeRate) 
+        uint24 sellTokenFeeRate)
     internal returns (uint sellAmount){
         address pair = getUniClassPair(buyToken, sellToken, dexInfo.factory);
         IUniswapV2Pair(pair).sync();
