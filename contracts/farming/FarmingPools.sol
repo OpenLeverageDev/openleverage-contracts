@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "../Adminable.sol";
 
+/// @title Farming Pools
+/// @author OpenLeverage
+/// @notice Deposit OLE to earn inerest
+/// @dev Rewards are released linearly 
 contract FarmingPools is Adminable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -71,7 +75,7 @@ contract FarmingPools is Adminable {
             return distribution.rewardPerTokenStored;
         }
         uint64 lastTimeRewardApplicable = lastTimeRewardApplicable(stakeToken);
-        assert(lastTimeRewardApplicable >= distribution.lastUpdateTime);
+        require(lastTimeRewardApplicable >= distribution.lastUpdateTime);
         return distribution.rewardPerTokenStored.add(
             distribution.rewardRate
             .mul(lastTimeRewardApplicable - distribution.lastUpdateTime)
@@ -125,9 +129,15 @@ contract FarmingPools is Adminable {
     }
 
     function initDistributions(address[] memory stakeTokens, uint64[] memory startTimes, uint64[] memory durations) external onlyAdmin {
-        for (uint256 i = 0; i < stakeTokens.length; i++) {
+        uint stakeTokensLength = stakeTokens.length;
+        require(stakeTokensLength == startTimes.length, "array length wrong");
+        require(stakeTokensLength == durations.length, "array length wrong");
+
+        for (uint256 i = 0; i < stakeTokensLength; i++) {
+            uint64 startTime = startTimes[i];
+            require(startTime >= block.timestamp, "Start time elapsed");
             require(distributions[stakeTokens[i]].starttime == 0, 'Init once');
-            distributions[stakeTokens[i]] = Distribution(durations[i], startTimes[i], 0, 0, 0, 0, 0);
+            distributions[stakeTokens[i]] = Distribution(durations[i], startTime, 0, 0, 0, 0, 0);
         }
     }
 
@@ -157,6 +167,7 @@ contract FarmingPools is Adminable {
     }
 
     function notifyRewardAmounts(address[] memory stakeTokens, uint256[] memory reward) external {
+        require(stakeTokens.length == reward.length, "token length wrong");
         for (uint256 i = 0; i < stakeTokens.length; i++) {
             notifyRewardAmount(stakeTokens[i], reward[i]);
         }

@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./Adminable.sol";
 
+/// @title Total reserves of OLE
+/// @author OpenLeverage
+/// @notice OLE token not distributed 
+/// @dev Admin of this contract is the address of Timelock.
 contract Reserve is Adminable {
     IERC20 public oleToken;
     using SafeMath for uint;

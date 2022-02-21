@@ -10,9 +10,11 @@ const ControllerV1 = artifacts.require("ControllerV1");
 const ControllerDelegator = artifacts.require("ControllerDelegator");
 const LPool = artifacts.require("LPool");
 const OpenLevV1 = artifacts.require("OpenLevV1");
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const Airdrop = artifacts.require("Airdrop");
 const LPoolDepositor = artifacts.require("LPoolDepositor");
+const LPoolDepositorDelegator = artifacts.require("LPoolDepositorDelegator")
 const Reserve = artifacts.require("Reserve");
 const utils = require("./util");
 const m = require('mocha-logger');
@@ -43,19 +45,14 @@ module.exports = async function (deployer, network, accounts) {
     await deployer.deploy(Airdrop, oleAddr, utils.deployOption(accounts));
     //dexAgg
     switch (network) {
-        case utils.kovan:
-        case utils.mainnet:
-            await deployer.deploy(EthDexAggregatorV1, utils.deployOption(accounts));
-            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
-            break;
         case utils.bscIntegrationTest:
         case utils.bscTestnet:
             await deployer.deploy(BscDexAggregatorV1, utils.deployOption(accounts));
             await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, BscDexAggregatorV1.address, utils.deployOption(accounts));
             break;
         default:
-            m.error("unkown network");
-            return
+            await deployer.deploy(EthDexAggregatorV1, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
     }
 
     //xole
@@ -77,6 +74,8 @@ module.exports = async function (deployer, network, accounts) {
             await deployer.deploy(ControllerDelegator, oleAddr, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02000bb8', adminCtr, ControllerV1.address, utils.deployOption(accounts));
     }
     //openLev
+    await deployer.deploy(OpenLevV1Lib);
+    await deployer.link(OpenLevV1Lib, OpenLevV1);
     await deployer.deploy(OpenLevV1, utils.deployOption(accounts));
     switch (network) {
         case utils.bscIntegrationTest:
@@ -88,6 +87,7 @@ module.exports = async function (deployer, network, accounts) {
     }
     //lpoolDepositor
     await deployer.deploy(LPoolDepositor, utils.deployOption(accounts));
+    await deployer.deploy(LPoolDepositorDelegator, LPoolDepositor.address, adminCtr, utils.deployOption(accounts));
     //set openLev address
     m.log("Waiting controller setOpenLev......");
     await (await Timelock.at(Timelock.address)).executeTransaction(ControllerDelegator.address, 0, 'setOpenLev(address)', encodeParameters(['address'], [OpenLevDelegator.address]), 0);

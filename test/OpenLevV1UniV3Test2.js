@@ -8,6 +8,7 @@ const {
   assertPrint, assertThrows,
 } = require("./utils/OpenLevUtil");
 const {toBN} = require("./utils/EtheUtil");
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib")
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const m = require('mocha-logger');
@@ -17,6 +18,7 @@ const TestToken = artifacts.require("MockERC20");
 contract("OpenLev UniV3", async accounts => {
 
   // components
+  let openLevV1Lib;
   let openLev;
   let ole;
   let xole;
@@ -50,6 +52,8 @@ contract("OpenLev UniV3", async accounts => {
     dexAgg = await utils.createEthDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
 
     xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
+    let openLevV1Lib = await OpenLevV1Lib.new();
+    await OpenLevDelegate.link("OpenLevV1Lib", openLevV1Lib.address);
     let delegate = await OpenLevDelegate.new();
     openLev = await OpenLevV1.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address,[1,2], accounts[0], delegate.address);
     openLev = await OpenLevDelegate.at(openLev.address);
@@ -114,7 +118,7 @@ contract("OpenLev UniV3", async accounts => {
     m.log("Trade.deposited:", trade.deposited);
 
 
-    await gotPair.setPrice(btc.address, usdt.address, 2);
+    await gotPair.setPrice(btc.address, usdt.address, utils.toWei(1));
     // Market price change, then check margin ratio
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
@@ -374,6 +378,6 @@ contract("OpenLev UniV3", async accounts => {
     let trade = await openLev.activeTrades(trader, 0, 0);
     // Close trade
     m.log("trade.deposit=", trade.deposited);
-    await assertThrows(openLev.closeTrade(0, 0, trade.held, 0, Uni3DexData, {from: trader}), 'ERC20: transfer amount exceeds balance');
+    await assertThrows(openLev.closeTrade(0, 0, trade.held, 0, Uni3DexData, {from: trader}), 'TFF');
   })
 })

@@ -4,7 +4,6 @@ pragma abicoder v2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
@@ -12,10 +11,11 @@ import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
 import "../../lib/DexData.sol";
+import "../../lib/TransferHelper.sol";
 
 contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeMath for uint;
-    using SafeERC20 for IERC20;
+    using TransferHelper for IERC20;
     using SafeCast for uint256;
     IUniswapV3Factory public  uniV3Factory;
     uint16 private constant observationSize = 12;
@@ -81,7 +81,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-    function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
+        function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
         SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
         bool zeroForOne = data.tokenIn < data.tokenOut;
         IUniswapV3Pool pool = getPool(data.tokenIn, data.tokenOut, fee);

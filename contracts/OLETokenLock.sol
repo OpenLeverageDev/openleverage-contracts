@@ -3,11 +3,15 @@ pragma solidity 0.7.6;
 
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./gov/OLEToken.sol";
 
+
+/// @title OLE token Locked
+/// @author OpenLeverage
+/// @notice Release OLE to beneficiaries linearly.
 contract OLETokenLock {
-
     using SafeMath for uint256;
-    IOLEToken public token;
+    OLEToken public token;
     mapping(address => ReleaseVar) public releaseVars;
 
     event Release(address beneficiary, uint amount);
@@ -20,21 +24,20 @@ contract OLETokenLock {
         uint128 lastUpdateTime;
     }
 
-    constructor(IOLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes) {
+    constructor(OLEToken token_, address[] memory beneficiaries, uint256[] memory amounts, uint128[] memory startTimes, uint128[] memory endTimes) {
         require(beneficiaries.length == amounts.length
         && beneficiaries.length == startTimes.length
             && beneficiaries.length == endTimes.length, "Array length must be same");
         token = token_;
         for (uint i = 0; i < beneficiaries.length; i++) {
+            require(endTimes[i] > startTimes[i], "StartTime must be earlier than endTime");
             address beneficiary = beneficiaries[i];
             releaseVars[beneficiary] = ReleaseVar(amounts[i], startTimes[i], endTimes[i], startTimes[i]);
         }
     }
 
-
-    function release(address beneficiary) external {
-        require(beneficiary != address(0), "beneficiary address cannot be 0");
-        releaseInternal(beneficiary);
+    function release() external {
+        releaseInternal(msg.sender);
     }
 
     function releaseInternal(address beneficiary) internal {
@@ -81,12 +84,4 @@ contract OLETokenLock {
         .div(releaseVar.endTime - releaseVar.startTime);
     }
 
-}
-
-interface IOLEToken {
-    function balanceOf(address account) external view returns (uint256);
-
-    function transfer(address recipient, uint256 amount) external returns (bool);
-
-    function delegate(address delegatee) external;
 }

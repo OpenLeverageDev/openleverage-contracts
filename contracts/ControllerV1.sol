@@ -10,15 +10,26 @@ import "@openzeppelin/contracts/math/Math.sol";
 import "./DelegateInterface.sol";
 import "./lib/DexData.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./OpenLevInterface.sol";
+import "./XOLEInterface.sol";
 
-/**
-  * @title Controller
-  * @author OpenLeverage
-  */
+/// @title OpenLeverage Controller Logic
+/// @author OpenLeverage
+/// @notice You can use this contract for operating trades and find trading intel.
+/// @dev Admin of this contract is the address of Timelock. Admin set configs and transfer insurance expected to XOLE.
 contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, ControllerStorage {
     using SafeMath for uint;
     constructor () {}
 
+    /// @notice Initialize proxy contract
+    /// @dev This function is not supposed to call multiple times. All configs can be set through other functions.
+    /// @param _oleToken Address of OLEToken.
+    /// @param _xoleToken address of XOLEToken.
+    /// @param _wETH Address of wrapped native coin.
+    /// @param _lpoolImplementation Address of lending pool logic contract.
+    /// @param _openlev Address of openLev aggregator contract.
+    /// @param _dexAggregator Address of DexAggregatorDelegator.
+    /// @param _oleWethDexData Index and feeRate of ole/weth pair.
     function initialize(
         IERC20 _oleToken,
         address _xoleToken,
@@ -47,6 +58,11 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         string tokenSymbol;
     }
 
+    /// @notice Create Lending pools for token0, token1. create market on OpenLev
+    /// @param token0 Address of token0
+    /// @param token1 Address of token1
+    /// @param marginLimit The liquidation trigger ratio of deposited token value to borrowed token value.
+    /// @param dexData Pair initiate data including index, feeRate of the Dex and tax rate of the underlying tokens.
     function createLPoolPair(address token0, address token1, uint16 marginLimit, bytes memory dexData) external override {
         require(token0 != token1, 'identical address');
         require(lpoolPairs[token0][token1].lpool0 == address(0) || lpoolPairs[token1][token0].lpool0 == address(0), 'pool pair exists');
@@ -59,7 +75,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
             pairVar.tokenName, pairVar.tokenSymbol, ERC20(pairVar.token1).decimals(), admin, lpoolImplementation);
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
-        uint16 marketId = (OPENLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
+        uint16 marketId = (OpenLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
         emit LPoolPairCreated(pairVar.token0, address(pool0), pairVar.token1, address(pool1), marketId, pairVar.marginLimit, pairVar.dexData);
     }
 
@@ -133,7 +149,12 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         return true;
     }
 
-    function updatePriceAllowed(uint marketId) external override onlyOpenLevOperator(msg.sender) {
+    function closeTradeAllowed(uint marketId) external view override returns (bool){
+        require(!suspendAll, 'Suspended');
+        return true;
+    }
+
+    function updatePriceAllowed(uint marketId, address payee) external override onlyOpenLevOperator(msg.sender) {
         // Shh - currently unused
         marketId;
         // market no distribution
@@ -144,9 +165,9 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         if (reward > oleTokenDistribution.extraBalance) {
             return;
         }
-        if (transferOut(tx.origin, reward)) {
+        if (transferOut(payee, reward)) {
             oleTokenDistribution.extraBalance = oleTokenDistribution.extraBalance.sub(reward);
-            emit UpdatePriceReward(marketId, tx.origin, reward, oleTokenDistribution.extraBalance);
+            emit UpdatePriceReward(marketId, payee, reward, oleTokenDistribution.extraBalance);
         }
     }
 
@@ -222,7 +243,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
 
     function stake(LPoolInterface lpool, address account, uint256 amount) internal returns (bool) {
         bool updateSucceed = updateReward(lpool, account, false);
-        if (xoleToken == address(0) || XOleInterface(xoleToken).balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
+        if (xoleToken == address(0) || XOLEInterface(xoleToken).balanceOf(account) < oleTokenDistribution.xoleRaiseMinAmount) {
             return updateSucceed;
         }
         uint addExtraToken = amount.mul(oleTokenDistribution.xoleRaiseRatio).div(100);
@@ -392,6 +413,10 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         suspend = _uspend;
     }
 
+    function setSuspendAll(bool _uspend) external override onlyAdminOrDeveloper {
+        suspendAll = _uspend;
+    }
+
     function setMarketSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
         marketSuspend[marketId] = suspend;
     }
@@ -404,27 +429,16 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         require(!lpoolUnAlloweds[msg.sender], "LPool paused");
         _;
     }
+
     modifier onlyNotSuspended() {
         require(!suspend, 'Suspended');
+        require(!suspendAll, 'Suspended all');
         _;
     }
+    
     modifier onlyOpenLevOperator(address operator) {
         require(openLev == operator || openLev == address(0), "Operator not openLev");
         _;
     }
 
 }
-
-interface OPENLevInterface {
-    function addMarket(
-        LPoolInterface pool0,
-        LPoolInterface pool1,
-        uint16 marginLimit,
-        bytes memory dexData
-    ) external returns (uint16);
-}
-
-interface XOleInterface {
-    function balanceOf(address addr) external view returns (uint256);
-}
-

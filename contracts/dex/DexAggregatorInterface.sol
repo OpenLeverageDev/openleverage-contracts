@@ -10,11 +10,11 @@ interface DexAggregatorInterface {
 
     function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 
-    function buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) external returns (uint sellAmount);
+    function buy(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint buyAmount, uint maxSellAmount, bytes memory data) external returns (uint sellAmount);
 
-    function calBuyAmount(address buyToken, address sellToken, uint sellAmount, bytes memory data) external view returns (uint);
+    function calBuyAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint sellAmount, bytes memory data) external view returns (uint);
 
-    function calSellAmount(address buyToken, address sellToken, uint buyAmount, bytes memory data) external view returns (uint);
+    function calSellAmount(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint buyAmount, bytes memory data) external view returns (uint);
 
     function getPrice(address desToken, address quoteToken, bytes memory data) external view returns (uint256 price, uint8 decimals);
 

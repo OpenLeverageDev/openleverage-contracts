@@ -7,6 +7,7 @@ const {
     assertPrint,
 } = require("./utils/OpenLevUtil");
 const {toBN} = require("./utils/EtheUtil");
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib")
 const OpenLevDelegate = artifacts.require("OpenLevV1");
 const OpenLevV1 = artifacts.require("OpenLevDelegator");
 const m = require('mocha-logger');
@@ -14,12 +15,13 @@ const LPool = artifacts.require("LPool");
 const MockUniswapV3Factory = artifacts.require("MockUniswapV3Factory");
 const TestToken = artifacts.require("MockERC20");
 
-const Uni3DexData = "0x02000bb8" + "01";
+const Uni3DexData = "0x02" + "000bb8" + "02";
 const Uni3DexDataMaxBuyAmount = "0x02000bb8" + "00";
 
 contract("OpenLev UniV3", async accounts => {
 
     // components
+    let openLevV1Lib;
     let openLev;
     let ole;
     let xole;
@@ -51,7 +53,8 @@ contract("OpenLev UniV3", async accounts => {
         token0 = await TestToken.at(await gotPair.token0());
         token1 = await TestToken.at(await gotPair.token1());
 
-
+        openLevV1Lib = await OpenLevV1Lib.new();
+        await OpenLevDelegate.link("OpenLevV1Lib", openLevV1Lib.address);
         let delegate = await OpenLevDelegate.new();
         let dexAgg = await utils.createEthDexAgg("0x0000000000000000000000000000000000000000", uniswapFactory.address, accounts[0]);
         let univ3Addr = await dexAgg.uniV3Factory();
@@ -61,7 +64,6 @@ contract("OpenLev UniV3", async accounts => {
         m.log("DexAgg price: ", JSON.stringify(price));
 
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
-
         openLev = await OpenLevV1.new(controller.address, dexAgg.address, [token0.address, token1.address], "0x0000000000000000000000000000000000000000", xole.address, [1, 2], accounts[0], delegate.address);
         openLev = await OpenLevDelegate.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
@@ -201,7 +203,7 @@ contract("OpenLev UniV3", async accounts => {
 
         // Partial Close trade
         m.log("Partial Close Trade", 400);
-        let tx_close = await openLev.closeTrade(0, 0, "400000000000000000000", maxUint(), Uni3DexDataMaxBuyAmount, {from: trader});
+        let tx_close = await openLev.closeTrade(0, 0, "400000000000000000000", maxUint(), Uni3DexData, {from: trader});
 
         // Check contract held balance
         checkAmount("OpenLev USDT Balance", 0, await usdt.balanceOf(openLev.address), 18);
@@ -221,7 +223,7 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(7936, ratio.current.toString());
 
         // Partial Close trade
-        let tx_full_close = await openLev.closeTrade(0, 0, "493327303890107812554", maxUint(), Uni3DexDataMaxBuyAmount, {from: trader});
+        let tx_full_close = await openLev.closeTrade(0, 0, "493327303890107812554", maxUint(), Uni3DexData, {from: trader});
         checkAmount("OpenLev USDT Balance", 0, await usdt.balanceOf(openLev.address), 18);
         checkAmount("OpenLev BTC Balance", 1775394030851206734, await btc.balanceOf(openLev.address), 18);
         checkAmount("Trader USDT Balance", 0, await usdt.balanceOf(trader), 18);
@@ -256,26 +258,23 @@ contract("OpenLev UniV3", async accounts => {
 
         await openLev.marginTrade(0, false, false, deposit, borrow, 0, Uni3DexData, {from: trader});
         //set price  1/2=0.5
-        await gotPair.setPrice(btc.address, usdt.address, 1);
-        await gotPair.setPreviousPrice(btc.address, usdt.address, 1);
+        await gotPair.setPrice(btc.address, usdt.address, "500000000000000000");
+        await gotPair.setPreviousPrice(btc.address, usdt.address, "500000000000000000");
 
         let marginRatio_2 = await openLev.marginRatio(trader, 0, false, Uni3DexData, {from: saver});
         m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
         assert.equal(0, marginRatio_2.current.toString());
 
-        await openLev.liquidate(trader, 0, false, utils.maxUint(), Uni3DexDataMaxBuyAmount, {from: saver});
+        await openLev.liquidate(trader, 0, false, 0, utils.maxUint(), Uni3DexData, {from: saver});
 
         checkAmount("OpenLev USDT Balance", 0, await usdt.balanceOf(openLev.address), 18);
         checkAmount("OpenLev BTC Balance", 1775394030851206734, await btc.balanceOf(openLev.address), 18);
         checkAmount("Trader USDT Balance", 0, await usdt.balanceOf(trader), 18);
-        checkAmount("Trader BTC Balance", 10338156977778830200387, await btc.balanceOf(trader), 18);
+        checkAmount("Trader BTC Balance", 9600000000000000000000, await btc.balanceOf(trader), 18);
         checkAmount("Treasury USDT Balance", 0, await usdt.balanceOf(xole.address), 18);
         checkAmount("Treasury BTC Balance", 3604587880819116703, await btc.balanceOf(xole.address), 18);
 
         assertPrint("Insurance of Pool0:", '1775394030851206734', (await openLev.markets(0)).pool0Insurance);
         assertPrint("Insurance of Pool1:", '0', (await openLev.markets(0)).pool1Insurance);
-
     })
-
-
 })

@@ -6,6 +6,7 @@ pragma experimental ABIEncoderV2;
 import "../Adminable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
+/// @dev Admin of this contract is the address of Timelock. 
 contract OLEToken is Adminable {
     using SafeMath for uint;
 

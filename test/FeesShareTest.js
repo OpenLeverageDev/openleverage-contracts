@@ -61,7 +61,7 @@ contract("XOLE", async accounts => {
         let pair = await MockUniswapV2Pair.new(usdt.address, dai.address, toWei(10000), toWei(10000));
         let oleUsdtPair = await MockUniswapV2Pair.new(usdt.address, ole.address, toWei(100000), toWei(100000));
         let oleDaiPair = await MockUniswapV2Pair.new(dai.address, ole.address, toWei(100000), toWei(100000));
-        daiOLEDexData = Uni2DexData + addressToBytes(dai.address) + addressToBytes(ole.address);
+        daiOLEDexData = Uni2DexData  + addressToBytes(dai.address) + addressToBytes(ole.address);
         usdtOLEDexData = Uni2DexData + addressToBytes(usdt.address) + addressToBytes(ole.address);
         daiUsdtDexData = Uni2DexData + addressToBytes(dai.address) + addressToBytes(usdt.address);
 
@@ -212,7 +212,7 @@ contract("XOLE", async accounts => {
         let lastbk = await web3.eth.getBlock('latest');
         await xole.create_lock(toWei(10000), lastbk.timestamp + WEEK);
         assert.equal('10000000000000000000000', (await usdt.balanceOf(xole.address)).toString());
-        await xole.convertToSharingToken(toWei(1000), 0, daiUsdtDexData + addressToBytes(ole.address));
+        await xole.convertToSharingToken(toWei(1000), 0,  "0x01" + "000000" + "03" + addressToBytes(dai.address) + addressToBytes(usdt.address) + addressToBytes(ole.address));
         m.log("xOLE USDT balance:", await usdt.balanceOf(xole.address));
         assert.equal('10000000000000000000000', (await usdt.balanceOf(xole.address)).toString());
 

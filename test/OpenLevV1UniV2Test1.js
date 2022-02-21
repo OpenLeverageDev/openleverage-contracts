@@ -12,6 +12,7 @@ const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const m = require('mocha-logger');
 const LPool = artifacts.require("LPool");
 const TestToken = artifacts.require("MockERC20");
+const OpenLevV1Lib = artifacts.require("OpenLevV1Lib")
 
 contract("OpenLev UniV2", async accounts => {
 
@@ -53,7 +54,11 @@ contract("OpenLev UniV2", async accounts => {
         dexAgg = await utils.createEthDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", accounts[0]);
 
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
+
+        openLevV1Lib = await OpenLevV1Lib.new();
+        await OpenLevV1.link("OpenLevV1Lib", openLevV1Lib.address);
         delegatee = await OpenLevV1.new();
+        
         openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, [1, 2], accounts[0], delegatee.address);
         openLev = await OpenLevV1.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
@@ -196,7 +201,9 @@ contract("OpenLev UniV2", async accounts => {
         m.log("PriceData2: \t", JSON.stringify(priceData2));
         let priceData3 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("PriceData3: \t", JSON.stringify(priceData3));
+
         let marginTradeTx = await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+
         m.log("V2 Margin Trade Gas Used: ", marginTradeTx.receipt.gasUsed);
         let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("PriceData0: \t", JSON.stringify(priceData0));
@@ -205,6 +212,7 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(marginRatio.hAvg.toString(), 7733);
         let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
         assert.equal(tradeBefore.held, "886675826237735294796");
+        
         let closeTradeTx = await openLev.closeTrade(0, false, tradeBefore.held, 0, Uni2DexData, {from: trader});
         m.log("V2 Close Trade Gas Used: ", closeTradeTx.receipt.gasUsed);
 
@@ -278,10 +286,10 @@ contract("OpenLev UniV2", async accounts => {
         //
         let marginRatio = await openLev.marginRatio(trader, 0, 0, Uni2DexData);
         m.log("Margin Ratio current:", marginRatio.current / 100, "%");
-        m.log("Margin Ratio avg:", marginRatio.avg / 100, "%");
+        m.log("Margin Ratio havg:", marginRatio.hAvg / 100, "%");
         assert.equal(marginRatio.current.toString(), 13599);
-
     })
+
     it("LONG Token0, Price Diffience>10%, 60s Later, Liquidation", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -320,7 +328,7 @@ contract("OpenLev UniV2", async accounts => {
         let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
         assert.equal(shouldUpatePrice, true);
         // should update price first
-        await assertThrows(openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2}), 'MPT');
+        await assertThrows(openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2}), 'MPT');
 
         await advanceMultipleBlocksAndTime(3000);
         await gotPair.sync();
@@ -331,12 +339,12 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Margin Ratio1 current:", marginRatio1.current / 100, "%");
         m.log("Margin Ratio1 avg:", marginRatio1.cAvg / 100, "%");
         assert.equal(marginRatio1.current, 0);
-        let liquidationTx = await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
+        let liquidationTx = await openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2});
         m.log("V2 Liquidation Gas Used: ", liquidationTx.receipt.gasUsed);
         assertPrint("Deposit Decrease", '397300000000000000000', liquidationTx.logs[0].args.depositDecrease);
         assertPrint("Deposit Return", '0', liquidationTx.logs[0].args.depositReturn);
-
     })
+    
     it("LONG Token0, Price Diffience>10%,Update Price, Liquidation", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -376,7 +384,7 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(shouldUpatePrice, true);
 
         // should update price first
-        await assertThrows(openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2}), 'MPT');
+        await assertThrows(openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2}), 'MPT');
         await advanceMultipleBlocksAndTime(1000);
         let updatePriceTx = await openLev.updatePrice(pairId, Uni2DexData, {from: accounts[2]});
         m.log("V2 UpdatePrice Gas Used: ", updatePriceTx.receipt.gasUsed);
@@ -391,7 +399,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Margin Ratio1 current:", marginRatio1.current / 100, "%");
         m.log("Margin Ratio1 avg:", marginRatio1.cAvg / 100, "%");
         assert.equal(marginRatio1.current, 0);
-        let liquidationTx = await openLev.liquidate(trader, pairId, 0, 0, Uni2DexData, {from: liquidator2});
+        let liquidationTx = await openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2});
         m.log("V2 Liquidation Gas Used: ", liquidationTx.receipt.gasUsed);
         assertPrint("Deposit Decrease", '397300000000000000000', liquidationTx.logs[0].args.depositDecrease);
         assertPrint("Deposit Return", '0', liquidationTx.logs[0].args.depositReturn);

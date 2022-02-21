@@ -3,6 +3,12 @@ pragma solidity 0.7.6;
 
 pragma experimental ABIEncoderV2;
 
+import "./Timelock.sol";
+import "../XOLE.sol";
+
+/// @title Admin to all OpenLeverage contracts
+/// @author OpenLeverage
+/// @dev Fork from compound https://github.com/compound-finance/compound-protocol/blob/master/contracts/Governance/GovernorAlpha.sol
 contract GovernorAlpha {
     // The name of this contract
     string public constant name = "Open Leverage Governor Alpha";
@@ -23,10 +29,10 @@ contract GovernorAlpha {
     function votingPeriod() public pure returns (uint) {return 17280;} // ~3 days in blocks (assuming 15s blocks)
 
     // The address of the OpenLev Protocol Timelock
-    TimelockInterface public timelock;
+    Timelock public timelock;
 
     // The address of the OpenLev governance token
-    XOLETokenInterface public xole;
+    XOLE public xole;
 
     // The address of the Governor Guardian
     address public guardian;
@@ -132,12 +138,19 @@ contract GovernorAlpha {
     // An event emitted when a proposal has been executed in the Timelock
     event ProposalExecuted(uint id);
 
-    constructor(address timelock_, address xoleToken_, address guardian_) {
-        timelock = TimelockInterface(timelock_);
-        xole = XOLETokenInterface(xoleToken_);
+    constructor(address payable timelock_, address xoleToken_, address guardian_) {
+        timelock = Timelock(timelock_);
+        xole = XOLE(xoleToken_);
         guardian = guardian_;
     }
 
+    /// @notice Add proposal for vote
+    /// @param targets Addresses of contract to call.
+    /// @param values Amount of native token send along with the transactions.
+    /// @param signatures Function signature of the target contract.
+    /// @param calldatas Arguments pass to the target function.
+    /// @param description For event only.
+    /// @return Proposal ID
     function propose(address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas, string memory description) external returns (uint) {
         uint previousBlockNumber = sub256(block.number, 1);
         require(xole.getPriorVotes(msg.sender, previousBlockNumber) > proposalThreshold(), "GovernorAlpha::propose: proposer votes below proposal threshold");
@@ -179,6 +192,9 @@ contract GovernorAlpha {
         return proposalCount;
     }
 
+    /// @dev Add transaction to timelock queue
+    /// @param proposalId Queue proposal if vote success
+    /// @return success
     function queue(uint proposalId) external returns (bool) {
         require(state(proposalId) == ProposalState.Succeeded, "GovernorAlpha::queue: proposal can only be queued if it is succeeded");
         Proposal storage proposal = proposals[proposalId];
@@ -192,11 +208,19 @@ contract GovernorAlpha {
         return true;
     }
 
+    /// @dev queued transactions on time lock.
+    /// @param target Address of contract to call.
+    /// @param value Amount of native token send along with the transaction.
+    /// @param signature Function signature of the target contract.
+    /// @param data Argument pass to the target function.
+    /// @param eta Time before execution.
     function _queueOrRevert(address target, uint value, string memory signature, bytes memory data, uint eta) internal {
         require(!timelock.queuedTransactions(keccak256(abi.encode(target, value, signature, data, eta))), "GovernorAlpha::_queueOrRevert: proposal action already queued at eta");
         timelock.queueTransaction(target, value, signature, data, eta);
     }
 
+    /// @dev Execute transactions on time lock.
+    /// @return success
     function execute(uint proposalId) external payable returns (bool){
         require(state(proposalId) == ProposalState.Queued, "GovernorAlpha::execute: proposal can only be executed if it is queued");
         Proposal storage proposal = proposals[proposalId];
@@ -208,15 +232,18 @@ contract GovernorAlpha {
         return true;
     }
 
+    /// @notice Get all exsisting proposals.
     function getActions(uint proposalId) public view returns (address[] memory targets, uint[] memory values, string[] memory signatures, bytes[] memory calldatas) {
         Proposal storage p = proposals[proposalId];
         return (p.targets, p.values, p.signatures, p.calldatas);
     }
 
+    /// @notice Get all vote result.
     function getReceipt(uint proposalId, address voter) public view returns (Receipt memory) {
         return receipts[proposalId][voter];
     }
 
+    /// @notice Get current vote status.
     function state(uint proposalId) public view returns (ProposalState) {
         require(proposalCount >= proposalId && proposalId > 0, "GovernorAlpha::state: invalid proposal id");
         Proposal storage proposal = proposals[proposalId];
@@ -239,6 +266,7 @@ contract GovernorAlpha {
         }
     }
 
+    /// @notice Get current vote status.
     function cancel(uint proposalId) external {
         ProposalState proposalState = state(proposalId);
         require(proposalState != ProposalState.Executed, "GovernorAlpha::cancel: cannot cancel executed proposal");
@@ -260,10 +288,20 @@ contract GovernorAlpha {
         return _castVote(msg.sender, proposalId, support);
     }
 
+    /// @dev Delegate vote to others and verify signature on
+    /// @param support Votes true for support false for against
+    /// @param v The recovery byte of the signature
+    /// @param r Half of the ECDSA signature pair
+    /// @param s Half of the ECDSA signature pair
     function castVoteBySig(uint proposalId, bool support, uint8 v, bytes32 r, bytes32 s) external {
         castVoteBySigInternal(proposalId, support, v, r, s);
     }
 
+    /// @dev Cast vote by vote using castVoteBySig
+    /// @param support Votes true for support false for against
+    /// @param v The recovery byte of the signature
+    /// @param r Half of the ECDSA signature pair
+    /// @param s Half of the ECDSA signature pair
     function castVoteBySigs(uint proposalId, bool[] memory support, uint8[] memory v, bytes32[] memory r, bytes32[] memory s) external {
         require(support.length == v.length && v.length == r.length && r.length == s.length);
         for (uint i = 0; i < support.length; i++) {
@@ -330,27 +368,4 @@ contract GovernorAlpha {
         assembly {chainId := chainid()}
         return chainId;
     }
-}
-
-interface TimelockInterface {
-    function delay() external view returns (uint);
-
-    function GRACE_PERIOD() external view returns (uint);
-
-    function acceptAdmin() external;
-
-    function queuedTransactions(bytes32 hash) external view returns (bool);
-
-    function queueTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external returns (bytes32);
-
-    function cancelTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external;
-
-    function executeTransaction(address target, uint value, string calldata signature, bytes calldata data, uint eta) external payable returns (bytes memory);
-}
-
-interface XOLETokenInterface {
-    function getPriorVotes(address account, uint blockNumber) external view returns (uint);
-
-    function totalSupplyAt(uint256 blockNumber) external view returns (uint);
-
 }

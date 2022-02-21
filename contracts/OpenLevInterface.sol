@@ -3,17 +3,18 @@ pragma solidity 0.7.6;
 
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "./Types.sol";
 import "./liquidity/LPoolInterface.sol";
 import "./ControllerInterface.sol";
 import "./dex/DexAggregatorInterface.sol";
 import "./OpenLevInterface.sol";
 import "./lib/DexData.sol";
+import "./lib/TransferHelper.sol";
+import "./lib/Utils.sol";
 
 abstract contract OpenLevStorage {
     using SafeMath for uint;
-    using SafeERC20 for IERC20;
+    using TransferHelper for IERC20;
 
     struct CalculateConfig {
         uint16 defaultFeesRate; // 30 =>0.003
@@ -47,11 +48,16 @@ abstract contract OpenLevStorage {
     //useless
     mapping(address => bool) public allowedDepositTokens;
 
-    CalculateConfig internal calculateConfig;
+    CalculateConfig public calculateConfig;
 
     AddressConfig public addressConfig;
 
     mapping(uint8 => bool) public supportDexs;
+
+    mapping(address => uint) public totalHelds;
+
+    // map(marketId, tokenAddress, index) => taxRate)
+    mapping(uint16 => mapping(address => mapping(uint => uint24))) public taxes;
 
     event MarginTrade(
         address trader,
@@ -133,7 +139,7 @@ interface OpenLevInterface {
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external;
 
-    function liquidate(address owner, uint16 marketId, bool longToken, uint minOrMaxAmount, bytes memory dexData) external;
+    function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxAmount, bytes memory dexData) external;
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
@@ -143,7 +149,7 @@ interface OpenLevInterface {
 
     function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
-    function getCalculateConfig() external view returns (OpenLevStorage.CalculateConfig memory);
+    // function getCalculateConfig() external view returns (OpenLevStorage.CalculateConfig memory);
 
     /*** Admin Functions ***/
     function setCalculateConfig(uint16 defaultFeesRate, uint8 insuranceRatio, uint16 defaultMarginLimit, uint16 priceDiffientRatio,
@@ -156,5 +162,7 @@ interface OpenLevInterface {
     function moveInsurance(uint16 marketId, uint8 poolIndex, address to, uint amount) external;
 
     function setSupportDex(uint8 dex, bool support) external;
+
+    function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external;
 
 }
