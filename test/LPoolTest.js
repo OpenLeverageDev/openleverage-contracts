@@ -191,7 +191,7 @@ contract("LPoolDelegator", async accounts => {
 
     }),
 
-        it("mint redeem eth test", async () => {
+    it("mint redeem eth test", async () => {
             let weth = await utils.createWETH();
             let controller = await utils.createController(accounts[0]);
             let createPoolResult = await utils.createPool(accounts[0], controller, admin, weth);
@@ -656,6 +656,32 @@ contract("LPoolDelegator", async accounts => {
         await assertThrows(erc20Pool.reduceReserves(accounts[1], 1), 'caller must be admin');
     })
 
+    it ("Admin add eth reserve", async() => {
+        let timeLock = await utils.createTimelock(admin);
+        let controller = await utils.createController(accounts[0]);
+        let weth = await utils.createWETH();
+        let createPoolResult = await utils.createPool(accounts[0], controller, timeLock.address, weth);
+        let wethPool = createPoolResult.pool;
+
+        await wethPool.addReserves(0, {value: 1});
+    })
+
+    it("Add deposit through call back", async() => {
+        let timeLock = await utils.createTimelock(admin);
+        let controller = await utils.createController(accounts[0]);
+        let createPoolResult = await utils.createPool(accounts[0], controller, timeLock.address);
+        let depositor = await LPoolDepositor.new();
+        let depositorDelegator = await LPoolDepositorDelegator.new(depositor.address, timeLock.address);
+        depositor = await LPoolDepositor.at(depositorDelegator.address);
+        let erc20Pool = createPoolResult.pool;
+        let testToken = createPoolResult.token;
+
+        await utils.mint(testToken, accounts[0], 1000);
+        await testToken.approve(depositor.address, maxUint());
+        await depositor.deposit(erc20Pool.address, 100);
+        await assertThrows(depositor.transferToPool(accounts[0], 100), 'for callback only');
+    })
+
     it("Admin setImplementation test", async () => {
         let instance = await LPool.new();
         let timeLock = await utils.createTimelock(admin);
@@ -667,6 +693,4 @@ contract("LPoolDelegator", async accounts => {
         assert.equal(instance.address, await erc20Pool.implementation());
         await assertThrows((await LPoolDelegator.at(erc20Pool.address)).setImplementation(instance.address), 'caller must be admin');
     });
-
-
 })

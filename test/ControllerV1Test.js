@@ -10,6 +10,12 @@ const ControllerDelegator = artifacts.require('ControllerDelegator');
 
 contract("ControllerV1", async accounts => {
     let admin = accounts[0];
+
+    it("create lpool pair from using unsupportDex", async() => {
+        let {controller, tokenA, tokenB} = await instanceController();
+        await assertThrows(controller.createLPoolPair(tokenA.address, tokenB.address, 3000, "0x0e"), 'UDX');
+    })
+
     it("create lpool pair succeed test", async () => {
         let {controller, tokenA, tokenB} = await instanceController();
         let transaction = await createMarket(controller, tokenA, tokenB);

@@ -98,6 +98,51 @@ contract("OpenLev UniV2", async accounts => {
         await advanceMultipleBlocksAndTime(30);
     });
 
+    it ("should revert on tax over 20%", async() =>{
+        weth = await utils.createWETH();
+        ole = await TestToken.new('OpenLevERC20', 'OLE');
+        // token1 = await TestToken.new('TokenB', 'TKB');
+        factory = await UniswapV2Factory.new("0x0000000000000000000000000000000000000000");
+        router = await UniswapV2Router.new(factory.address, weth.address);
+        token0 = await MockTaxToken.new('TokenA', 'TKA', 5, 2, router.address);
+
+        await web3.eth.sendTransaction({from: accounts[9], to: admin, value: utils.toWei(1)});
+        await token0.approve(router.address, utils.toWei(1));
+        let block = await web3.eth.getBlock("latest");
+        await router.addLiquidityETH(token0.address, utils.toWei(1), utils.toWei(1), utils.toWei(1), admin, block.timestamp + 60, {from: admin, value: utils.toWei(1)});
+
+        dexAgg = await utils.createEthDexAgg(factory.address, "0x0000000000000000000000000000000000000000", accounts[0]);
+        xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
+
+        let instance = await Controller.new();
+        let controller = await ControllerDelegator.new(
+            ole.address, 
+            xole.address, 
+            weth.address, 
+            "0x0000000000000000000000000000000000000000",
+            "0x0000000000000000000000000000000000000000",
+            dexAgg.address,
+            "0x01",
+            admin,
+            instance.address);
+        controller = await Controller.at(controller.address);
+
+        openLevV1Lib = await OpenLevV1Lib.new();
+        await OpenLevV1.link("OpenLevV1Lib", openLevV1Lib.address);
+        delegatee = await OpenLevV1.new();
+        
+        openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, weth.address], weth.address, xole.address, [1, 2], accounts[0], delegatee.address);
+        openLev = await OpenLevV1.at(openLev.address);
+        await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
+        await controller.setOpenLev(openLev.address);
+        await controller.setLPoolImplementation((await utils.createLPoolImpl()).address);
+        await controller.setInterestParam(toBN(90e16).div(toBN(2102400)), toBN(10e16).div(toBN(2102400)), toBN(20e16).div(toBN(2102400)), 50e16 + '');
+        await dexAgg.setOpenLev(openLev.address);
+        let dexData = Uni2DexData + "030D40000000030D40000000030D40000000";
+        
+        await assertThrows(controller.createLPoolPair(token0.address, weth.address, 3000, dexData), 'WTR');
+    })
+
     it("should long token0 with deposit token0 and closed properly", async() =>{
         let deposit = toBN(1e15);
         let borrow = toBN(1e15);
