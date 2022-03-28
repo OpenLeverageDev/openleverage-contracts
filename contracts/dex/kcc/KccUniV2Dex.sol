@@ -248,7 +248,7 @@ contract KccUniV2Dex {
             return toUint16((IMojitoPair)(pair).swapFeeNumerator());
         } else if (address(dexInfo.factory) == 0xAE46cBBCDFBa3bE0F02F463Ec5486eBB4e2e65Ae) {
             // ku
-            return toUint16((IKuswapPair)(pair).swapFee());
+            return toUint16((uint(10)).mul((IKuswapPair)(pair).swapFee()));
         } else {
             return dexInfo.fees;
         }
