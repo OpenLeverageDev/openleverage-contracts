@@ -31,6 +31,8 @@ library DexData {
     uint8 constant DEX_APE = 10;
     uint8 constant DEX_PANCAKEV1 = 11;
     uint8 constant DEX_BABY = 12;
+    uint8 constant DEX_MOJITO = 13;
+    uint8 constant DEX_KU = 14;
 
     struct V3PoolData {
         address tokenA;
