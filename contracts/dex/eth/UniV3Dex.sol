@@ -81,7 +81,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-        function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
+    function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
         SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
         bool zeroForOne = data.tokenIn < data.tokenOut;
         IUniswapV3Pool pool = getPool(data.tokenIn, data.tokenOut, fee);

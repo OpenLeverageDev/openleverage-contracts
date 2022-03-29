@@ -41,7 +41,7 @@ library OpenLevV1Lib {
 
         {
             uint24[] memory taxRates = dexData.toTransferFeeRates();
-            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 &&taxRates[4] < 200000 && taxRates[5] < 200000, "WTR" );
+            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 && taxRates[4] < 200000 && taxRates[5] < 200000, "WTR" );
             taxes[marketId][token0][0]= taxRates[0];
             taxes[marketId][token1][0]= taxRates[1];
             taxes[marketId][token0][1]= taxRates[2];

@@ -59,6 +59,8 @@ abstract contract OpenLevStorage {
     // map(marketId, tokenAddress, index) => taxRate)
     mapping(uint16 => mapping(address => mapping(uint => uint24))) public taxes;
 
+    address public openOrderAddress;
+
     event MarginTrade(
         address trader,
         uint16 marketId,
@@ -137,6 +139,10 @@ interface OpenLevInterface {
 
     function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable;
 
+    function marginTradeFor(address holder, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable;
+
+    function closeTradeByOpenOrder(address holder, uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external;
+
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external;
 
     function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxAmount, bytes memory dexData) external;
@@ -165,4 +171,5 @@ interface OpenLevInterface {
 
     function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external;
 
+    function setOpenOrderAddress(address _openOrderAddress) external;
 }

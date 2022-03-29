@@ -146,6 +146,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("toBorrow from Pool 1: \t", borrow);
         await assertThrows(openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader}), 'PNH');
     })
+
     it("LONG Token0, Not Init Price ,60s later Succeed ", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -175,6 +176,7 @@ contract("OpenLev UniV2", async accounts => {
         let borrow = utils.toWei(500);
         await openLev.marginTrade(0, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
     })
+
     it("LONG Token0, Init Price, Close Succeed ", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -220,6 +222,7 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Trade.held:", tradeAfter.held);
         assert.equal(tradeAfter.held, 0);
     })
+
     it("LONG Token0, Price Diffience>10%, Not update pirce, Long Again", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -246,6 +249,7 @@ contract("OpenLev UniV2", async accounts => {
         await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
 
     })
+    
     it("LONG Token0, Price Diffience>10%,Update price Long Again", async () => {
         let pairId = 0;
         await printBlockNum();

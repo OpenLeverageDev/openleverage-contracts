@@ -74,6 +74,7 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
         m.log("Reset OpenLev instance: ", last8(openLev.address));
     });
+    
     it("Open in unsupport dex", async () => {
         let pairId = 0;
         await printBlockNum();

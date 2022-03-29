@@ -91,11 +91,33 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint borrow,
         uint minBuyAmount,
         bytes memory dexData
-    ) external payable override nonReentrant onlySupportDex(dexData) {
+    ) external payable override {
+        marginTradeFor(
+            msg.sender,
+            marketId,
+            longToken,
+            depositToken,
+            deposit,
+            borrow,
+            minBuyAmount,
+            dexData
+        );
+    }
+
+    function marginTradeFor(
+        address holder,
+        uint16 marketId,
+        bool longToken,
+        bool depositToken,
+        uint deposit,
+        uint borrow,
+        uint minBuyAmount,
+        bytes memory dexData
+    ) public payable override nonReentrant onlySupportDex(dexData) {
         Types.TradeVars memory tv;
         Types.MarketVars memory vars = toMarketVar(longToken, true, markets[marketId]);
         {
-            Types.Trade memory t = activeTrades[msg.sender][marketId][longToken];
+            Types.Trade memory t = activeTrades[holder][marketId][longToken];
             OpenLevV1Lib.verifyTrade(vars, longToken, depositToken, deposit, borrow, dexData, addressConfig, t);
             (ControllerInterface(addressConfig.controller)).marginTradeAllowed(marketId);
             if (dexData.isUniV2Class()) {
@@ -113,7 +135,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         if (borrow > 0) {
             {
                 uint balance = vars.sellToken.balanceOf(address(this));
-                vars.sellPool.borrowBehalf(msg.sender, borrow);
+                vars.sellPool.borrowBehalf(holder, borrow);
                 borrowed = vars.sellToken.balanceOf(address(this)).sub(balance);
             }
 
@@ -127,7 +149,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
         require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "MAM");
         tv.fees = feesAndInsurance(
-            msg.sender, 
+            holder, 
             deposit.add(tv.borrowValue), 
             address(tv.depositErc20), 
             marketId, 
@@ -149,7 +171,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(tv.tradeSize) : tv.tradeSize.mul(1e18).div(tv.newHeld);
         }
 
-        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
+        Types.Trade storage trade = activeTrades[holder][marketId][longToken];
         tv.newHeld = OpenLevV1Lib.amountToShare(tv.newHeld, tv.totalHeld, vars.reserveBuyToken);
         trade.held = trade.held.add(tv.newHeld);
         trade.depositToken = depositToken;
@@ -159,14 +181,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         totalHelds[address(vars.buyToken)] = totalHelds[address(vars.buyToken)].add(tv.newHeld);
 
         require(OpenLevV1Lib.isPositionHealthy(
-                msg.sender,
+                holder,
                 true,
                 OpenLevV1Lib.shareToAmount(trade.held, totalHelds[address(vars.buyToken)], vars.buyToken.balanceOf(address(this))),
                 vars,
                 dexData
             ), "PNH");
 
-        emit MarginTrade(msg.sender, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.token0Price, tv.dexDetail);
+        emit MarginTrade(holder, marketId, longToken, depositToken, deposit, borrow, tv.newHeld, tv.fees, tv.token0Price, tv.dexDetail);
     }
 
     /// @notice Close trade by shares.
@@ -175,8 +197,30 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @param closeHeld Amount of shares to close.
     /// @param minOrMaxAmount Slippage for Dex trading.
     /// @param dexData Index and fee rate for the trading Dex.
-    function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
-        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
+    function closeTradeByOpenOrder(address holder, uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override {
+        require(msg.sender == openOrderAddress, "NA");
+        _closeTrade(holder, marketId, longToken, closeHeld, minOrMaxAmount, dexData);
+    }
+
+    function closeTrade(
+        uint16 marketId, 
+        bool longToken, 
+        uint closeHeld, 
+        uint minOrMaxAmount, 
+        bytes memory dexData
+    ) public override nonReentrant onlySupportDex(dexData) {
+        _closeTrade(msg.sender, marketId, longToken, closeHeld, minOrMaxAmount, dexData);
+    }
+
+    function _closeTrade(
+        address holder,
+        uint16 marketId, 
+        bool longToken, 
+        uint closeHeld, 
+        uint minOrMaxAmount, 
+        bytes memory dexData
+    ) internal {
+        Types.Trade storage trade = activeTrades[holder][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
 
         //verify
@@ -187,11 +231,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint closeAmount = OpenLevV1Lib.shareToAmount(closeHeld, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
 
         Types.CloseTradeVars memory closeTradeVars;
-        closeTradeVars.fees = feesAndInsurance(msg.sender, closeAmount, address(marketVars.sellToken), marketId, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
+        closeTradeVars.fees = feesAndInsurance(holder, closeAmount, address(marketVars.sellToken), marketId, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
         closeTradeVars.closeAmountAfterFees = closeAmount.sub(closeTradeVars.fees);
         closeTradeVars.closeRatio = closeHeld.mul(1e18).div(trade.held);
         closeTradeVars.isPartialClose = closeHeld != trade.held;
-        closeTradeVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+        closeTradeVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(holder);
         closeTradeVars.repayAmount = Utils.toAmountBeforeTax(closeTradeVars.borrowed, taxes[marketId][address(marketVars.buyToken)][0]);
         closeTradeVars.dexDetail = dexData.toDexDetail();
 
@@ -210,10 +254,10 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
-            marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
+            marketVars.buyPool.repayBorrowBehalf(holder, closeTradeVars.repayAmount);
 
             closeTradeVars.depositReturn = closeTradeVars.receiveAmount.sub(closeTradeVars.repayAmount);
-            doTransferOut(msg.sender, marketVars.buyToken, closeTradeVars.depositReturn);
+            doTransferOut(holder, marketVars.buyToken, closeTradeVars.depositReturn);
         } else {
             uint balance = marketVars.buyToken.balanceOf(address(this));
             minOrMaxAmount = Utils.minOf(closeTradeVars.closeAmountAfterFees, minOrMaxAmount);
@@ -221,17 +265,17 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             closeTradeVars.receiveAmount = marketVars.buyToken.balanceOf(address(this)).sub(balance);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
-            marketVars.buyPool.repayBorrowBehalf(msg.sender, closeTradeVars.repayAmount);
+            marketVars.buyPool.repayBorrowBehalf(holder, closeTradeVars.repayAmount);
             closeTradeVars.depositReturn = closeTradeVars.closeAmountAfterFees.sub(closeTradeVars.sellAmount);
             require(marketVars.sellToken.balanceOf(address(this)) >= closeTradeVars.depositReturn, "ISB");
-            doTransferOut(msg.sender, marketVars.sellToken, closeTradeVars.depositReturn);
+            doTransferOut(holder, marketVars.sellToken, closeTradeVars.depositReturn);
         }
 
-        uint repayed = closeTradeVars.borrowed.sub(marketVars.buyPool.borrowBalanceCurrent(msg.sender));
+        uint repayed = closeTradeVars.borrowed.sub(marketVars.buyPool.borrowBalanceCurrent(holder));
         require(repayed >= closeTradeVars.borrowed.mul(closeTradeVars.closeRatio).div(1e18), "IRP");
 
         if (!closeTradeVars.isPartialClose) {
-            delete activeTrades[msg.sender][marketId][longToken];
+            delete activeTrades[holder][marketId][longToken];
         }else{
             trade.held = trade.held.sub(closeHeld);
             trade.lastBlockNum = uint128(block.number);
@@ -244,7 +288,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             OpenLevV1Lib.updatePriceInternal(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         }
 
-        emit TradeClosed(msg.sender, marketId, longToken, trade.depositToken, closeHeld, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
+        emit TradeClosed(holder, marketId, longToken, trade.depositToken, closeHeld, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
             closeTradeVars.token0Price, closeTradeVars.dexDetail);
     }
 
@@ -484,6 +528,10 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
     function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external override onlyAdmin(){
         taxes[marketId][token][index] = tax;
+    }
+
+    function setOpenOrderAddress(address _openOrderAddress) external override onlyAdmin(){
+        openOrderAddress = _openOrderAddress;
     }
 
     // should remove in later version call on update contract should be atomic
