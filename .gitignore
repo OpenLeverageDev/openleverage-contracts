@@ -15,3 +15,5 @@ coverage.json
 .debugger/generated-sources/#utility.yul
 yarn.lock
 /eth-gas-report.md
+/truffle-config.js
+truffle-config.js
