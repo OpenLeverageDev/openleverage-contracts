@@ -37,13 +37,16 @@ module.exports = async function (deployer, network, accounts) {
         case utils.bscTestnet:
             oleAddr = '0xa865197a84e780957422237b5d152772654341f3';
             break;
+        case utils.kccMainnet:
+            oleAddr = '0x1ccca1ce62c62f7be95d4a67722a8fdbed6eecb4';
+            break;
         default:
             await deployer.deploy(OLEToken, adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
             oleAddr = OLEToken.address;
     }
 
     //airdrop
-    //await deployer.deploy(Airdrop, oleAddr, utils.deployOption(accounts));
+    await deployer.deploy(Airdrop, oleAddr, utils.deployOption(accounts));
     //dexAgg
     switch (network) {
         case utils.bscIntegrationTest:
@@ -64,9 +67,9 @@ module.exports = async function (deployer, network, accounts) {
     await deployer.deploy(xOLE, utils.deployOption(accounts));
     await deployer.deploy(xOLEDelegator, oleAddr, DexAggregatorDelegator.address, 3000, dev, adminCtr, xOLE.address, utils.deployOption(accounts));
     //gov
-    //await deployer.deploy(Gov, Timelock.address, xOLEDelegator.address, adminAccount, utils.deployOption(accounts));
+    await deployer.deploy(Gov, Timelock.address, xOLEDelegator.address, adminAccount, utils.deployOption(accounts));
     //reserve
-    //await deployer.deploy(Reserve, adminCtr, oleAddr, utils.deployOption(accounts));
+    await deployer.deploy(Reserve, adminCtr, oleAddr, utils.deployOption(accounts));
     //controller
     await deployer.deploy(LPool, utils.deployOption(accounts));
     await deployer.deploy(ControllerV1, utils.deployOption(accounts));
