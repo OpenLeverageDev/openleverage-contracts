@@ -98,8 +98,6 @@ exports.tokenName = function (network) {
         case bscIntegrationTest:
         case bscTestnet:
             return "ELO";
-        case kccMainnet:
-            return "ELO";
         default:
             return "OpenLeverage";
     }
@@ -110,8 +108,6 @@ exports.tokenSymbol = function (network) {
         case bscIntegrationTest:
         case bscTestnet:
             return "ELO"
-        case kccMainnet:
-            return "ELO";
         default:
             return "OLE";
     }
