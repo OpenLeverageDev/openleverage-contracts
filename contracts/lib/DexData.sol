@@ -33,6 +33,7 @@ library DexData {
     uint8 constant DEX_BABY = 12;
     uint8 constant DEX_MOJITO = 13;
     uint8 constant DEX_KU = 14;
+    uint8 constant DEX_BISWAP=15;
 
     struct V3PoolData {
         address tokenA;

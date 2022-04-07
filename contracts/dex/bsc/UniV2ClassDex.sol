@@ -237,7 +237,12 @@ contract UniV2ClassDex {
         //mdex
         if (address(dexInfo.factory) == 0x3CD1C46068dAEa5Ebb0d3f55F6915B10648062B8) {
             return toUint16((IMdexFactory)(address(dexInfo.factory)).getPairFees(pair));
-        } else {
+        }
+        //biswap
+        else if (address(dexInfo.factory) == 0x858E3312ed3A876947EA49d572A7C42DE08af7EE) {
+            return toUint16((uint(10)).mul(IBiSwapPair(pair).swapFee()));
+        }
+        else {
             return dexInfo.fees;
         }
     }
@@ -249,4 +254,8 @@ contract UniV2ClassDex {
 
 interface IMdexFactory {
     function getPairFees(address) external view returns (uint256);
+}
+
+interface IBiSwapPair {
+    function swapFee() external view returns (uint32);
 }
