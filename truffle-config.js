@@ -119,7 +119,7 @@ module.exports = {
    *  truffle run contract-size
    *  truffle run verify Contract --network kovan
    */
-  plugins: ["truffle-contract-size", 'truffle-plugin-verify', "solidity-coverage"],
+  plugins: ["truffle-contract-size", 'truffle-plugin-verify', "solidity-coverage", 'truffle-plugin-stdjsonin'],
   api_keys: {
     etherscan: 'EWC3B6KX47HBUD1HHANE6E9TJNTAAP2BAM'
   },
