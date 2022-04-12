@@ -91,6 +91,12 @@ async function initializeLenderPool(accounts, network) {
             m.log("waiting controller create CAKE - WBNB market ......");
             await intializeMarket(accounts, network, '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82', '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', 3000, '0x03');
             break;
+        case utils.kccMainnet:
+            m.log("waiting controller create MJT - KSC market ......");
+            await intializeMarket(accounts, network, '0x2ca48b4eea5a731c2b54e7c3944dbdb87c0cfb6f', '0x4446fc4eb47f2f6586f9faab68b3498f86c07521', 3000, '0x0d00000002');
+            m.log("waiting controller create KSC - KUS market ......");
+            await intializeMarket(accounts, network, '0x4446fc4eb47f2f6586f9faab68b3498f86c07521', '0x4a81704d8c16d9fb0d7f61b747d0b5a272badf14', 3000, '0x0e00000002');
+            break;
     }
 }
 
