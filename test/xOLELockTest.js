@@ -136,6 +136,7 @@ contract("xOLE", async accounts => {
         //
         m.log("Alice withdraw");
         await xole.withdraw({from: alice});
+        approxAssertPrint("Alice's balance of ole", _1000, await ole.balanceOf(alice));
 
         approxAssertPrint("xOLE Total supply", "1020800000000000000000", await xole.totalSupply());
         assertPrint("Alice's balance of xOLE", "0", await xole.balanceOf(alice));
