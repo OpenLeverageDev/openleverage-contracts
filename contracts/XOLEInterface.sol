@@ -56,6 +56,7 @@ contract XOLEStorage {
     uint public devFundRatio; // ex. 5000 => 50%
 
     // user => reward
+    // useless
     mapping(address => uint256) public rewards;
 
     // useless
@@ -66,10 +67,13 @@ contract XOLEStorage {
 
     uint public withdrewReward;
 
+    // useless
     uint public lastUpdateTime;
 
+    // useless
     uint public rewardPerTokenStored;
 
+    // useless
     mapping(address => uint256) public userRewardPerTokenPaid;
 
 
@@ -109,7 +113,13 @@ contract XOLEStorage {
 
 
     event RewardAdded(address fromToken, uint convertAmount, uint reward);
+
     event RewardConvert(address fromToken, address toToken, uint convertAmount, uint returnAmount);
+
+    event RewardPaid (
+        address paidTo,
+        uint256 amount
+    );
 
     event Transfer(address indexed from, address indexed to, uint256 value);
 
@@ -132,17 +142,12 @@ contract XOLEStorage {
         uint256 supply
     );
 
-    event RewardPaid (
-        address paidTo,
-        uint256 amount
-    );
-
     event FailedDelegateBySig(
         address indexed delegatee,
-        uint indexed nonce, 
+        uint indexed nonce,
         uint expiry,
-        uint8 v, 
-        bytes32 r, 
+        uint8 v,
+        bytes32 r,
         bytes32 s
     );
 }
@@ -150,21 +155,26 @@ contract XOLEStorage {
 
 interface XOLEInterface {
 
+    function shareableTokenAmount() external view returns (uint256);
+
+    function claimableTokenAmount() external view returns (uint256);
+
     function convertToSharingToken(uint amount, uint minBuyAmount, bytes memory data) external;
 
     function withdrawDevFund() external;
 
-    function earned(address account) external view returns (uint);
-
-    function withdrawReward() external;
-
     /*** Admin Functions ***/
+
+    function withdrawCommunityFund(address to) external;
 
     function setDevFundRatio(uint newRatio) external;
 
     function setDev(address newDev) external;
 
     function setDexAgg(DexAggregatorInterface newDexAgg) external;
+
+    function setShareToken(address _shareToken) external;
+
 
     // xOLE functions
 
