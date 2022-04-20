@@ -24,6 +24,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     using SignedSafeMath128 for int128;
     using DexData for bytes;
 
+    IERC20 public shareToken;
+
     /* We cannot really do block numbers per se b/c slope is per time, not per block
     and per block could be fairly bad b/c Ethereum changes blocktimes.
     What we can do is to extrapolate ***At functions
@@ -52,30 +54,75 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         dexAgg = _dexAgg;
     }
 
+    /*** Admin Functions ***/
+    function setDevFundRatio(uint newRatio) external override onlyAdmin {
+        require(newRatio <= 10000);
+        devFundRatio = newRatio;
+    }
+
+    function setDev(address newDev) external override onlyAdmin {
+        require(newDev != address(0), "0x");
+        dev = newDev;
+    }
+
     function setDexAgg(DexAggregatorInterface newDexAgg) external override onlyAdmin {
         dexAgg = newDexAgg;
     }
 
-    // Fees sharing functions  =====
+    function setShareToken(address _shareToken) external override onlyAdmin {
+        require(_shareToken != address(0), "0x");
+        require(devFund == 0 && claimableTokenAmountInternal() == 0, 'Withdraw fund firstly');
+        shareToken = IERC20(_shareToken);
+    }
 
+    // Fees sharing functions  =====
     function withdrawDevFund() external override {
         require(msg.sender == dev, "Dev only");
         require(devFund != 0, "No fund to withdraw");
         uint toSend = devFund;
         devFund = 0;
-        oleToken.transfer(dev, toSend);
+        shareToken.safeTransfer(dev, toSend);
+    }
+
+    function withdrawCommunityFund(address to) external override onlyAdmin {
+        require(to != address(0), "0x");
+        uint claimable = claimableTokenAmountInternal();
+        require(claimable != 0, "No fund to withdraw");
+        withdrewReward = withdrewReward.add(claimable);
+        shareToken.safeTransfer(to, claimable);
+        emit RewardPaid(to, claimable);
+    }
+
+    function shareableTokenAmount() external override view returns (uint256){
+        return shareableTokenAmountInternal();
+    }
+
+    function shareableTokenAmountInternal() internal view returns (uint256 shareableAmount){
+        uint claimable = claimableTokenAmountInternal();
+        if (address(shareToken) == address(oleToken)) {
+            shareableAmount = shareToken.balanceOf(address(this)).sub(totalLocked).sub(claimable).sub(devFund);
+        } else {
+            shareableAmount = shareToken.balanceOf(address(this)).sub(claimable).sub(devFund);
+        }
+    }
+
+    function claimableTokenAmount() external override view returns (uint256){
+        return claimableTokenAmountInternal();
+    }
+
+    function claimableTokenAmountInternal() internal view returns (uint256 claimableAmount){
+        claimableAmount = totalRewarded.sub(withdrewReward);
     }
 
     /// @dev swap feeCollected to reward token
     function convertToSharingToken(uint amount, uint minBuyAmount, bytes memory dexData) external override onlyAdminOrDeveloper() {
-        require(totalSupply > 0, "Can't share without locked OLE");
         address fromToken;
         address toToken;
-        // If no swapping, then assuming OLE reward distribution
+        // If no swapping, then assuming shareToken reward distribution
         if (dexData.length == 0) {
-            fromToken = address(oleToken);
+            fromToken = address(shareToken);
         }
-        // Not OLE
+        // Not shareToken
         else {
             if (dexData.isUniV2Class()) {
                 address[] memory path = dexData.toUniV2Path();
@@ -87,26 +134,29 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
                 toToken = path[path.length - 1].tokenB;
             }
         }
-        uint newReward;
+        // If fromToken is ole, check amount
         if (fromToken == address(oleToken)) {
-            uint claimable = totalRewarded.sub(withdrewReward);
-            uint toShare = oleToken.balanceOf(address(this)).sub(claimable).sub(totalLocked).sub(devFund);
-            require(toShare >= amount, 'Exceed OLE balance');
-            newReward = toShare;
-        } else {
+            require(oleToken.balanceOf(address(this)).sub(totalLocked) >= amount, 'Exceed OLE balance');
+        }
+        uint newReward;
+        if (fromToken == address(shareToken)) {
+            uint toShare = shareableTokenAmountInternal();
+            require(toShare >= amount, 'Exceed share token balance');
+            newReward = amount;
+        }
+        else {
             require(IERC20(fromToken).balanceOf(address(this)) >= amount, "Exceed available balance");
             (IERC20(fromToken)).safeApprove(address(dexAgg), 0);
             (IERC20(fromToken)).safeApprove(address(dexAgg), amount);
             newReward = dexAgg.sellMul(amount, minBuyAmount, dexData);
+            require(newReward > 0, 'New reward is 0');
         }
-        //fromToken or toToken equal OLE ,update reward
-        if (fromToken == address(oleToken) || toToken == address(oleToken)) {
+        //fromToken or toToken equal shareToken ,update reward
+        if (fromToken == address(shareToken) || toToken == address(shareToken)) {
             uint newDevFund = newReward.mul(devFundRatio).div(10000);
             newReward = newReward.sub(newDevFund);
             devFund = devFund.add(newDevFund);
             totalRewarded = totalRewarded.add(newReward);
-            lastUpdateTime = block.timestamp;
-            rewardPerTokenStored = rewardPerToken(newReward);
             emit RewardAdded(fromToken, amount, newReward);
         } else {
             emit RewardConvert(fromToken, toToken, amount, newReward);
@@ -114,97 +164,6 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
     }
 
-    /// @notice calculate the amount of token reward
-    function earned(address account) external override view returns (uint) {
-        return earnedInternal(account);
-    }
-
-    function earnedInternal(address account) internal view returns (uint) {
-        return (balances[account])
-        .mul(rewardPerToken(0).sub(userRewardPerTokenPaid[account]))
-        .div(1e18)
-        .add(rewards[account]);
-    }
-
-    function rewardPerToken(uint newReward) internal view returns (uint) {
-        if (totalSupply == 0) {
-            return rewardPerTokenStored;
-        }
-
-        if (block.timestamp == lastUpdateTime) {
-            return rewardPerTokenStored.add(newReward
-            .mul(1e18)
-            .div(totalSupply));
-        } else {
-            return rewardPerTokenStored;
-        }
-    }
-
-    /// @notice transfer rewarded ole to msg.sender
-    function withdrawReward() external override {
-        uint reward = getReward();
-        oleToken.safeTransfer(msg.sender, reward);
-        emit RewardPaid(msg.sender, reward);
-    }
-
-    function getReward() internal updateReward(msg.sender) returns (uint) {
-        uint reward = rewards[msg.sender];
-        if (reward > 0) {
-            rewards[msg.sender] = 0;
-            withdrewReward = withdrewReward.add(reward);
-        }
-        return reward;
-    }
-
-    modifier updateReward(address account) {
-        rewardPerTokenStored = rewardPerToken(0);
-        rewards[account] = earnedInternal(account);
-        userRewardPerTokenPaid[account] = rewardPerTokenStored;
-        _;
-    }
-
-    /*** Admin Functions ***/
-    function setDevFundRatio(uint newRatio) external override onlyAdmin {
-        require(newRatio <= 10000);
-        devFundRatio = newRatio;
-    }
-
-    function setDev(address newDev) external override onlyAdmin {
-        dev = newDev;
-    }
-
-
-    function _mint(address account, uint amount) internal {
-        totalSupply = totalSupply.add(amount);
-        balances[account] = balances[account].add(amount);
-        emit Transfer(address(0), account, amount);
-        if (delegates[account] == address(0)) {
-            delegates[account] = account;
-        }
-        _moveDelegates(address(0), delegates[account], amount);
-        _updateTotalSupplyCheckPoints();
-    }
-
-    function _burn(address account) internal {
-        uint burnAmount = balances[account];
-        totalSupply = totalSupply.sub(burnAmount);
-        balances[account] = 0;
-        emit Transfer(account, address(0), burnAmount);
-        _moveDelegates(delegates[account], address(0), burnAmount);
-        _updateTotalSupplyCheckPoints();
-    }
-
-    function _updateTotalSupplyCheckPoints() internal {
-        uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
-        if (totalSupplyNumCheckpoints > 0 && totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].fromBlock == blockNumber) {
-            totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].votes = totalSupply;
-        }
-        else {
-            totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
-            totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
-        }
-
-    }
 
     function balanceOf(address addr) external view override returns (uint256){
         return balances[addr];
@@ -257,7 +216,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         _deposit_for(msg.sender, _value, unlock_time, _locked, CREATE_LOCK_TYPE);
     }
 
-    
+
     /// @notice Deposit `_value` additional tokens for `msg.sender`
     /// without modifying the unlock time
     /// @param _value Amount of tokens to deposit and add to the lock
@@ -289,7 +248,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// @param unlock_time New time when to unlock the tokens, or 0 if unchanged
     /// @param _locked Previous locked amount / timestamp
     /// @param _type For event only.
-    function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal updateReward(_addr) {
+    function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal {
         uint256 locked_before = totalLocked;
         totalLocked = locked_before.add(_value);
         // Adding to existing lock, or if a lock is expired - creating a new one
@@ -320,9 +279,41 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         emit Deposit(_addr, _value, _locked.end, _type, block.timestamp);
     }
 
+    function _mint(address account, uint amount) internal {
+        totalSupply = totalSupply.add(amount);
+        balances[account] = balances[account].add(amount);
+        emit Transfer(address(0), account, amount);
+        if (delegates[account] == address(0)) {
+            delegates[account] = account;
+        }
+        _moveDelegates(address(0), delegates[account], amount);
+        _updateTotalSupplyCheckPoints();
+    }
+
+    function _burn(address account) internal {
+        uint burnAmount = balances[account];
+        totalSupply = totalSupply.sub(burnAmount);
+        balances[account] = 0;
+        emit Transfer(account, address(0), burnAmount);
+        _moveDelegates(delegates[account], address(0), burnAmount);
+        _updateTotalSupplyCheckPoints();
+    }
+
+    function _updateTotalSupplyCheckPoints() internal {
+        uint32 blockNumber = safe32(block.number, "block number exceeds 32 bits");
+        if (totalSupplyNumCheckpoints > 0 && totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].fromBlock == blockNumber) {
+            totalSupplyCheckpoints[totalSupplyNumCheckpoints - 1].votes = totalSupply;
+        }
+        else {
+            totalSupplyCheckpoints[totalSupplyNumCheckpoints] = Checkpoint(blockNumber, totalSupply);
+            totalSupplyNumCheckpoints = totalSupplyNumCheckpoints + 1;
+        }
+    }
+
+
     /// @notice Withdraw all tokens for `msg.sender`
     /// @dev Only possible if the lock has expired
-    function withdraw() external override nonReentrant() updateReward(msg.sender) {
+    function withdraw() external override nonReentrant() {
         LockedBalance memory _locked = locked[msg.sender];
         require(_locked.amount > 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
@@ -331,11 +322,9 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         _locked.end = 0;
         _locked.amount = 0;
         locked[msg.sender] = _locked;
-        uint reward = getReward();
-        require(IERC20(oleToken).transfer(msg.sender, value.add(reward)));
+        oleToken.safeTransfer(msg.sender, value);
         _burn(msg.sender);
         emit Withdraw(msg.sender, value, block.timestamp);
-        emit RewardPaid(msg.sender, reward);
     }
 
 
