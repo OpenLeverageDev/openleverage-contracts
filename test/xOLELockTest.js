@@ -4,7 +4,7 @@ const {
     approxAssertPrint,
     createEthDexAgg,
     createUniswapV2Factory,
-    createXOLE
+    createXOLE, assertThrows, toWei
 } = require("./utils/OpenLevUtil");
 const m = require('mocha-logger');
 const {advanceMultipleBlocksAndTime, advanceBlockAndSetTime, toBN} = require("./utils/EtheUtil");
@@ -28,7 +28,8 @@ contract("xOLE", async accounts => {
 
     let uniswapFactory;
 
-    let ole
+    let ole;
+    let stakeLpToken;
     let xole;
 
     let stages = {};
@@ -41,7 +42,8 @@ contract("xOLE", async accounts => {
         uniswapFactory = await createUniswapV2Factory(admin);
         let dexAgg = await createEthDexAgg(uniswapFactory.address, "0x0000000000000000000000000000000000000000", admin);
         xole = await createXOLE(ole.address, admin, dev, dexAgg.address, admin);
-
+        stakeLpToken = ole.address;
+        await xole.setOleLpStakeToken(stakeLpToken, {from: admin});
         let lastbk = await web3.eth.getBlock('latest');
         let timeToMove = lastbk.timestamp + (WEEK - lastbk.timestamp % WEEK);
         m.log("Move time to start of the week", new Date(timeToMove));
@@ -81,7 +83,73 @@ contract("xOLE", async accounts => {
         assertPrint("Bob's balance of xOLE", "0", await xole.balanceOf(bob));
     })
 
+    it("Create lock for other, and withdraw", async () => {
+        await ole.approve(xole.address, _1000 + "0", {"from": alice});
 
+        let lastbk = await web3.eth.getBlock('latest');
+        let end = lastbk.timestamp + WEEK;
+        m.log("Alice creates lock to bob with 500 till time ", end, new Date(end));
+        await xole.create_lock_for(bob, _500, end, {"from": alice});
+        let bobBalance = await xole.balanceOf(bob);
+        let aliceBalance = await xole.balanceOf(alice);
+        assertPrint("Bob's balance of xOLE", "500000000000000000000", bobBalance);
+        assertPrint("Alice's balance of xOLE", "0", aliceBalance);
+        await advanceBlockAndSetTime(end + 60 * 60 * 24);
+        await xole.withdraw({from: bob});
+        let withdrawAmount = await (await OLEToken.at(stakeLpToken)).balanceOf(bob);
+        assertPrint("Bob's stakeToken amount", "1500000000000000000000", withdrawAmount);
+    })
+
+    it("Create lock for other, and withdraw", async () => {
+        await ole.approve(xole.address, _1000 + "0", {"from": alice});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        let end = lastbk.timestamp + WEEK;
+        m.log("Alice creates lock to bob with 500 till time ", end, new Date(end));
+        await xole.create_lock_for(bob, _500, end, {"from": alice});
+        let bobBalance = await xole.balanceOf(bob);
+        let aliceBalance = await xole.balanceOf(alice);
+        assertPrint("Bob's balance of xOLE", "500000000000000000000", bobBalance);
+        assertPrint("Alice's balance of xOLE", "0", aliceBalance);
+        await advanceBlockAndSetTime(end + 60 * 60 * 24);
+        await xole.withdraw({from: bob});
+        let withdrawAmount = await (await OLEToken.at(stakeLpToken)).balanceOf(bob);
+        assertPrint("Bob's stakeToken amount", "1500000000000000000000", withdrawAmount);
+    })
+    it("Increase amount lock for other, and withdraw", async () => {
+        await ole.approve(xole.address, _1000 + "0", {"from": alice});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        let end = lastbk.timestamp + WEEK;
+        m.log("Alice creates lock to bob with 500 till time ", end, new Date(end));
+        await xole.create_lock(_500, end, {"from": alice});
+        let aliceBalance = await xole.balanceOf(alice);
+        assertPrint("Alice's balance of xOLE", "500000000000000000000", aliceBalance);
+        await ole.approve(xole.address, _1000 + "0", {"from": bob});
+        await xole.increase_amount_for(alice, _1000, {"from": bob});
+        aliceBalance = await xole.balanceOf(alice);
+        assertPrint("Alice's balance of xOLE", "1500000000000000000000", aliceBalance);
+        await advanceBlockAndSetTime(end + 60 * 60 * 24);
+        await xole.withdraw({from: alice});
+        let withdrawAmount = await (await OLEToken.at(stakeLpToken)).balanceOf(alice);
+        assertPrint("Alice's stakeToken amount", "2000000000000000000000", withdrawAmount);
+    })
+    it("Increase amount lock for other, and withdraw", async () => {
+        await ole.approve(xole.address, _1000 + "0", {"from": alice});
+
+        let lastbk = await web3.eth.getBlock('latest');
+        let end = lastbk.timestamp + WEEK;
+        m.log("Alice creates lock to bob with 500 till time ", end, new Date(end));
+        await xole.create_lock(_500, end, {"from": alice});
+        let aliceBalance = await xole.balanceOf(alice);
+        assertPrint("Alice's balance of xOLE", "500000000000000000000", aliceBalance);
+        await advanceBlockAndSetTime(end + 60 * 60 * 24);
+        await assertThrows(xole.withdraw_automator(alice), 'Not automator');
+        await xole.setOleLpStakeAutomator(bob, {from: admin});
+        await xole.withdraw_automator(alice, {from: bob});
+        let withdrawAmount = await (await OLEToken.at(stakeLpToken)).balanceOf(bob);
+        assertPrint("Bob's stakeToken amount", "1500000000000000000000", withdrawAmount);
+    })
     it("Lock to get voting powers, and withdraw", async () => {
 
         if (process.env.FASTMODE === 'true') {
@@ -92,7 +160,7 @@ contract("xOLE", async accounts => {
         await ole.approve(xole.address, _1000 + "0", {"from": alice});
         await ole.approve(xole.address, _1000 + "0", {"from": bob});
 
-        assertPrint("Totol Supply", "0", await xole.totalSupply());
+        assertPrint("Total Supply", "0", await xole.totalSupply());
         assertPrint("Alice's Balance", "0", await xole.balanceOf(alice));
         assertPrint("Bob's Balance", "0", await xole.balanceOf(bob));
 
