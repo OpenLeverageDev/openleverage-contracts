@@ -87,6 +87,7 @@ contract("XOLE", async accounts => {
         assert.equal(await pair.token1(), await gotPair.token1());
         xole = await utils.createXOLE(ole.address, admin, dev, dexAgg.address);
         await xole.setShareToken(ole.address);
+        await xole.setOleLpStakeToken(ole.address, {from: admin});
         m.log("Created xOLE", last8(xole.address));
         await utils.mint(usdt, xole.address, 10000);
 
@@ -577,6 +578,27 @@ contract("XOLE", async accounts => {
             web3.eth.abi.encodeParameters(['address'], [shareToken]), 0), 'Transaction execution reverted');
 
     })
+
+    it("Admin setOleLpStakeToken test", async () => {
+        let oleLpStakeToken = ole.address;
+        let timeLock = await utils.createTimelock(admin);
+        let xole0 = await utils.createXOLE(ole.address, timeLock.address, dev, dexAgg.address, accounts[0]);
+        await timeLock.executeTransaction(xole0.address, 0, 'setOleLpStakeToken(address)',
+            web3.eth.abi.encodeParameters(['address'], [oleLpStakeToken]), 0)
+        assert.equal(oleLpStakeToken, await xole0.oleLpStakeToken());
+        await assertThrows(xole0.setOleLpStakeToken(oleLpStakeToken), 'caller must be admin');
+    })
+
+    it("Admin setOleLpStakeAutomator test", async () => {
+        let oleLpStakeAutomator = ole.address;
+        let timeLock = await utils.createTimelock(admin);
+        let xole0 = await utils.createXOLE(ole.address, timeLock.address, dev, dexAgg.address, accounts[0]);
+        await timeLock.executeTransaction(xole0.address, 0, 'setOleLpStakeAutomator(address)',
+            web3.eth.abi.encodeParameters(['address'], [oleLpStakeAutomator]), 0)
+        assert.equal(oleLpStakeAutomator, await xole0.oleLpStakeAutomator());
+        await assertThrows(xole0.setOleLpStakeAutomator(oleLpStakeAutomator), 'caller must be admin');
+    })
+
     it("Admin withdrawCommunityFund test", async () => {
         let to = accounts[7];
         let timeLock = await utils.createTimelock(admin);
