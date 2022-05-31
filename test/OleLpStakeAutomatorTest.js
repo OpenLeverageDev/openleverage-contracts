@@ -619,5 +619,17 @@ contract("xOLE", async accounts => {
 
     })
 
+    /*** Admin Test ***/
+
+    it("Admin initialize test", async () => {
+        await assertThrows(nativeAutomator.initialize(admin, admin, admin, admin, admin, admin, {from: alice}), 'NAD');
+        await nativeAutomator.initialize(admin, admin, admin, admin, admin, admin, {from: admin});
+    })
+
+    it("Admin setImplementation test", async () => {
+        let automator = await OleLpStakeAutomatorDelegator.at(nativeAutomator.address);
+        await assertThrows(automator.setImplementation(admin, {from: alice}), 'caller must be admin');
+        await automator.setImplementation(admin, {from: admin});
+    });
 
 })
