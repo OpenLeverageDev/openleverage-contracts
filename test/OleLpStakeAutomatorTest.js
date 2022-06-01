@@ -115,10 +115,12 @@ contract("xOLE", async accounts => {
         });
         let ethBalanceBefore = await web3.eth.getBalance(bob);
         await ole.approve(nativeAutomator.address, oleAmount, {from: bob});
-        await nativeAutomator.createLockBoth(oleAmount, 0, unlockTime, oleAmount, otherAmount, {
+        let r = await nativeAutomator.createLockBoth(oleAmount, 0, unlockTime, oleAmount, otherAmount, {
             from: bob,
             value: toWei(2)
         });
+        m.log("createLockBoth Gas Used:", r.receipt.gasUsed);
+
         let ethBalanceAfter = await web3.eth.getBalance(bob);
         assertPrint("Bob back 1 eth", toBN(ethBalanceBefore).sub(toBN(ethBalanceAfter)).lt(toWei(2)), true);
         // xole check
@@ -175,9 +177,11 @@ contract("xOLE", async accounts => {
         await ole.approve(nativeAutomator.address, toWei(2), {from: alice});
 
         let ethBalanceBefore = await web3.eth.getBalance(alice);
-        await nativeAutomator.createLockOLE(toWei(2), unlockTime, toWei(0), toWei(0), {
+        let r = await nativeAutomator.createLockOLE(toWei(2), unlockTime, toWei(0), toWei(0), {
             from: alice
         });
+        m.log("createLockOLE Gas Used:", r.receipt.gasUsed);
+
         let ethBalanceAfter = await web3.eth.getBalance(alice);
         assertPrint("Alice back 0.2 eth", toBN(ethBalanceAfter).sub(toBN(ethBalanceBefore)).gt(toWei(0)), true);
 
@@ -226,10 +230,11 @@ contract("xOLE", async accounts => {
         }), 'INSUFFICIENT');
 
         //back remainder check
-        await nativeAutomator.createLockOther(0, unlockTime, toWei(0), toWei(0), {
+        let r = await nativeAutomator.createLockOther(0, unlockTime, toWei(0), toWei(0), {
             from: alice,
             value: toWei(2)
         });
+        m.log("createLockOther Gas Used:", r.receipt.gasUsed);
 
         //xole check
         assertPrint("Alice's balance of ole", "1000248873309964947421", await ole.balanceOf(alice));
@@ -283,10 +288,11 @@ contract("xOLE", async accounts => {
             value: otherAmount
         }), 'INSUFFICIENT');
 
-        await nativeAutomator.increaseAmountBoth(toWei(2), 0, oleAmount, otherAmount, {
+        let r = await nativeAutomator.increaseAmountBoth(toWei(2), 0, oleAmount, otherAmount, {
             from: alice,
             value: otherAmount
         });
+        m.log("increaseAmountBoth Gas Used:", r.receipt.gasUsed);
 
         // xole check
         assertPrint("Alice's balance of ole", "998000000000000000000", await ole.balanceOf(alice));
@@ -348,9 +354,11 @@ contract("xOLE", async accounts => {
         //back remainder check
         let ethBalanceBefore = await web3.eth.getBalance(alice);
         await ole.approve(nativeAutomator.address, toWei(2), {from: alice});
-        await nativeAutomator.increaseAmountOLE(toWei(2), toWei(0), toWei(0), {
+        let r = await nativeAutomator.increaseAmountOLE(toWei(2), toWei(0), toWei(0), {
             from: alice
         });
+        m.log("increaseAmountOLE Gas Used:", r.receipt.gasUsed);
+
         let ethBalanceAfter = await web3.eth.getBalance(alice);
         assertPrint("Alice back 0.2 eth", toBN(ethBalanceAfter).sub(toBN(ethBalanceBefore)).gt(toWei(0)), true);
 
@@ -410,10 +418,12 @@ contract("xOLE", async accounts => {
         }), 'INSUFFICIENT');
         //back remainder check
 
-        await nativeAutomator.increaseAmountOther(0, toWei(0), toWei(0), {
+        let r = await nativeAutomator.increaseAmountOther(0, toWei(0), toWei(0), {
             from: alice,
             value: toWei(2)
         });
+        m.log("increaseAmountOther Gas Used:", r.receipt.gasUsed);
+
         //xole check
         assertPrint("Alice's balance of xole", "1701333333333333332", await xole.balanceOf(alice));
         assertPrint("Alice's balance of ole", "999220442664887109331", await ole.balanceOf(alice));
@@ -467,9 +477,11 @@ contract("xOLE", async accounts => {
         }), 'INSUFFICIENT');
         let ethBalanceBefore = await web3.eth.getBalance(alice);
 
-        await nativeAutomator.withdrawBoth(0, 0, {
+        let r = await nativeAutomator.withdrawBoth(0, 0, {
             from: alice
         });
+        m.log("withdrawBoth Gas Used:", r.receipt.gasUsed);
+
         let ethBalanceAfter = await web3.eth.getBalance(alice);
         assertPrint("Alice back 1 eth", toBN(ethBalanceAfter).sub(toBN(ethBalanceBefore)).gt(toWei(0)), true);
         //xole check
@@ -524,9 +536,11 @@ contract("xOLE", async accounts => {
             from: alice
         }), 'INSUFFICIENT');
 
-        await nativeAutomator.withdrawOle(0, 0, {
+        let r = await nativeAutomator.withdrawOle(0, 0, {
             from: alice
         });
+        m.log("withdrawOle Gas Used:", r.receipt.gasUsed);
+
         //xole check
         assertPrint("Alice's balance of xole", "0", await xole.balanceOf(alice));
         assertPrint("Alice's balance of ole", "1000499248873309964947", await ole.balanceOf(alice));
@@ -560,7 +574,7 @@ contract("xOLE", async accounts => {
 
     })
 
-    it("Native automator withdrawOle test", async () => {
+    it("Native automator withdrawOther test", async () => {
         await xole.setOleLpStakeToken(oleWethLpToken, {from: admin});
         await xole.setOleLpStakeAutomator(nativeAutomator.address, {from: admin});
         let oleAmount = toWei(1);
@@ -580,9 +594,11 @@ contract("xOLE", async accounts => {
 
 
         let ethBalanceBefore = await web3.eth.getBalance(alice);
-        await nativeAutomator.withdrawOther(0, 0, {
+        let r = await nativeAutomator.withdrawOther(0, 0, {
             from: alice
         });
+        m.log("withdrawOther Gas Used:", r.receipt.gasUsed);
+
         let ethBalanceAfter = await web3.eth.getBalance(alice);
         assertPrint("Alice back 1.4 eth", toBN(ethBalanceAfter).sub(toBN(ethBalanceBefore)).gt(toWei(1)), true);
 
@@ -591,7 +607,7 @@ contract("xOLE", async accounts => {
 
     })
 
-    it("Erc20 automator withdrawOle test", async () => {
+    it("Erc20 automator withdrawOther test", async () => {
         await xole.setOleLpStakeToken(oleUsdtLpToken, {from: admin});
         await xole.setOleLpStakeAutomator(erc20Automator.address, {from: admin});
         let oleAmount = toWei(1);
