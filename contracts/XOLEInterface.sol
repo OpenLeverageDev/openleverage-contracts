@@ -126,15 +126,17 @@ contract XOLEStorage {
     event Deposit (
         address indexed provider,
         uint256 value,
-        uint256 indexed locktime,
+        uint256 unlocktime,
         int128 type_,
-        uint256 ts
+        uint256 prevBalance,
+        uint256 balance
     );
 
     event Withdraw (
         address indexed provider,
         uint256 value,
-        uint256 ts
+        uint256 prevBalance,
+        uint256 balance
     );
 
     event Supply (

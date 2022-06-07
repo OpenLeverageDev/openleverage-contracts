@@ -280,8 +280,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// @param _locked Previous locked amount / timestamp
     /// @param _type For event only.
     function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal {
-        uint256 locked_before = totalLocked;
-        totalLocked = locked_before.add(_value);
+        totalLocked = totalLocked.add(_value);
+        uint256 prevBalance = balances[_addr];
         // Adding to existing lock, or if a lock is expired - creating a new one
         _locked.amount = _locked.amount.add(_value);
 
@@ -307,7 +307,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         } else {
             _mint(_addr, calExtraValue);
         }
-        emit Deposit(_addr, _value, _locked.end, _type, block.timestamp);
+        emit Deposit(_addr, _value, _locked.end, _type, prevBalance, balances[_addr]);
     }
 
     function _mint(address account, uint amount) internal {
@@ -357,6 +357,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         LockedBalance memory _locked = locked[owner];
         require(_locked.amount > 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
+        uint256 prevBalance = balances[owner];
         uint256 value = _locked.amount;
         totalLocked = totalLocked.sub(value);
         _locked.end = 0;
@@ -364,7 +365,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         locked[to] = _locked;
         oleLpStakeToken.safeTransfer(to, value);
         _burn(owner);
-        emit Withdraw(owner, value, block.timestamp);
+        emit Withdraw(owner, value, prevBalance, balances[owner]);
     }
 
     /// Delegate votes from `msg.sender` to `delegatee`
