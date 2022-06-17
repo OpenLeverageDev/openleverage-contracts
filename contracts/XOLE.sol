@@ -234,7 +234,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         LockedBalance memory _locked = locked[to];
         require(_value > 0, "Non zero value");
         require(_locked.amount == 0, "Withdraw old tokens first");
-        require(unlock_time > block.timestamp, "Can only lock until time in the future");
+        require(unlock_time >= block.timestamp + (2 * WEEK), "Can only lock until time in the future");
         require(unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 4 years max");
     }
 
@@ -265,9 +265,9 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         LockedBalance memory _locked = locked[msg.sender];
         // Locktime is rounded down to weeks
         uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
-        require(_locked.end > block.timestamp, "Lock expired");
         require(_locked.amount > 0, "Nothing is locked");
         require(unlock_time > _locked.end, "Can only increase lock duration");
+        require(unlock_time >= block.timestamp + (2 * WEEK), "Can only lock until time in the future");
         require(unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 4 years max");
 
         _deposit_for(msg.sender, 0, unlock_time, _locked, INCREASE_UNLOCK_TIME);
