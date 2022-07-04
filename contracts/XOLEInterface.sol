@@ -126,15 +126,17 @@ contract XOLEStorage {
     event Deposit (
         address indexed provider,
         uint256 value,
-        uint256 indexed locktime,
+        uint256 unlocktime,
         int128 type_,
-        uint256 ts
+        uint256 prevBalance,
+        uint256 balance
     );
 
     event Withdraw (
         address indexed provider,
         uint256 value,
-        uint256 ts
+        uint256 prevBalance,
+        uint256 balance
     );
 
     event Supply (
@@ -175,16 +177,25 @@ interface XOLEInterface {
 
     function setShareToken(address _shareToken) external;
 
+    function setOleLpStakeToken(address _oleLpStakeToken) external;
+
+    function setOleLpStakeAutomator(address _oleLpStakeAutomator) external;
 
     // xOLE functions
 
     function create_lock(uint256 _value, uint256 _unlock_time) external;
 
+    function create_lock_for(address to, uint256 _value, uint256 _unlock_time) external;
+
     function increase_amount(uint256 _value) external;
+
+    function increase_amount_for(address to, uint256 _value) external;
 
     function increase_unlock_time(uint256 _unlock_time) external;
 
     function withdraw() external;
+
+    function withdraw_automator(address owner) external;
 
     function balanceOf(address addr) external view returns (uint256);
 

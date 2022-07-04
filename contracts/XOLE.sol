@@ -26,6 +26,10 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
     IERC20 public shareToken;
 
+    IERC20 public oleLpStakeToken;
+
+    address public oleLpStakeAutomator;
+
     /* We cannot really do block numbers per se b/c slope is per time, not per block
     and per block could be fairly bad b/c Ethereum changes blocktimes.
     What we can do is to extrapolate ***At functions
@@ -75,6 +79,17 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         shareToken = IERC20(_shareToken);
     }
 
+    function setOleLpStakeToken(address _oleLpStakeToken) external override onlyAdmin {
+        require(_oleLpStakeToken != address(0), "0x");
+        require(address(oleLpStakeToken) == address(0), "Initialized");
+        oleLpStakeToken = IERC20(_oleLpStakeToken);
+    }
+
+    function setOleLpStakeAutomator(address _oleLpStakeAutomator) external override onlyAdmin {
+        require(_oleLpStakeAutomator != address(0), "0x");
+        oleLpStakeAutomator = _oleLpStakeAutomator;
+    }
+
     // Fees sharing functions  =====
     function withdrawDevFund() external override {
         require(msg.sender == dev, "Dev only");
@@ -99,7 +114,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
 
     function shareableTokenAmountInternal() internal view returns (uint256 shareableAmount){
         uint claimable = claimableTokenAmountInternal();
-        if (address(shareToken) == address(oleToken)) {
+        if (address(shareToken) == address(oleLpStakeToken)) {
             shareableAmount = shareToken.balanceOf(address(this)).sub(totalLocked).sub(claimable).sub(devFund);
         } else {
             shareableAmount = shareToken.balanceOf(address(this)).sub(claimable).sub(devFund);
@@ -135,8 +150,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
             }
         }
         // If fromToken is ole, check amount
-        if (fromToken == address(oleToken)) {
-            require(oleToken.balanceOf(address(this)).sub(totalLocked) >= amount, 'Exceed OLE balance');
+        if (fromToken == address(oleLpStakeToken)) {
+            require(oleLpStakeToken.balanceOf(address(this)).sub(totalLocked) >= amount, 'Exceed OLE balance');
         }
         uint newReward;
         if (fromToken == address(shareToken)) {
@@ -204,16 +219,23 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// @param _value Amount to deposit
     /// @param _unlock_time Epoch time when tokens unlock, rounded down to whole weeks
     function create_lock(uint256 _value, uint256 _unlock_time) external override nonReentrant() {
-        // Locktime is rounded down to weeks
-        uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
-        LockedBalance memory _locked = locked[msg.sender];
+        uint256 unlock_time = create_lock_check(msg.sender, _value, _unlock_time);
+        _deposit_for(msg.sender, _value, unlock_time, locked[msg.sender], CREATE_LOCK_TYPE);
+    }
 
+    function create_lock_for(address to, uint256 _value, uint256 _unlock_time) external override nonReentrant() {
+        uint256 unlock_time = create_lock_check(to, _value, _unlock_time);
+        _deposit_for(to, _value, unlock_time, locked[to], CREATE_LOCK_TYPE);
+    }
+
+    function create_lock_check(address to, uint256 _value, uint256 _unlock_time) internal view returns (uint unlock_time) {
+        // Locktime is rounded down to weeks
+        unlock_time = _unlock_time.div(WEEK).mul(WEEK);
+        LockedBalance memory _locked = locked[to];
         require(_value > 0, "Non zero value");
         require(_locked.amount == 0, "Withdraw old tokens first");
-        require(unlock_time > block.timestamp, "Can only lock until time in the future");
+        require(unlock_time >= block.timestamp + (2 * WEEK), "Can only lock until time in the future");
         require(unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 4 years max");
-
-        _deposit_for(msg.sender, _value, unlock_time, _locked, CREATE_LOCK_TYPE);
     }
 
 
@@ -221,11 +243,20 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// without modifying the unlock time
     /// @param _value Amount of tokens to deposit and add to the lock
     function increase_amount(uint256 _value) external override nonReentrant() {
-        LockedBalance memory _locked = locked[msg.sender];
+        LockedBalance memory _locked = increase_amount_check(msg.sender, _value);
+        _deposit_for(msg.sender, _value, 0, _locked, INCREASE_LOCK_AMOUNT);
+    }
+
+    function increase_amount_for(address to, uint256 _value) external override nonReentrant() {
+        LockedBalance memory _locked = increase_amount_check(to, _value);
+        _deposit_for(to, _value, 0, _locked, INCREASE_LOCK_AMOUNT);
+    }
+
+    function increase_amount_check(address to, uint256 _value) internal view returns (LockedBalance memory _locked) {
+        _locked = locked[to];
         require(_value > 0, "need non - zero value");
         require(_locked.amount > 0, "No existing lock found");
         require(_locked.end > block.timestamp, "Cannot add to expired lock. Withdraw");
-        _deposit_for(msg.sender, _value, 0, _locked, INCREASE_LOCK_AMOUNT);
     }
 
     /// @notice Extend the unlock time for `msg.sender` to `_unlock_time`
@@ -234,9 +265,9 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         LockedBalance memory _locked = locked[msg.sender];
         // Locktime is rounded down to weeks
         uint256 unlock_time = _unlock_time.div(WEEK).mul(WEEK);
-        require(_locked.end > block.timestamp, "Lock expired");
         require(_locked.amount > 0, "Nothing is locked");
         require(unlock_time > _locked.end, "Can only increase lock duration");
+        require(unlock_time >= block.timestamp + (2 * WEEK), "Can only lock until time in the future");
         require(unlock_time <= block.timestamp + MAXTIME, "Voting lock can be 4 years max");
 
         _deposit_for(msg.sender, 0, unlock_time, _locked, INCREASE_UNLOCK_TIME);
@@ -249,8 +280,8 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// @param _locked Previous locked amount / timestamp
     /// @param _type For event only.
     function _deposit_for(address _addr, uint256 _value, uint256 unlock_time, LockedBalance memory _locked, int128 _type) internal {
-        uint256 locked_before = totalLocked;
-        totalLocked = locked_before.add(_value);
+        totalLocked = totalLocked.add(_value);
+        uint256 prevBalance = balances[_addr];
         // Adding to existing lock, or if a lock is expired - creating a new one
         _locked.amount = _locked.amount.add(_value);
 
@@ -260,7 +291,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         locked[_addr] = _locked;
 
         if (_value != 0) {
-            require(IERC20(oleToken).transferFrom(msg.sender, address(this), _value));
+            oleLpStakeToken.safeTransferFrom(msg.sender, address(this), _value);
         }
 
         uint calExtraValue = _value;
@@ -276,7 +307,7 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         } else {
             _mint(_addr, calExtraValue);
         }
-        emit Deposit(_addr, _value, _locked.end, _type, block.timestamp);
+        emit Deposit(_addr, _value, _locked.end, _type, prevBalance, balances[_addr]);
     }
 
     function _mint(address account, uint amount) internal {
@@ -314,19 +345,28 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
     /// @notice Withdraw all tokens for `msg.sender`
     /// @dev Only possible if the lock has expired
     function withdraw() external override nonReentrant() {
-        LockedBalance memory _locked = locked[msg.sender];
+        _withdraw_for(msg.sender, msg.sender);
+    }
+
+    function withdraw_automator(address owner) external override nonReentrant() {
+        require(oleLpStakeAutomator == msg.sender, "Not automator");
+        _withdraw_for(owner, oleLpStakeAutomator);
+    }
+
+    function _withdraw_for(address owner, address to) internal {
+        LockedBalance memory _locked = locked[owner];
         require(_locked.amount > 0, "Nothing to withdraw");
         require(block.timestamp >= _locked.end, "The lock didn't expire");
+        uint256 prevBalance = balances[owner];
         uint256 value = _locked.amount;
         totalLocked = totalLocked.sub(value);
         _locked.end = 0;
         _locked.amount = 0;
-        locked[msg.sender] = _locked;
-        oleToken.safeTransfer(msg.sender, value);
-        _burn(msg.sender);
-        emit Withdraw(msg.sender, value, block.timestamp);
+        locked[to] = _locked;
+        oleLpStakeToken.safeTransfer(to, value);
+        _burn(owner);
+        emit Withdraw(owner, value, prevBalance, balances[owner]);
     }
-
 
     /// Delegate votes from `msg.sender` to `delegatee`
     /// @param delegatee The address to delegate votes to
