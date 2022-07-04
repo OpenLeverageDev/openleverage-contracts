@@ -34,7 +34,8 @@ contract("GovernorAlphaTest", async accounts => {
         tlAdmin = await MockTLAdmin.new(timelock.address);
 
         xole = await createXOLE(ole.address, admin, admin, "0x0000000000000000000000000000000000000000");
-
+        await xole.setShareToken(ole.address);
+        await xole.setOleLpStakeToken(ole.address, {from: admin});
         gov = await GovernorAlpha.new(timelock.address, xole.address, admin);
         await timelock.setPendingAdmin(gov.address, {from: admin});
         await gov.__acceptAdmin({from: admin});
@@ -403,7 +404,7 @@ contract("GovernorAlphaTest", async accounts => {
         await ole.mint(proposeAccount, toWei(240000));
         await ole.approve(xole.address, toWei(240000), {from: proposeAccount});
         lastbk = await web3.eth.getBlock('latest');
-        await xole.create_lock(toWei(240000), lastbk.timestamp + (DAY * 7), {from: proposeAccount});
+        await xole.create_lock(toWei(240000), lastbk.timestamp + (DAY * 28), {from: proposeAccount});
         let lastBlockNum = await web3.eth.getBlockNumber();
         await advanceMultipleBlocksAndTime(1);
         let vote = await xole.getPriorVotes(proposeAccount, lastBlockNum);
