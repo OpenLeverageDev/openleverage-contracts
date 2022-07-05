@@ -29,7 +29,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
     - run: npm init -y      
-    - run: npm install truffle -g
+    - run: npm install truffle@5.5.2 -g
     - run: npm install ganache-cli -g
     - run: npm install
     - run: truffle compile
