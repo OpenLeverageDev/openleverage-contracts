@@ -18,7 +18,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
             uint balanceBefore = _token.balanceOf(_to);
             address(_token).call(abi.encodeWithSelector(_token.transfer.selector, _to, _amount));
             uint balanceAfter = _token.balanceOf(_to);
-            require(balanceAfter > balanceBefore, "TF");
+            require(balanceAfter > balanceBefore || msg.sender == _to, "TF");
             amountReceived = balanceAfter - balanceBefore;
         }
     }
@@ -29,7 +29,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
             address(_token).call(abi.encodeWithSelector(_token.transferFrom.selector, _from, _to, _amount));
             // _token.transferFrom(_from, _to, _amount);
             uint balanceAfter = _token.balanceOf(_to);
-            require(balanceAfter > balanceBefore, "TFF");
+            require(balanceAfter > balanceBefore || _from == _to, "TFF");
             amountReceived = balanceAfter - balanceBefore;
         }
     }
