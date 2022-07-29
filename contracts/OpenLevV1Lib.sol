@@ -35,19 +35,19 @@ library OpenLevV1Lib {
         mapping(uint16 => mapping(address => mapping(uint => uint24))) storage taxes
     ) external {
         address token0 = pool0.underlying();
-        address token1 = pool1.underlying(); 
+        address token1 = pool1.underlying();
         uint8 dex = dexData.toDex();
         require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
 
         {
             uint24[] memory taxRates = dexData.toTransferFeeRates();
-            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 &&taxRates[4] < 200000 && taxRates[5] < 200000, "WTR" );
-            taxes[marketId][token0][0]= taxRates[0];
-            taxes[marketId][token1][0]= taxRates[1];
-            taxes[marketId][token0][1]= taxRates[2];
-            taxes[marketId][token1][1]= taxRates[3];
-            taxes[marketId][token0][2]= taxRates[4];
-            taxes[marketId][token1][2]= taxRates[5];
+            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 && taxRates[4] < 200000 && taxRates[5] < 200000, "WTR");
+            taxes[marketId][token0][0] = taxRates[0];
+            taxes[marketId][token1][0] = taxRates[1];
+            taxes[marketId][token0][1] = taxRates[2];
+            taxes[marketId][token1][1] = taxRates[3];
+            taxes[marketId][token0][2] = taxRates[4];
+            taxes[marketId][token1][2] = taxRates[5];
         }
 
         // Approve the max number for pools
@@ -59,7 +59,7 @@ library OpenLevV1Lib {
         markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
         // Init price oracle
         if (dexData.isUniV2Class()) {
-            updatePriceInternal(token0, token1, dexData);
+            updatePrice(token0, token1, dexData);
         } else if (dex == DexData.DEX_UNIV3) {
             addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
         }
@@ -196,44 +196,35 @@ library OpenLevV1Lib {
         }
     }
 
-    function updatePriceInternal(address token0, address token1, bytes memory dexData) internal returns (bool){
+    function updatePrice(address token0, address token1, bytes memory dexData) public returns (bool){
         (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
         (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
         return dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
     }
 
-    function shouldUpdatePriceInternal(DexAggregatorInterface dexAggregator, uint16 twapDuration, uint16 priceDiffientRatio, address token0, address token1, bytes memory dexData) public view returns (bool){
-        if (!dexData.isUniV2Class()) {
-            return false;
-        }
-        (, uint cAvgPrice, uint hAvgPrice,, uint lastUpdateTime) = dexAggregator.getPriceCAvgPriceHAvgPrice(token0, token1, twapDuration, dexData);
-        if (block.timestamp < lastUpdateTime.add(twapDuration)) {
-            return false;
-        }
-        //Not initialized yet
-        if (cAvgPrice == 0 || hAvgPrice == 0) {
-            return true;
-        }
-        //price difference
-        uint one = 100;
-        uint differencePriceRatio = cAvgPrice.mul(one).div(hAvgPrice);
-        if (differencePriceRatio >= (one.add(priceDiffientRatio)) || differencePriceRatio <= (one.sub(priceDiffientRatio))) {
-            return true;
-        }
-        return false;
-    }
 
-    function updatePrice(uint16 marketId, Types.Market storage market, OpenLevStorage.AddressConfig storage addressConfig,
-        OpenLevStorage.CalculateConfig storage calculateConfig, bytes memory dexData) external {
-        bool shouldUpdate = shouldUpdatePriceInternal(addressConfig.dexAggregator, calculateConfig.twapDuration, market.priceDiffientRatio, market.token1, market.token0, dexData);
-        bool updateResult = updatePriceInternal(market.token0, market.token1, dexData);
+    function updatePrice(Types.Market storage market, bytes memory dexData) external {
+        bool updateResult = updatePrice(market.token0, market.token1, dexData);
         if (updateResult) {
             //Discount
             market.priceUpdater = msg.sender;
-            //Reward OLE
-            if (shouldUpdate) {
-                (ControllerInterface(addressConfig.controller)).updatePriceAllowed(marketId, msg.sender);
-            }
+        }
+    }
+
+    function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, DexAggregatorInterface dexAggregator) external returns (uint buyAmount){
+        if (sellAmount > 0) {
+            IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
+            buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
+        }
+    }
+
+    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data,
+        DexAggregatorInterface dexAggregator,
+        uint24 buyTax,
+        uint24 sellTax) external returns (uint sellAmount){
+        if (buyAmount > 0) {
+            IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
+            sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
         }
     }
 
@@ -249,7 +240,7 @@ library OpenLevV1Lib {
     function doTransferOut(address to, IERC20 token, address weth, uint amount) external {
         if (address(token) == weth) {
             IWETH(weth).withdraw(amount);
-            (bool success, ) = to.call{value: amount}("");
+            (bool success,) = to.call{value : amount}("");
             require(success);
         } else {
             token.safeTransfer(to, amount);
@@ -269,22 +260,18 @@ library OpenLevV1Lib {
     }
 
     function feeAndInsurance(
-        address trader, 
-        uint tradeSize, 
-        address token, 
+        address trader,
+        uint tradeSize,
+        address token,
         address xOLE,
-        uint totalHeld, 
+        uint totalHeld,
         uint reserve,
-        Types.Market storage  market, 
+        Types.Market storage market,
         mapping(address => uint) storage totalHelds,
         OpenLevStorage.CalculateConfig memory calculateConfig
     ) external returns (uint newFees) {
         uint defaultFees = tradeSize.mul(market.feesRate).div(10000);
         newFees = defaultFees;
-        // if trader holds more xOLE, then should enjoy trading discount.
-        if (XOLEInterface(xOLE).balanceOf(trader) > calculateConfig.feesDiscountThreshold) {
-            newFees = defaultFees.sub(defaultFees.mul(calculateConfig.feesDiscount).div(100));
-        }
         // if trader update price, then should enjoy trading discount.
         if (market.priceUpdater == trader) {
             newFees = newFees.sub(defaultFees.mul(calculateConfig.updatePriceDiscount).div(100));
@@ -304,14 +291,14 @@ library OpenLevV1Lib {
     }
 
     function reduceInsurance(
-        uint totalRepayment, 
-        uint remaining, 
-        bool longToken, 
-        address token, 
-        uint reserve, 
-        Types.Market storage  market, 
+        uint totalRepayment,
+        uint remaining,
+        bool longToken,
+        address token,
+        uint reserve,
+        Types.Market storage market,
         mapping(address => uint
-    ) storage totalHelds) external returns (uint maxCanRepayAmount) {
+        ) storage totalHelds) external returns (uint maxCanRepayAmount) {
         uint needed = totalRepayment.sub(remaining);
         needed = amountToShare(needed, totalHelds[token], reserve);
         maxCanRepayAmount = totalRepayment;
@@ -335,25 +322,15 @@ library OpenLevV1Lib {
                 market.pool1Insurance = 0;
             }
         }
-    }  
+    }
 
-    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount,  mapping(address => uint) storage totalHelds) external{
+    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount, mapping(address => uint) storage totalHelds) external {
         if (poolIndex == 0) {
             market.pool0Insurance = market.pool0Insurance.sub(amount);
             (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
-        }else{
+        } else {
             market.pool1Insurance = market.pool1Insurance.sub(amount);
             (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
-        }
-    }
-
-    function updateLegacy(address[] calldata tokens, mapping(address => uint) storage totalHelds) external{
-        for(uint i; i < tokens.length; i++){
-            address token = tokens[i];
-            uint balance = IERC20(token).balanceOf(address(this));
-            if (totalHelds[token] == 0 && balance > 0){
-                totalHelds[token] = balance;
-            }
         }
     }
 
@@ -366,19 +343,20 @@ library OpenLevV1Lib {
     }
 
     function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
-        if (totalShare > 0 && reserve > 0){
+        if (totalShare > 0 && reserve > 0) {
             amount = reserve.mul(share) / totalShare;
         }
     }
 
-    function verifyTrade(Types.MarketVars memory vars, bool longToken, bool depositToken, uint deposit, uint borrow, bytes memory dexData, OpenLevStorage.AddressConfig memory addressConfig, Types.Trade memory trade) external view {
+    function verifyTrade(Types.MarketVars memory vars, bool longToken, bool depositToken, uint deposit, uint borrow,
+        bytes memory dexData, OpenLevStorage.AddressConfig memory addressConfig, Types.Trade memory trade, bool convertWeth) external view {
         //verify if deposit token allowed
         address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
 
         //verify minimal deposit > absolute value 0.0001
         uint decimals = ERC20(depositTokenAddr).decimals();
         uint minimalDeposit = decimals > 4 ? 10 ** (decimals - 4) : 1;
-        uint actualDeposit = depositTokenAddr == addressConfig.wETH ? msg.value : deposit;
+        uint actualDeposit = depositTokenAddr == addressConfig.wETH && convertWeth ? msg.value : deposit;
         require(actualDeposit > minimalDeposit, "DTS");
         require(isInSupportDex(vars.dexs, dexData.toDexDetail()), "DNS");
 
@@ -390,5 +368,33 @@ library OpenLevV1Lib {
             // For new trade, these checks are not needed
             require(depositToken == trade.depositToken && trade.lastBlockNum != uint128(block.number), " DTS");
         }
+    }
+
+    function toMarketVar(bool longToken, bool open, Types.Market storage market) external view returns (Types.MarketVars memory) {
+        return open == longToken ?
+        Types.MarketVars(
+            market.pool1,
+            market.pool0,
+            IERC20(market.token1),
+            IERC20(market.token0),
+            IERC20(market.token1).balanceOf(address(this)),
+            IERC20(market.token0).balanceOf(address(this)),
+            market.pool1Insurance,
+            market.pool0Insurance,
+            market.marginLimit,
+            market.priceDiffientRatio,
+            market.dexs) :
+        Types.MarketVars(
+            market.pool0,
+            market.pool1,
+            IERC20(market.token0),
+            IERC20(market.token1),
+            IERC20(market.token0).balanceOf(address(this)),
+            IERC20(market.token1).balanceOf(address(this)),
+            market.pool0Insurance,
+            market.pool1Insurance,
+            market.marginLimit,
+            market.priceDiffientRatio,
+            market.dexs);
     }
 }

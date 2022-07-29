@@ -480,6 +480,15 @@ contract("OpenLev UniV3", async accounts => {
 
     })
 
+    it("Admin setOpLimitOrder test", async () => {
+        let {timeLock, openLev} = await instanceSimpleOpenLev();
+        let opLimitOrder = timeLock.address;
+        await timeLock.executeTransaction(openLev.address, 0, 'setOpLimitOrder(address)',
+            web3.eth.abi.encodeParameters(['address'], [opLimitOrder]), 0);
+        assert.equal(opLimitOrder, await openLev.opLimitOrder());
+        await assertThrows(openLev.setOpLimitOrder(opLimitOrder), 'caller must be admin');
+    })
+
     it("Admin setImplementation test", async () => {
         openLevV1Lib = await OpenLevV1Lib.new();
         await OpenLevV1.link("OpenLevV1Lib", openLevV1Lib.address);

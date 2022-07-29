@@ -28,6 +28,8 @@ contract("OpenLev UniV2", async accounts => {
     let saver = accounts[1];
     let trader = accounts[2];
 
+    let trader2 = accounts[5];
+
     let dev = accounts[3];
     let liquidator1 = accounts[8];
     let liquidator2 = accounts[9];
@@ -58,7 +60,7 @@ contract("OpenLev UniV2", async accounts => {
         openLevV1Lib = await OpenLevV1Lib.new();
         await OpenLevV1.link("OpenLevV1Lib", openLevV1Lib.address);
         delegatee = await OpenLevV1.new();
-        
+
         openLev = await OpenLevDelegator.new(controller.address, dexAgg.address, [token0.address, token1.address], weth.address, xole.address, [1, 2], accounts[0], delegatee.address);
         openLev = await OpenLevV1.at(openLev.address);
         await openLev.setCalculateConfig(30, 33, 3000, 5, 25, 25, (30e18) + '', 300, 10, 60);
@@ -75,7 +77,6 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(await openLev.numPairs(), 1, "Should have one active pair");
         m.log("Reset OpenLev instance: ", last8(openLev.address));
     });
-
     it("Deposit Eth，return eth ", async () => {
         gotPair = await utils.createUniswapV2Pool(uniswapFactory, weth, token1);
         await controller.createLPoolPair(weth.address, token1.address, 3000, Uni2DexData); // 30% margin ratio by default
@@ -119,7 +120,6 @@ contract("OpenLev UniV2", async accounts => {
         m.log("ethAfter=", ethAfter);
         assert.equal(toBN(ethAfter).gt(toBN(ethBefore)), true);
     })
-
     it("LONG Token0, Not Init Price ,Not Succeed ", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -212,7 +212,7 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(marginRatio.hAvg.toString(), 7733);
         let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
         assert.equal(tradeBefore.held, "886675826237735294796");
-        
+
         let closeTradeTx = await openLev.closeTrade(0, false, tradeBefore.held, 0, Uni2DexData, {from: trader});
         m.log("V2 Close Trade Gas Used: ", closeTradeTx.receipt.gasUsed);
 
@@ -289,7 +289,6 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Margin Ratio havg:", marginRatio.hAvg / 100, "%");
         assert.equal(marginRatio.current.toString(), 13599);
     })
-
     it("LONG Token0, Price Diffience>10%, 60s Later, Liquidation", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -325,8 +324,6 @@ contract("OpenLev UniV2", async accounts => {
         let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("PriceData0: \t", JSON.stringify(priceData0));
 
-        let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
-        assert.equal(shouldUpatePrice, true);
         // should update price first
         await assertThrows(openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2}), 'MPT');
 
@@ -344,7 +341,6 @@ contract("OpenLev UniV2", async accounts => {
         assertPrint("Deposit Decrease", '397300000000000000000', liquidationTx.logs[0].args.depositDecrease);
         assertPrint("Deposit Return", '0', liquidationTx.logs[0].args.depositReturn);
     })
-    
     it("LONG Token0, Price Diffience>10%,Update Price, Liquidation", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -380,8 +376,6 @@ contract("OpenLev UniV2", async accounts => {
         let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("PriceData0: \t", JSON.stringify(priceData0));
 
-        let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
-        assert.equal(shouldUpatePrice, true);
 
         // should update price first
         await assertThrows(openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2}), 'MPT');
@@ -405,7 +399,6 @@ contract("OpenLev UniV2", async accounts => {
         assertPrint("Deposit Return", '0', liquidationTx.logs[0].args.depositReturn);
 
     })
-
     it("LONG Token0, Update Price, Discount", async () => {
         let pairId = 0;
         await printBlockNum();
@@ -429,5 +422,91 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Trade.held:", tradeBefore.held);
         assert.equal(tradeBefore.held, "887336915523826444724");
         assertPrint("Insurance of Pool1:", '668250000000000000', (await openLev.markets(pairId)).pool1Insurance);
+    })
+
+    it("MarginTrade For trader2", async () => {
+        let pairId = 0;
+        await printBlockNum();
+        // provide some funds for trader and saver
+        await utils.mint(token1, trader, 10000);
+        await utils.mint(token1, saver, 10000);
+        // Trader to approve openLev to spend
+        let deposit = utils.toWei(400);
+        await token1.approve(openLev.address, deposit, {from: trader});
+        // Saver deposit to pool1
+        let saverSupply = utils.toWei(1000);
+        let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
+        await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
+        await pool1.mint(saverSupply, {from: saver});
+        let borrow = utils.toWei(500);
+        m.log("toBorrow from Pool 1: \t", borrow);
+        await advanceMultipleBlocksAndTime(200);
+        await openLev.updatePrice(pairId, Uni2DexData, {from: trader2});
+        await assertThrows(openLev.marginTradeFor(trader2, pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader}), 'OLO');
+        await openLev.setOpLimitOrder(trader);
+        await openLev.marginTradeFor(trader2, pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+        let tradeBefore = await openLev.activeTrades(trader2, pairId, 0);
+        m.log("Trade.held:", tradeBefore.held);
+        assert.equal(tradeBefore.held, "887336915523826444724");
+        await openLev.closeTrade(pairId, false, tradeBefore.held, 0, Uni2DexData, {from: trader2});
+        let tradeAfter = await openLev.activeTrades(trader2, pairId, 0);
+        assert.equal(tradeAfter.held, "0");
+        m.log("Trader2.balanceOf:", await token1.balanceOf(trader2));
+        assert.equal(await token1.balanceOf(trader2), "390651883276774977117");
+        // weth
+        gotPair = await utils.createUniswapV2Pool(uniswapFactory, weth, token1);
+        await controller.createLPoolPair(weth.address, token1.address, 3000, Uni2DexData);
+        pairId = 1;
+        await utils.mint(token1, saver, 1000);
+        await utils.mint(weth, trader, 1000);
+        deposit = utils.toWei(1);
+        saverSupply = utils.toWei(1000);
+        pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
+        await token1.approve(await pool1.address, saverSupply, {from: saver});
+        await pool1.mint(saverSupply, {from: saver});
+        borrow = utils.toWei(1);
+        m.log("toBorrow from Pool 1: \t", borrow);
+        m.log("totalBorrow from Pool 1: \t", await pool1.availableForBorrow());
+
+        await advanceMultipleBlocksAndTime(200);
+        await openLev.updatePrice(pairId, Uni2DexData, {from: trader2});
+        await weth.approve(openLev.address, deposit, {from: trader});
+
+        await openLev.marginTradeFor(trader2, pairId, false, false, deposit, borrow, 0, Uni2DexData, {from: trader});
+        tradeBefore = await openLev.activeTrades(trader2, pairId, 0);
+        m.log("Trade.held:", tradeBefore.held);
+        assert.equal(tradeBefore.held.toString(), "1992490060009101709");
+    })
+    it("CloseTrade For trader2", async () => {
+        let pairId = 0;
+        await printBlockNum();
+        // provide some funds for trader and saver
+        await utils.mint(token1, trader, 400);
+        await utils.mint(token1, saver, 10000);
+        // Trader to approve openLev to spend
+        let deposit = utils.toWei(400);
+        await token1.approve(openLev.address, deposit, {from: trader});
+        // Saver deposit to pool1
+        let saverSupply = utils.toWei(1000);
+        let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
+        await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
+        await pool1.mint(saverSupply, {from: saver});
+        let borrow = utils.toWei(500);
+        m.log("toBorrow from Pool 1: \t", borrow);
+        await advanceMultipleBlocksAndTime(200);
+        await openLev.updatePrice(pairId, Uni2DexData, {from: trader});
+        await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+        let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
+        m.log("Trade.held:", tradeBefore.held);
+        assert.equal(tradeBefore.held, "887336915523826444724");
+        await assertThrows(openLev.closeTradeFor(trader, pairId, false, tradeBefore.held, 0, Uni2DexData, {from: trader2}), 'OLO');
+        await openLev.setOpLimitOrder(trader2);
+
+        await openLev.closeTradeFor(trader, pairId, false, tradeBefore.held, 0, Uni2DexData, {from: trader2})
+        let tradeAfter = await openLev.activeTrades(trader, pairId, 0);
+        assert.equal(tradeAfter.held, "0");
+        m.log("Trader1.balanceOf:", await token1.balanceOf(trader));
+
+        assert.equal((await token1.balanceOf(trader)).toString(), "390651431412239210117");
     })
 })
