@@ -35,7 +35,7 @@ library OpenLevV1Lib {
         mapping(uint16 => mapping(address => mapping(uint => uint24))) storage taxes
     ) external {
         address token0 = pool0.underlying();
-        address token1 = pool1.underlying(); 
+        address token1 = pool1.underlying();
         uint8 dex = dexData.toDex();
         require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
 
@@ -269,13 +269,13 @@ library OpenLevV1Lib {
     }
 
     function feeAndInsurance(
-        address trader, 
-        uint tradeSize, 
-        address token, 
+        address trader,
+        uint tradeSize,
+        address token,
         address xOLE,
-        uint totalHeld, 
+        uint totalHeld,
         uint reserve,
-        Types.Market storage  market, 
+        Types.Market storage  market,
         mapping(address => uint) storage totalHelds,
         OpenLevStorage.CalculateConfig memory calculateConfig
     ) external returns (uint newFees) {
@@ -304,12 +304,12 @@ library OpenLevV1Lib {
     }
 
     function reduceInsurance(
-        uint totalRepayment, 
-        uint remaining, 
-        bool longToken, 
-        address token, 
-        uint reserve, 
-        Types.Market storage  market, 
+        uint totalRepayment,
+        uint remaining,
+        bool longToken,
+        address token,
+        uint reserve,
+        Types.Market storage  market,
         mapping(address => uint
     ) storage totalHelds) external returns (uint maxCanRepayAmount) {
         uint needed = totalRepayment.sub(remaining);
@@ -335,25 +335,19 @@ library OpenLevV1Lib {
                 market.pool1Insurance = 0;
             }
         }
-    }  
-
-    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount,  mapping(address => uint) storage totalHelds) external{
-        if (poolIndex == 0) {
-            market.pool0Insurance = market.pool0Insurance.sub(amount);
-            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
-        }else{
-            market.pool1Insurance = market.pool1Insurance.sub(amount);
-            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
-        }
     }
 
-    function updateLegacy(address[] calldata tokens, mapping(address => uint) storage totalHelds) external{
-        for(uint i; i < tokens.length; i++){
-            address token = tokens[i];
-            uint balance = IERC20(token).balanceOf(address(this));
-            if (totalHelds[token] == 0 && balance > 0){
-                totalHelds[token] = balance;
-            }
+    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount, mapping(address => uint) storage totalHelds) external {
+        if (poolIndex == 0) {
+            market.pool0Insurance = market.pool0Insurance.sub(amount);
+            uint256 totalHeld = totalHelds[market.token0];
+            totalHelds[market.token0] = totalHelds[market.token0].sub(amount);
+            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token0).balanceOf(address(this))));
+        } else {
+            market.pool1Insurance = market.pool1Insurance.sub(amount);
+            uint256 totalHeld = totalHelds[market.token1];
+            totalHelds[market.token1] = totalHelds[market.token1].sub(amount);
+            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token1).balanceOf(address(this))));
         }
     }
 
