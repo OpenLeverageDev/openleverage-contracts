@@ -127,11 +127,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
         require(borrow == 0 || deposit.mul(10000).div(tv.borrowValue) > vars.marginLimit, "MAM");
         tv.fees = feesAndInsurance(
-            msg.sender, 
-            deposit.add(tv.borrowValue), 
-            address(tv.depositErc20), 
-            marketId, 
-            totalHelds[address(tv.depositErc20)], 
+            msg.sender,
+            deposit.add(tv.borrowValue),
+            address(tv.depositErc20),
+            marketId,
+            totalHelds[address(tv.depositErc20)],
             depositToken == longToken ? vars.reserveBuyToken : vars.reserveSellToken
         );
         tv.depositAfterFees = deposit.sub(tv.fees);
@@ -183,7 +183,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         require(closeHeld <= trade.held, "CBH");
         require(trade.held != 0 && trade.lastBlockNum != block.number && OpenLevV1Lib.isInSupportDex(marketVars.dexs, dexData.toDexDetail()), "HI0");
         (ControllerInterface(addressConfig.controller)).closeTradeAllowed(marketId);
-        
+
         uint closeAmount = OpenLevV1Lib.shareToAmount(closeHeld, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
 
         Types.CloseTradeVars memory closeTradeVars;
@@ -372,7 +372,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         Types.Market memory market = markets[marketId];
         tokenToLong = longToken ? market.token1 : market.token0;
         limit = market.marginLimit;
-        
+
         uint amount = activeTrades[owner][marketId][longToken].held;
         amount = OpenLevV1Lib.shareToAmount(
             amount,
@@ -484,11 +484,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
     function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external override onlyAdmin(){
         taxes[marketId][token][index] = tax;
-    }
-
-    // should remove in later version call on update contract should be atomic
-    function updateLegacy(address[] calldata tokens) external onlyAdmin() {
-        OpenLevV1Lib.updateLegacy(tokens, totalHelds);
     }
 
     modifier onlySupportDex(bytes memory dexData) {

@@ -108,6 +108,10 @@ contract XOLE is DelegateInterface, Adminable, XOLEInterface, XOLEStorage, Reent
         emit RewardPaid(to, claimable);
     }
 
+    function withdrawOle(address to) external override onlyAdmin {
+        oleToken.safeTransfer(to, oleToken.balanceOf(address(this)));
+    }
+
     function shareableTokenAmount() external override view returns (uint256){
         return shareableTokenAmountInternal();
     }
