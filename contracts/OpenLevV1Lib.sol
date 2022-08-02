@@ -327,10 +327,14 @@ library OpenLevV1Lib {
     function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount, mapping(address => uint) storage totalHelds) external {
         if (poolIndex == 0) {
             market.pool0Insurance = market.pool0Insurance.sub(amount);
-            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
+            uint256 totalHeld = totalHelds[market.token0];
+            totalHelds[market.token0] = totalHelds[market.token0].sub(amount);
+            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token0).balanceOf(address(this))));
         } else {
             market.pool1Insurance = market.pool1Insurance.sub(amount);
-            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
+            uint256 totalHeld = totalHelds[market.token1];
+            totalHelds[market.token1] = totalHelds[market.token1].sub(amount);
+            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token1).balanceOf(address(this))));
         }
     }
 
