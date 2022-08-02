@@ -467,15 +467,38 @@ contract("OpenLev UniV3", async accounts => {
         await openLev.setPendingAdmin(timeLock.address);
         await timeLock.executeTransaction(openLev.address, 0, 'acceptAdmin()',
             web3.eth.abi.encodeParameters([], []), 0)
-        // await openLev.acceptAdmin();
 
         let pool1Insurance = (await openLev.markets(pairId)).pool1Insurance;
+        let totalHeld = await openLev.totalHelds(token0.address);
+        assert.equal(pool1Insurance.toString(), (await openLev.totalHelds(token1.address)).toString());
+
         m.log("pool1Insurance", pool1Insurance);
         await timeLock.executeTransaction(openLev.address, 0, 'moveInsurance(uint16,uint8,address,uint256)',
             web3.eth.abi.encodeParameters(['uint16', 'uint8', 'address', 'uint256'], [pairId, 1, accounts[5], pool1Insurance]), 0)
-
+        assert.equal("0", (await openLev.totalHelds(token1.address)));
         assert.equal("0", (await openLev.markets(pairId)).pool1Insurance);
         assert.equal(pool1Insurance, (await token1.balanceOf(accounts[5])).toString());
+        //close
+        await openLev.closeTrade(0, 0, toBN(totalHeld).div(toBN(2)), 0, Uni3DexData, {from: trader});
+        let pool0Insurance = (await openLev.markets(pairId)).pool0Insurance;
+        m.log("pool0Insurance", pool0Insurance);
+        let marginRatio_0 = await openLev.marginRatio(trader, 0, 0, Uni3DexData);
+        await timeLock.executeTransaction(openLev.address, 0, 'moveInsurance(uint16,uint8,address,uint256)',
+            web3.eth.abi.encodeParameters(['uint16', 'uint8', 'address', 'uint256'], [pairId, 0, accounts[5], pool0Insurance]), 0)
+        let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, Uni3DexData);
+        m.log("marginRatio_0.current", marginRatio_0.current);
+        m.log("marginRatio_1.current", marginRatio_1.current);
+
+        assert.equal(marginRatio_1.current.toString(), marginRatio_0.current.toString());
+
+        assert.equal((await openLev.totalHelds(token0.address)).toString(), (await openLev.activeTrades(trader, pairId, false)).held.toString());
+        assert.equal("0", (await openLev.markets(pairId)).pool0Insurance);
+        assert.equal(pool0Insurance, (await token0.balanceOf(accounts[5])).toString());
+
+        await openLev.closeTrade(0, 0, (await openLev.activeTrades(trader, pairId, false)).held, 0, Uni3DexData, {from: trader});
+        assert.equal("0", (await openLev.activeTrades(trader, pairId, false)).held.toString());
+        assert.equal("0", (await pool1.borrowBalanceCurrent(trader)).toString());
+
         await assertThrows(openLev.moveInsurance(pairId, 1, accounts[5], pool1Insurance), 'caller must be admin');
 
     })
