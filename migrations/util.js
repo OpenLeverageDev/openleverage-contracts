@@ -4,6 +4,8 @@ let bscTestnet = exports.bscTestnet = 'bscTestnet';
 let bscIntegrationTest = exports.bscIntegrationTest = 'bscIntegrationTest';
 let mainnet = exports.mainnet = 'mainnet';
 let kccMainnet = exports.kccMainnet = 'kccMainnet';
+let cronosTest = exports.cronosTest = 'cronosTest';
+
 
 exports.isSkip = function (network) {
     return network == ('development') ||
@@ -90,6 +92,8 @@ exports.blocksPerYear = function (network) {
             return 10512000;
         case kccMainnet:
             return 10512000;
+        case cronosTest:
+            return 31536000;
     }
 }
 
@@ -97,6 +101,7 @@ exports.tokenName = function (network) {
     switch (network){
         case bscIntegrationTest:
         case bscTestnet:
+        case cronosTest:
             return "ELO";
         default:
             return "OpenLeverage";
@@ -107,6 +112,7 @@ exports.tokenSymbol = function (network) {
     switch (network){
         case bscIntegrationTest:
         case bscTestnet:
+        case cronosTest:
             return "ELO"
         default:
             return "OLE";
@@ -127,6 +133,8 @@ exports.getWChainToken = function (network) {
             return "0x094616f0bdfb0b526bd735bf66eca0ad254ca81f";
         case kccMainnet:
             return "0x4446fc4eb47f2f6586f9faab68b3498f86c07521";
+        case cronosTest:
+            return "0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23";
         default:
             return zeroAddress;
     }
@@ -155,6 +163,8 @@ exports.getUniV2DexData = function (network){
             return "0x03";
         case kccMainnet:
             return "0x0d";
+        case cronosTest:
+            return ""
         default:
             return zeroAddress;
     }
