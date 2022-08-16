@@ -5,7 +5,7 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ main, tax-token-support, bsc ]
+    branches: [ main, tax-token-support,limit-order ]
   pull_request:
     branches: [ main ]
 
