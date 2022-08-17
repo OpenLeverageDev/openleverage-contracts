@@ -17,7 +17,7 @@ import "../IWETH.sol";
 /// @title OpenLeverage's LToken Contract
 /// @dev Abstract base for LTokens
 /// @author OpenLeverage
-contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, ReentrancyGuard {
+contract LTimePool is DelegateInterface, Adminable, LPoolInterface, Exponential, ReentrancyGuard {
     using TransferHelper for IERC20;
     using SafeMath for uint;
 
