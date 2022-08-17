@@ -30,6 +30,8 @@ exports.uniswapV2Address = function (network) {
             return '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
         case kccMainnet:
             return "0x79855A03426e15Ad120df77eFA623aF87bd54eF3";
+        case cronosTest:
+            return "0x3B44B2a187a7b3824131F8db5a74194D0a42Fc15";
         default:
             return zeroAddress;
     }
@@ -164,7 +166,7 @@ exports.getUniV2DexData = function (network){
         case kccMainnet:
             return "0x0d";
         case cronosTest:
-            return ""
+            return "0x14"
         default:
             return zeroAddress;
     }
