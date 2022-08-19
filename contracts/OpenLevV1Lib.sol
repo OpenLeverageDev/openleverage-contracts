@@ -41,13 +41,13 @@ library OpenLevV1Lib {
 
         {
             uint24[] memory taxRates = dexData.toTransferFeeRates();
-            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 &&taxRates[4] < 200000 && taxRates[5] < 200000, "WTR" );
-            taxes[marketId][token0][0]= taxRates[0];
-            taxes[marketId][token1][0]= taxRates[1];
-            taxes[marketId][token0][1]= taxRates[2];
-            taxes[marketId][token1][1]= taxRates[3];
-            taxes[marketId][token0][2]= taxRates[4];
-            taxes[marketId][token1][2]= taxRates[5];
+            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 && taxRates[4] < 200000 && taxRates[5] < 200000, "WTR");
+            taxes[marketId][token0][0] = taxRates[0];
+            taxes[marketId][token1][0] = taxRates[1];
+            taxes[marketId][token0][1] = taxRates[2];
+            taxes[marketId][token1][1] = taxRates[3];
+            taxes[marketId][token0][2] = taxRates[4];
+            taxes[marketId][token1][2] = taxRates[5];
         }
 
         // Approve the max number for pools
@@ -249,7 +249,7 @@ library OpenLevV1Lib {
     function doTransferOut(address to, IERC20 token, address weth, uint amount) external {
         if (address(token) == weth) {
             IWETH(weth).withdraw(amount);
-            (bool success, ) = to.call{value: amount}("");
+            (bool success,) = to.call{value : amount}("");
             require(success);
         } else {
             token.safeTransfer(to, amount);
@@ -275,7 +275,7 @@ library OpenLevV1Lib {
         address xOLE,
         uint totalHeld,
         uint reserve,
-        Types.Market storage  market,
+        Types.Market storage market,
         mapping(address => uint) storage totalHelds,
         OpenLevStorage.CalculateConfig memory calculateConfig
     ) external returns (uint newFees) {
@@ -309,9 +309,9 @@ library OpenLevV1Lib {
         bool longToken,
         address token,
         uint reserve,
-        Types.Market storage  market,
+        Types.Market storage market,
         mapping(address => uint
-    ) storage totalHelds) external returns (uint maxCanRepayAmount) {
+        ) storage totalHelds) external returns (uint maxCanRepayAmount) {
         uint needed = totalRepayment.sub(remaining);
         needed = amountToShare(needed, totalHelds[token], reserve);
         maxCanRepayAmount = totalRepayment;
@@ -328,6 +328,7 @@ library OpenLevV1Lib {
         } else {
             if (market.pool1Insurance >= needed) {
                 market.pool1Insurance = market.pool1Insurance - needed;
+                totalHelds[token] = totalHelds[token].sub(needed);
             } else {
                 maxCanRepayAmount = shareToAmount(market.pool1Insurance, totalHelds[token], reserve);
                 maxCanRepayAmount = maxCanRepayAmount.add(remaining);
@@ -360,7 +361,7 @@ library OpenLevV1Lib {
     }
 
     function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
-        if (totalShare > 0 && reserve > 0){
+        if (totalShare > 0 && reserve > 0) {
             amount = reserve.mul(share) / totalShare;
         }
     }
