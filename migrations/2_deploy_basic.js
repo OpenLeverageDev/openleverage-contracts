@@ -7,6 +7,7 @@ const KccDexAggregatorV1 = artifacts.require("KccDexAggregatorV1");
 const CronosDexAggregatorV1 = artifacts.require("CronosDexAggregatorV1");
 const DexAggregatorDelegator = artifacts.require("DexAggregatorDelegator");
 const Gov = artifacts.require("GovernorAlpha");
+const QueryHelper = artifacts.require("QueryHelper");
 const Timelock = artifacts.require("Timelock");
 const ControllerV1 = artifacts.require("ControllerV1");
 const ControllerDelegator = artifacts.require("ControllerDelegator");
@@ -47,6 +48,8 @@ module.exports = async function (deployer, network, accounts) {
             oleAddr = OLEToken.address;
     }
 
+    //queryHelper
+    await deployer.deploy(QueryHelper, utils.deployOption(accounts));
     //airdrop
     await deployer.deploy(Airdrop, oleAddr, utils.deployOption(accounts));
     //dexAgg
