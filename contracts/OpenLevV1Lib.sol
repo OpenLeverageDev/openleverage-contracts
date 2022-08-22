@@ -315,6 +315,7 @@ library OpenLevV1Lib {
         } else {
             if (market.pool1Insurance >= needed) {
                 market.pool1Insurance = market.pool1Insurance - needed;
+                totalHelds[token] = totalHelds[token].sub(needed);
             } else {
                 maxCanRepayAmount = shareToAmount(market.pool1Insurance, totalHelds[token], reserve);
                 maxCanRepayAmount = maxCanRepayAmount.add(remaining);
