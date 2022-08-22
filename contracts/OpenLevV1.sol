@@ -84,11 +84,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint borrow,
         uint minBuyAmount,
         bytes memory dexData
-    ) external payable override nonReentrant onlySupportDex(dexData) {
-        _marginTradeFor(msg.sender, marketId, longToken, depositToken, deposit, borrow, minBuyAmount, dexData);
+    ) external payable override nonReentrant onlySupportDex(dexData) returns (uint256) {
+        return _marginTradeFor(msg.sender, marketId, longToken, depositToken, deposit, borrow, minBuyAmount, dexData);
     }
 
-    function marginTradeFor(address trader, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable override nonReentrant onlySupportDex(dexData) returns (uint256 newHeld){
+    function marginTradeFor(address trader, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable override nonReentrant onlySupportDex(dexData) returns (uint256){
         require(msg.sender == opLimitOrder, 'OLO');
         return _marginTradeFor(trader, marketId, longToken, depositToken, deposit, borrow, minBuyAmount, dexData);
     }
@@ -180,8 +180,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     }
 
 
-    function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
-        _closeTradeFor(msg.sender, marketId, longToken, closeHeld, minOrMaxAmount, dexData);
+    function closeTrade(uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) returns (uint256){
+        return _closeTradeFor(msg.sender, marketId, longToken, closeHeld, minOrMaxAmount, dexData);
     }
 
     function closeTradeFor(address trader, uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) returns (uint256){
