@@ -169,6 +169,8 @@ interface XOLEInterface {
 
     function withdrawCommunityFund(address to) external;
 
+    function withdrawOle(address to) external;
+
     function setDevFundRatio(uint newRatio) external;
 
     function setDev(address newDev) external;

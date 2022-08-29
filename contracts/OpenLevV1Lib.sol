@@ -35,19 +35,19 @@ library OpenLevV1Lib {
         mapping(uint16 => mapping(address => mapping(uint => uint24))) storage taxes
     ) external {
         address token0 = pool0.underlying();
-        address token1 = pool1.underlying(); 
+        address token1 = pool1.underlying();
         uint8 dex = dexData.toDex();
         require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
 
         {
             uint24[] memory taxRates = dexData.toTransferFeeRates();
-            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 &&taxRates[4] < 200000 && taxRates[5] < 200000, "WTR" );
-            taxes[marketId][token0][0]= taxRates[0];
-            taxes[marketId][token1][0]= taxRates[1];
-            taxes[marketId][token0][1]= taxRates[2];
-            taxes[marketId][token1][1]= taxRates[3];
-            taxes[marketId][token0][2]= taxRates[4];
-            taxes[marketId][token1][2]= taxRates[5];
+            require(taxRates[0] < 200000 && taxRates[1] < 200000 && taxRates[2] < 200000 && taxRates[3] < 200000 && taxRates[4] < 200000 && taxRates[5] < 200000, "WTR");
+            taxes[marketId][token0][0] = taxRates[0];
+            taxes[marketId][token1][0] = taxRates[1];
+            taxes[marketId][token0][1] = taxRates[2];
+            taxes[marketId][token1][1] = taxRates[3];
+            taxes[marketId][token0][2] = taxRates[4];
+            taxes[marketId][token1][2] = taxRates[5];
         }
 
         // Approve the max number for pools
@@ -249,7 +249,7 @@ library OpenLevV1Lib {
     function doTransferOut(address to, IERC20 token, address weth, uint amount) external {
         if (address(token) == weth) {
             IWETH(weth).withdraw(amount);
-            (bool success, ) = to.call{value: amount}("");
+            (bool success,) = to.call{value : amount}("");
             require(success);
         } else {
             token.safeTransfer(to, amount);
@@ -269,13 +269,13 @@ library OpenLevV1Lib {
     }
 
     function feeAndInsurance(
-        address trader, 
-        uint tradeSize, 
-        address token, 
+        address trader,
+        uint tradeSize,
+        address token,
         address xOLE,
-        uint totalHeld, 
+        uint totalHeld,
         uint reserve,
-        Types.Market storage  market, 
+        Types.Market storage market,
         mapping(address => uint) storage totalHelds,
         OpenLevStorage.CalculateConfig memory calculateConfig
     ) external returns (uint newFees) {
@@ -304,14 +304,14 @@ library OpenLevV1Lib {
     }
 
     function reduceInsurance(
-        uint totalRepayment, 
-        uint remaining, 
-        bool longToken, 
-        address token, 
-        uint reserve, 
-        Types.Market storage  market, 
+        uint totalRepayment,
+        uint remaining,
+        bool longToken,
+        address token,
+        uint reserve,
+        Types.Market storage market,
         mapping(address => uint
-    ) storage totalHelds) external returns (uint maxCanRepayAmount) {
+        ) storage totalHelds) external returns (uint maxCanRepayAmount) {
         uint needed = totalRepayment.sub(remaining);
         needed = amountToShare(needed, totalHelds[token], reserve);
         maxCanRepayAmount = totalRepayment;
@@ -328,6 +328,7 @@ library OpenLevV1Lib {
         } else {
             if (market.pool1Insurance >= needed) {
                 market.pool1Insurance = market.pool1Insurance - needed;
+                totalHelds[token] = totalHelds[token].sub(needed);
             } else {
                 maxCanRepayAmount = shareToAmount(market.pool1Insurance, totalHelds[token], reserve);
                 maxCanRepayAmount = maxCanRepayAmount.add(remaining);
@@ -335,25 +336,19 @@ library OpenLevV1Lib {
                 market.pool1Insurance = 0;
             }
         }
-    }  
-
-    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount,  mapping(address => uint) storage totalHelds) external{
-        if (poolIndex == 0) {
-            market.pool0Insurance = market.pool0Insurance.sub(amount);
-            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token0], IERC20(market.token0).balanceOf(address(this))));
-        }else{
-            market.pool1Insurance = market.pool1Insurance.sub(amount);
-            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHelds[market.token1], IERC20(market.token1).balanceOf(address(this))));
-        }
     }
 
-    function updateLegacy(address[] calldata tokens, mapping(address => uint) storage totalHelds) external{
-        for(uint i; i < tokens.length; i++){
-            address token = tokens[i];
-            uint balance = IERC20(token).balanceOf(address(this));
-            if (totalHelds[token] == 0 && balance > 0){
-                totalHelds[token] = balance;
-            }
+    function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount, mapping(address => uint) storage totalHelds) external {
+        if (poolIndex == 0) {
+            market.pool0Insurance = market.pool0Insurance.sub(amount);
+            uint256 totalHeld = totalHelds[market.token0];
+            totalHelds[market.token0] = totalHelds[market.token0].sub(amount);
+            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token0).balanceOf(address(this))));
+        } else {
+            market.pool1Insurance = market.pool1Insurance.sub(amount);
+            uint256 totalHeld = totalHelds[market.token1];
+            totalHelds[market.token1] = totalHelds[market.token1].sub(amount);
+            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token1).balanceOf(address(this))));
         }
     }
 
@@ -366,7 +361,7 @@ library OpenLevV1Lib {
     }
 
     function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
-        if (totalShare > 0 && reserve > 0){
+        if (totalShare > 0 && reserve > 0) {
             amount = reserve.mul(share) / totalShare;
         }
     }
