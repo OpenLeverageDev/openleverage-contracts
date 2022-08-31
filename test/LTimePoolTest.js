@@ -102,6 +102,8 @@ contract("LPoolDelegator", async accounts => {
         let blocksPerYear = toBN(31536000);
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 10000);
+        await advanceTime(1);
+
         let cash = await erc20Pool.getCash();
         assert.equal(cash, 0);
         /**
@@ -110,7 +112,10 @@ contract("LPoolDelegator", async accounts => {
         //deposit10000
         await testToken.approve(erc20Pool.address, maxUint());
         await erc20Pool.mint(10000 * 1e10);
+
         await erc20Pool.setReserveFactor(toBN(2e17));
+        await advanceTime(3);
+
         //Checking deposits
         assert.equal(await erc20Pool.getCash(), 10000 * 1e10);
         assert.equal(await erc20Pool.totalSupply(), 10000 * 1e10);
@@ -124,6 +129,8 @@ contract("LPoolDelegator", async accounts => {
          */
         //borrow money5000
         await erc20Pool.borrowBehalf(accounts[0], 5000 * 1e10);
+        await advanceTime(1);
+
         approxAssertPrint("Check borrow rate", '99999999996537600', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
         approxAssertPrint("Check supply rate", '39999999997353600', (await erc20Pool.supplyRatePerBlock()).mul(blocksPerYear).toString());
 
@@ -134,6 +141,8 @@ contract("LPoolDelegator", async accounts => {
         assert.equal(accountSnapshot[2], 1e18);
         //Borrow 2000 more
         await erc20Pool.borrowBehalf(accounts[0], 2000 * 1e10);
+        await advanceTime(1);
+
         approxAssertPrint("Check borrow rate", '140000002087881600', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
         approxAssertPrint("Check supply rate", '78400002340166400', (await erc20Pool.supplyRatePerBlock()).mul(blocksPerYear).toString());
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
@@ -144,6 +153,8 @@ contract("LPoolDelegator", async accounts => {
 
         //Update total borrowings and interest
         await erc20Pool.accrueInterest();
+        await advanceTime(1);
+
         approxAssertPrint("Check borrow rate", '140000006189664000', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
         approxAssertPrint("Check supply rate", '78400006933910400', (await erc20Pool.supplyRatePerBlock()).mul(blocksPerYear).toString());
 
@@ -154,6 +165,8 @@ contract("LPoolDelegator", async accounts => {
          * repayment
          */
         await erc20Pool.repayBorrowBehalf(accounts[0], maxUint());
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
         assert.equal(accountSnapshot[0], 10000 * 1e10);
         assert.equal(accountSnapshot[1], 0);
@@ -171,6 +184,8 @@ contract("LPoolDelegator", async accounts => {
          * Withdrawal
          */
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
         assert.equal(accountSnapshot[0], 0);
         approxAssertPrint("Check balanceOf", '9999999999999997659819', (await testToken.balanceOf(accounts[0])).toString());
@@ -187,11 +202,15 @@ contract("LPoolDelegator", async accounts => {
         let erc20Pool = createPoolResult.pool;
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 10000);
+
         // deposit 10000
         await testToken.approve(erc20Pool.address, maxUint());
         await erc20Pool.mint(10000 * 1e10);
+
         //Borrow money 5000
         await erc20Pool.borrowBehalf(accounts[0], 5000 * 1e10, {from: accounts[1]});
+        await advanceTime(4);
+
         assert.equal((await testToken.balanceOf(accounts[1])).toString(), toBN(5000).mul(toBN(1e10)).toString());
         // inspect snapshot
         let accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
@@ -207,12 +226,18 @@ contract("LPoolDelegator", async accounts => {
         let erc20Pool = createPoolResult.pool;
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 10000);
+
         await erc20Pool.setReserveFactor(toBN(2e17));
+
         // deposit 10000
         await testToken.approve(erc20Pool.address, maxUint());
+
         await erc20Pool.mint(10000 * 1e10);
+
         //Borrow money 5000
         await erc20Pool.borrowBehalf(accounts[2], 5000 * 1e10, {from: accounts[1]});
+        await advanceTime(5);
+
         // advance 15000 seconds
         await advanceTime(15000);
         m.log("advance 15000 seconds...");
@@ -221,8 +246,12 @@ contract("LPoolDelegator", async accounts => {
         assert.equal('1000000000000000000', exchangeRateStored1);
 
         await testToken.approve(erc20Pool.address, maxUint(), {from: accounts[1]});
+
         await controller.setOpenLev(accounts[1]);
+
         let tx = await erc20Pool.repayBorrowEndByOpenLev(accounts[2], 1000 * 1e10, {from: accounts[1]});
+        await advanceTime(3);
+
         m.log("tx", JSON.stringify(tx));
         assertPrint("repayAmount", '10000000000000', toBN(tx.logs[3].args.repayAmount));
         approxAssertPrint("badDebtsAmount", '40002378234398', toBN(tx.logs[3].args.badDebtsAmount));
@@ -242,6 +271,8 @@ contract("LPoolDelegator", async accounts => {
         await erc20Pool.mint(1000 * 1e10);
         //
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+        await advanceTime(2);
+
         //
         let getCash3 = await erc20Pool.getCash();
         let totalReserves = await erc20Pool.totalReserves();
@@ -259,9 +290,13 @@ contract("LPoolDelegator", async accounts => {
         let testToken = createPoolResult.token;
         let erc20Pool = createPoolResult.pool;
         await utils.mint(testToken, admin, 10000);
+
         //deposit 10000
         await testToken.approve(erc20Pool.address, maxUint());
+
         await erc20Pool.mint(10000 * 1e10);
+        await advanceTime(3);
+
         let maxBorrow = await erc20Pool.availableForBorrow();
         m.log('maxBorrow', maxBorrow.toString());
         //Maximum borrowing amount + 1
@@ -279,12 +314,16 @@ contract("LPoolDelegator", async accounts => {
             let ethBegin = await web3.eth.getBalance(admin);
             m.log("ethBegin=", ethBegin);
             let tx = await erc20Pool.mintEth({value: mintAmount});
+            await advanceTime(1);
+
             m.log("MintEth Gas Used: ", tx.receipt.gasUsed);
             assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
             assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
             //redeem
             let ethBefore = await web3.eth.getBalance(admin);
             await erc20Pool.redeemUnderlying(mintAmount);
+            await advanceTime(1);
+
             assert.equal(await erc20Pool.getCash(), 0);
             assert.equal(await erc20Pool.totalSupply(), 0);
             let ethAfter = await web3.eth.getBalance(admin);
@@ -305,12 +344,16 @@ contract("LPoolDelegator", async accounts => {
         let ethBegin = await web3.eth.getBalance(admin);
         m.log("ethBegin=", ethBegin);
         let tx = await poolDepositor.depositNative(erc20Pool.address, {value: mintAmount});
+        await advanceTime(1);
+
         m.log("DepositEth Gas Used: ", tx.receipt.gasUsed);
         assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
         assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
         //redeem
         let ethBefore = await web3.eth.getBalance(admin);
         await erc20Pool.redeemUnderlying(mintAmount);
+        await advanceTime(1);
+
         assert.equal(await erc20Pool.getCash(), 0);
         assert.equal(await erc20Pool.totalSupply(), 0);
         let ethAfter = await web3.eth.getBalance(admin);
@@ -325,17 +368,23 @@ contract("LPoolDelegator", async accounts => {
         let erc20Pool = createPoolResult.pool;
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 1);
+        await advanceTime(1);
+
         let poolDepositor = await LPoolDepositorDelegator.new((await LPoolDepositor.new()).address, accounts[0]);
         poolDepositor = await LPoolDepositor.at(poolDepositor.address);
         let mintAmount = toWei(1);
         //deposit 1
         await testToken.approve(poolDepositor.address, maxUint());
         let tx = await poolDepositor.deposit(erc20Pool.address, mintAmount);
+        await advanceTime(2);
+
         m.log("DepositErc20 Gas Used: ", tx.receipt.gasUsed);
         assert.equal((await erc20Pool.getCash()).toString(), mintAmount.toString());
         assert.equal((await erc20Pool.totalSupply()).toString(), mintAmount.toString());
         //redeem
         await erc20Pool.redeemUnderlying(mintAmount);
+        await advanceTime(1);
+
         assert.equal(await erc20Pool.getCash(), 0);
         assert.equal(await erc20Pool.totalSupply(), 0);
         assert.equal(toWei(1).toString(), (await testToken.balanceOf(admin)).toString());
@@ -347,6 +396,8 @@ contract("LPoolDelegator", async accounts => {
         let blocksPerYear = toBN(31536000);
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 10000);
+        await advanceTime(1);
+
         let cash = await erc20Pool.getCash();
         assert.equal(cash, 0);
         /**
@@ -356,6 +407,8 @@ contract("LPoolDelegator", async accounts => {
         await testToken.approve(erc20Pool.address, maxUint());
         await erc20Pool.mint(utils.toWei(10000));
         await erc20Pool.setReserveFactor(toBN(2e17));
+        await advanceTime(3);
+
         //Checking deposits
         assert.equal(await erc20Pool.getCash(), utils.toWei(10000).toString());
         assert.equal(await erc20Pool.totalSupply(), utils.toWei(10000).toString());
@@ -366,6 +419,8 @@ contract("LPoolDelegator", async accounts => {
 
         /* raise balance */
         await utils.mint(testToken, erc20Pool.address, 10000);
+        await advanceTime(1);
+
         assert.equal(await erc20Pool.getCash(), utils.toWei(20000).toString());
         assert.equal(await erc20Pool.totalSupply(), utils.toWei(10000).toString());
         assert.equal(await erc20Pool.supplyRatePerBlock(), 0);
@@ -375,6 +430,7 @@ contract("LPoolDelegator", async accounts => {
         await utils.mint(testToken, accounts[1], 20000);
         await testToken.approve(erc20Pool.address, maxUint(), {from: accounts[1]});
         await erc20Pool.mint(utils.toWei(20000), {from: accounts[1]});
+        await advanceTime(3);
 
         assert.equal(await erc20Pool.getCash(), utils.toWei(40000).toString());
         assert.equal(await erc20Pool.totalSupply(), utils.toWei(20000).toString());
@@ -384,11 +440,15 @@ contract("LPoolDelegator", async accounts => {
         /* Withdrawal
          */
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
         assert.equal(accountSnapshot[0], 0);
         assert.equal((await testToken.balanceOf(accounts[0])).toString(), utils.toWei(20000).toString());
 
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[1]))[0], {from: accounts[1]});
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[1]);
         assert.equal(accountSnapshot[0], 0);
         assert.equal((await testToken.balanceOf(accounts[1])).toString(), utils.toWei(20000).toString());
@@ -406,6 +466,8 @@ contract("LPoolDelegator", async accounts => {
         let blocksPerYear = toBN(31536000);
         let testToken = createPoolResult.token;
         await utils.mint(testToken, admin, 10000);
+        await advanceTime(1);
+
         let cash = await erc20Pool.getCash();
         assert.equal(cash, 0);
         /**
@@ -415,6 +477,8 @@ contract("LPoolDelegator", async accounts => {
         await testToken.approve(erc20Pool.address, maxUint());
         await erc20Pool.mint(utils.toWei(10000));
         await erc20Pool.setReserveFactor(toBN(2e17));
+        await advanceTime(3);
+
         //Checking deposits
         assert.equal(await erc20Pool.getCash(), utils.toWei(10000).toString());
         assert.equal(await erc20Pool.totalSupply(), utils.toWei(10000).toString());
@@ -428,6 +492,8 @@ contract("LPoolDelegator", async accounts => {
          */
         //borrow money5000
         await erc20Pool.borrowBehalf(borrower0, utils.toWei(5000), {from: borrower0});
+        await advanceTime(1);
+
         approxAssertPrint("borrowRate", '99999999996537600', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
         approxAssertPrint("supplyRate", '39999999997353600', (await erc20Pool.supplyRatePerBlock()).mul(blocksPerYear).toString());
         //inspect snapshot
@@ -440,6 +506,7 @@ contract("LPoolDelegator", async accounts => {
         await utils.mint(testToken, lender0, 20000, {from: lender0});
         await testToken.approve(erc20Pool.address, maxUint(), {from: lender0});
         await erc20Pool.mint(utils.toWei(20000), {from: lender0});
+        await advanceTime(3);
 
         assert.equal(await erc20Pool.getCash(), utils.toWei(25000).toString());
         approxAssertPrint("totalSupply",  "29999998858447553797103", await erc20Pool.totalSupply())
@@ -448,6 +515,8 @@ contract("LPoolDelegator", async accounts => {
 
         /* raise balance */
         await utils.mint(testToken, erc20Pool.address, 60000);
+        await advanceTime(1);
+
         assert.equal(await erc20Pool.getCash(), utils.toWei(85000).toString());
         approxAssertPrint("totalSupply",  "29999998858447553797103", await erc20Pool.totalSupply())
         approxAssertPrint("borrowRate", '55555556310028800', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
@@ -455,6 +524,8 @@ contract("LPoolDelegator", async accounts => {
 
         //Borrow 5000 more
         await erc20Pool.borrowBehalf(borrower0, utils.toWei(5000), {from: borrower0});
+        await advanceTime(1);
+
         approxAssertPrint("borrowRate", '61111112098291200', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
         approxAssertPrint("supplyRate", '5432099336640000', (await erc20Pool.supplyRatePerBlock()).mul(blocksPerYear).toString());
         accountSnapshot = await erc20Pool.getAccountSnapshot(borrower0);
@@ -466,6 +537,8 @@ contract("LPoolDelegator", async accounts => {
 
         //Update total borrowings and interest
         await erc20Pool.accrueInterest();
+        await advanceTime(1);
+
         approxAssertPrint("borrowRate", '61111112392627200', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString());
         approxAssertPrint("supplyRate", '5432099506934400', (await erc20Pool.supplyRatePerBlock()).mul(blocksPerYear).toString());
         //rate of exchange
@@ -475,6 +548,8 @@ contract("LPoolDelegator", async accounts => {
          * Withdrawal partial
          */
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(lender0))[0], {from: lender0});
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(lender0);
         assert.equal(accountSnapshot[0], 0);
         assert.equal(await erc20Pool.totalSupply(), utils.toWei(10000).toString());
@@ -490,6 +565,8 @@ contract("LPoolDelegator", async accounts => {
         await utils.mint(testToken, borrower0, 10000);
         await testToken.approve(erc20Pool.address, maxUint(), {from: borrower0});
         await erc20Pool.repayBorrowBehalf(borrower0, maxUint(), {from: borrower0});
+        await advanceTime(3);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(borrower0);
         assert.equal(accountSnapshot[0], 0);
         assert.equal(accountSnapshot[1], 0);
@@ -504,6 +581,8 @@ contract("LPoolDelegator", async accounts => {
          * Withdrawal all
          */
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
         assert.equal(accountSnapshot[0], 0);
         approxAssertPrint("balanceOf", "30000002508597090130000", (await testToken.balanceOf(accounts[0])).toString());
@@ -550,16 +629,22 @@ contract("LPoolDelegator", async accounts => {
         await erc20Pool.mint(toWei(9000));
         //borrow 1000
         await erc20Pool.borrowBehalf(accounts[0], toWei(1000));
+        await advanceTime(5);
+
         //advance 15000 seconds
         await advanceTime(15000);
         //repay
         await erc20Pool.repayBorrowBehalf(accounts[0], maxUint());
+        await advanceTime(1);
+
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
         assert.equal(accountSnapshot[0].toString(), toWei(9000).toString());
         assert.equal(accountSnapshot[1], 0);
 
         //withdrawal
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+        await advanceTime(1);
+
         let totalBorrows = await erc20Pool.totalBorrows();
         let totalCash = await erc20Pool.getCash();
         let reserves = await erc20Pool.totalReserves();
@@ -577,6 +662,8 @@ contract("LPoolDelegator", async accounts => {
         //reduce reserves
         await advanceTime(45);
         await erc20Pool.reduceReserves(accounts[1], '1819275325263400');
+        await advanceTime(1);
+
         let reservesAfterReduce = await erc20Pool.totalReserves();
         approxPrecisionAssertPrint("reservesAfterReduce", '4000000000000000', reservesAfterReduce.toString(), 2);
         approxPrecisionAssertPrint("Check borrow rate", '50011627903833600', (await erc20Pool.borrowRatePerBlock()).mul(blocksPerYear).toString(), 2);
@@ -586,6 +673,7 @@ contract("LPoolDelegator", async accounts => {
         approxPrecisionAssertPrint("cash", '4000000000008599', (await erc20Pool.getCash()).toString(), 2);
         // add reserves
         await erc20Pool.addReserves('1000000000000000');
+        await advanceTime(1);
         approxPrecisionAssertPrint("totalReserves", '5000000000000000', (await erc20Pool.totalReserves()).toString(), 2);
         approxPrecisionAssertPrint("cash", '5000000000008599', (await erc20Pool.getCash()).toString(), 2);
 
@@ -606,6 +694,8 @@ contract("LPoolDelegator", async accounts => {
         await erc20Pool.mint(toWei(10000));
         //borrow 5000
         await erc20Pool.borrowBehalf(accounts[0], toWei(4000), {from: accounts[1]});
+        await advanceTime(6);
+
         // advance 315360 blocks
         await advanceMultipleBlocksAndAssignTime(1, 315360);
         // check borrows=4000+(5%+10%*40%)*4000*315360/31536000
@@ -614,6 +704,8 @@ contract("LPoolDelegator", async accounts => {
         approxAssertPrint("borrowsBefore", '4003599999999999999999', borrowsBefore.toString());
         //base interest change to 10% 31536000 blocks
         await erc20Pool.setInterestParams(toBN(10e16).div(toBN(31536000)), toBN(10e16).div(toBN(31536000)), toBN(20e16).div(toBN(31536000)), 50e16 + '');
+        await advanceTime(1);
+
         let borrowsAfterUpdate = await erc20Pool.borrowBalanceCurrent(accounts[0]);
         let totalBorrowsAfterUpdate = await erc20Pool.totalBorrowsCurrent();
         let totalBorrowsStoredAfterUpdate = await erc20Pool.totalBorrows();
@@ -639,6 +731,8 @@ contract("LPoolDelegator", async accounts => {
 
         // repay
         await erc20Pool.repayBorrowBehalf(accounts[0], maxUint());
+        await advanceTime(1);
+
         m.log("after repay...");
         borrowsAfterUpdate = await erc20Pool.borrowBalanceCurrent(accounts[0]);
         totalBorrowsAfterUpdate = await erc20Pool.totalBorrowsCurrent();
@@ -646,6 +740,8 @@ contract("LPoolDelegator", async accounts => {
         assert.equal("0", totalBorrowsAfterUpdate.toString());
         // redeem
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
+        await advanceTime(1);
+
         let cashInPool = await erc20Pool.getCash();
         let reserves = await erc20Pool.totalReserves();
         //184,3046,3690,6248,6714
