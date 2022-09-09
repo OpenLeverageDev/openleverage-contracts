@@ -140,7 +140,7 @@ contract("LPoolDelegator", async accounts => {
         let lastbkBefore = await web3.eth.getBlock('latest');
         await erc20Pool.borrowBehalf(accounts[0], 2000 * 1e10);
         let lastbkAfter = await web3.eth.getBlock('latest');
-        m.log("-----------distince----", lastbkAfter.timestamp - lastbkBefore.timestamp, lastbkAfter.number - lastbkBefore.number);
+        m.log("Block distance with borrowBehalf()", lastbkAfter.timestamp - lastbkBefore.timestamp, lastbkAfter.number - lastbkBefore.number);
 
         //(current cash 30000000000000 borrows 70136986301353 reserves 27397260270)
         approxPrecisionAssertPrint("borrowRatePerBlock", '4443189242', (await erc20Pool.borrowRatePerBlock()).toString(), 8);
@@ -153,11 +153,12 @@ contract("LPoolDelegator", async accounts => {
         approxPrecisionAssertPrint("totalBorrows", '70136986301353', (await erc20Pool.totalBorrows()).toString(), 8);
 
         //Update total borrowings and interest
-        await advanceTime(864000);
+        m.log("Advancing 10 days");
+        await advanceTime(864000); //
         let lastbkBefore2 = await web3.eth.getBlock('latest');
         await erc20Pool.accrueInterest();
         let lastbkAfter2 = await web3.eth.getBlock('latest');
-        m.log("-----------distince----", lastbkAfter2.timestamp - lastbkBefore2.timestamp, lastbkAfter2.number - lastbkBefore2.number);
+        m.log("Block distance with borrowBehalf()", lastbkAfter2.timestamp - lastbkBefore2.timestamp, lastbkAfter2.number - lastbkBefore2.number);
 
         approxPrecisionAssertPrint("borrowRatePerBlock", '4450670023', (await erc20Pool.borrowRatePerBlock()).toString(), 7);
         approxPrecisionAssertPrint("supplyRatePerBlock", '2498718839', (await erc20Pool.supplyRatePerBlock()).toString(), 7);
@@ -168,6 +169,7 @@ contract("LPoolDelegator", async accounts => {
         /**
          * repayment
          */
+        m.log("Advancing 10 days");
         await advanceTime(864000);
         await erc20Pool.repayBorrowBehalf(accounts[0], maxUint());
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
@@ -180,12 +182,13 @@ contract("LPoolDelegator", async accounts => {
         //Loan interest rate and deposit interest rate
         assert.equal((await erc20Pool.borrowRatePerBlock()).toString(), 1585489599);
         assert.equal((await erc20Pool.supplyRatePerBlock()).toString(), 0);
-        // 10 day elapsed by the time the repayment was executed and the exchange rate rate increased
+        m.log("10 day elapsed by the time the repayment was executed and the exchange rate rate increased");
         approxPrecisionAssertPrint("exchangeRateStored", '1005415801874060000', (await erc20Pool.exchangeRateStored()).toString(), 7);
 
         /**
          * Withdrawal
          */
+        m.log("Advancing 10 days");
         await advanceTime(864000);
         await erc20Pool.redeem((await erc20Pool.getAccountSnapshot(accounts[0]))[0]);
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
