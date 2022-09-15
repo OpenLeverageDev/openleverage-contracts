@@ -9,12 +9,14 @@ import "../../lib/Utils.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../DelegateInterface.sol";
 import "../../Adminable.sol";
+import "../IWooPP.sol";
+import "./WoofiDexV1.sol";
 
 /// @title Swap logic on BSC
 /// @author OpenLeverage
 /// @notice Use this contract to swap tokens.
 /// @dev Routers for different swap requests.
-contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex {
+contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex, WoofiDexV1 {
     using DexData for bytes;
     using SafeMath for uint;
 
@@ -28,13 +30,16 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     //pancakeFactory: 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73
     function initialize(
         IUniswapV2Factory _pancakeFactory,
-        address _unsedFactory
+        address _unsedFactory,
+        IWooPP _woo
     ) public {
         require(msg.sender == admin, "Not admin");
         // Shh - currently unused
         _unsedFactory;
         pancakeFactory = _pancakeFactory;
         dexInfo[DexData.DEX_PANCAKE] = DexInfo(_pancakeFactory, 25);
+        woo = _woo;
+        quoteToken = woo.quoteToken();
     }
 
     /// @notice Save factories of the dex.
@@ -54,7 +59,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         openLev = _openLev;
     }
 
-    /// @notice Sell tokens 
+    /// @notice Sell tokens
     /// @dev Sell exact amount of token with tax applied
     /// @param buyToken Address of token transfer from Dex pair
     /// @param sellToken Address of token transfer into Dex pair
@@ -64,10 +69,15 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @return buyAmount Exact Amount bought
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
-        buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
+        uint8 dex = data.toDex();
+        if (dex != DexData.DEX_WOOFI) {
+            buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
+        } else {
+            buyAmount = wooSwap(sellAmount, minBuyAmount, buyToken, sellToken, openLev);
+        }
     }
 
-    /// @notice Sell tokens 
+    /// @notice Sell tokens
     /// @dev Sell exact amount of token through path
     /// @param sellAmount Exact amount to sell
     /// @param minBuyAmount minmum amount of token to receive.
@@ -77,7 +87,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         buyAmount = uniClassSellMul(dexInfo[data.toDex()], sellAmount, minBuyAmount, data.toUniV2Path());
     }
 
-    /// @notice Buy tokens 
+    /// @notice Buy tokens
     /// @dev Buy exact amount of token with tax applied
     /// @param buyToken Address of token transfer from Dex pair
     /// @param sellToken Address of token transfer into Dex pair
@@ -91,7 +101,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         sellAmount = uniClassBuy(dexInfo[data.toDex()], buyToken, sellToken, buyAmount, maxSellAmount, buyTax, sellTax);
     }
 
-    /// @notice Calculate amount of token to buy 
+    /// @notice Calculate amount of token to buy
     /// @dev Calculate exact amount of token to buy with tax applied
     /// @param buyToken Address of token transfer from Dex pair
     /// @param sellToken Address of token transfer into Dex pair
@@ -106,7 +116,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         buyAmount = Utils.toAmountAfterTax(buyAmount, buyTax);
     }
 
-    /// @notice Calculate amount of token to sell 
+    /// @notice Calculate amount of token to sell
     /// @dev Calculate exact amount of token to sell with tax applied
     /// @param buyToken Address of token transfer from Dex pair
     /// @param sellToken Address of token transfer into Dex pair
@@ -119,7 +129,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         sellAmount = uniClassCalSellAmount(dexInfo[data.toDex()], buyToken, sellToken, buyAmount, buyTax, sellTax);
     }
 
-    /// @notice Get price 
+    /// @notice Get price
     /// @dev Get current price of desToken / quoteToken
     /// @param desToken Token to be priced
     /// @param quoteToken Token used for pricing
@@ -153,7 +163,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @return cAvgPrice Current TWAP price
     /// @return hAvgPrice Historical TWAP price
     /// @return decimals Token price decimal
-    /// @return timestamp Last TWAP price update timestamp 
+    /// @return timestamp Last TWAP price update timestamp
     function getPriceCAvgPriceHAvgPrice(
         address desToken,
         address quoteToken,
