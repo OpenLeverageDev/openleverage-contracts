@@ -186,7 +186,12 @@ contract CronosUniV2Dex {
 
     function calTPrice(uint currentPriceCumulativeLast, uint historyPriceCumulativeLast, uint32 timeElapsed, uint8 decimals)
     internal pure returns (uint){
-        return ((currentPriceCumulativeLast.sub(historyPriceCumulativeLast).mul(10 ** decimals)) >> 112).div(timeElapsed);
+        uint256 diff = currentPriceCumulativeLast.sub(historyPriceCumulativeLast);
+        if (diff < (1e50)) {
+            return ((diff.mul(10 ** decimals)) >> 112).div(timeElapsed);
+        } else {
+            return ((diff) >> 112).mul(10 ** decimals).div(timeElapsed);
+        }
     }
 
     function toUint32(uint256 y) internal pure returns (uint32 z) {
