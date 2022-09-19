@@ -4,7 +4,6 @@ echo starting verify contact network $1.
 
 truffle run verify ControllerV1 --network  $1
 truffle run verify CronosDexAggregatorV1 --network $1
-truffle run verify CronosUniV2Dex --network $1
 truffle run verify LTimePool --network  $1
 truffle run verify LPoolDepositor --network $1
 truffle run verify LPoolDepositorDelegator --network $1

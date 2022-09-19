@@ -21,7 +21,7 @@ contract CronosDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInt
     mapping(IUniswapV2Pair => V2PriceOracle)  public uniV2PriceOracle;
     IUniswapV2Factory public vvsFactory;
     address public openLev;
-    uint8 private constant priceDecimals = 18;
+    uint8 private constant priceDecimals = 24;
 
     mapping(uint8 => DexInfo) public dexInfo;
 
