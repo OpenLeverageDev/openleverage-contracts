@@ -386,4 +386,32 @@ library OpenLevV1Lib {
             require(depositToken == trade.depositToken && trade.lastBlockNum != uint128(block.number), " DTS");
         }
     }
+
+    function toMarketVar(bool longToken, bool open, Types.Market storage market) external view returns (Types.MarketVars memory) {
+        return open == longToken ?
+        Types.MarketVars(
+            market.pool1,
+            market.pool0,
+            IERC20(market.token1),
+            IERC20(market.token0),
+            IERC20(market.token1).balanceOf(address(this)),
+            IERC20(market.token0).balanceOf(address(this)),
+            market.pool1Insurance,
+            market.pool0Insurance,
+            market.marginLimit,
+            market.priceDiffientRatio,
+            market.dexs) :
+        Types.MarketVars(
+            market.pool0,
+            market.pool1,
+            IERC20(market.token0),
+            IERC20(market.token1),
+            IERC20(market.token0).balanceOf(address(this)),
+            IERC20(market.token1).balanceOf(address(this)),
+            market.pool0Insurance,
+            market.pool1Insurance,
+            market.marginLimit,
+            market.priceDiffientRatio,
+            market.dexs);
+    }
 }
