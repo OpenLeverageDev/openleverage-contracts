@@ -139,13 +139,13 @@ interface OpenLevInterface {
 
     function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external;
 
+    function payoffTrade(uint16 marketId, bool longToken) external payable;
+
     function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxAmount, bytes memory dexData) external;
 
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit);
 
     function updatePrice(uint16 marketId, bytes memory dexData) external;
-
-    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
 
     function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
