@@ -163,6 +163,17 @@ async function advanceMultipleBlocksAndTime(total) {
     }
 }
 
+async function advanceMultipleBlocksAndAssignTime(total,time) {
+    let remain = total;
+    while (remain > 0) {
+        if (remain % 1000 == 0) {
+            m.log("Advancing", total - remain, "/", total, "blocks ...");
+        }
+        await timeMachine.advanceTimeAndBlock(time);
+        remain--;
+    }
+}
+
 function sleep(ms) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
@@ -195,6 +206,7 @@ module.exports = {
     advanceMultipleBlocks,
     advanceBlockAndSetTime,
     advanceMultipleBlocksAndTime,
+    advanceMultipleBlocksAndAssignTime,
     advanceBlocks,
     blockNumber,
     freezeTime,
