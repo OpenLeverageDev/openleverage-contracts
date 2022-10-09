@@ -125,9 +125,9 @@ contract("OpenLev payoff trade tax token", async accounts => {
         m.log("current tax token balance = ", token0BalanceAfter);
         assert.equal(tradeAfter.held, 0);
         assert.equal(borrowedAfter.toString(), '0');
-        assert.equal(token0BalanceAfter.toString(), "997840255593409084");
+        assert.equal(token0BalanceAfter.toString(), "997846836928621941");
 
-        console.log("-- check event...");
+        m.log("-- check event...");
         let depositToken = payoffTradeTx.logs[0].args.depositToken;
         let depositDecrease = payoffTradeTx.logs[0].args.depositDecrease;
         let closeAmount = payoffTradeTx.logs[0].args.closeAmount;

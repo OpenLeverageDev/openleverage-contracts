@@ -263,14 +263,12 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         (ControllerInterface(addressConfig.controller)).closeTradeAllowed(marketId);
         uint heldAmount = trade.held;
         uint closeAmount = OpenLevV1Lib.shareToAmount(heldAmount, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
-        Types.CloseTradeVars memory closeTradeVars;
-        closeTradeVars.borrowed = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+        uint borrowed = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
 
         //first transfer token to OpenLeve, then repay to pool, two transactions with two tax deductions
-        uint taxRate = uint(2).mul(taxes[marketId][address(marketVars.buyToken)][0]);
-        uint24 z = uint24(taxRate);
-        require(z == taxRate, "rate err");
-        uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(closeTradeVars.borrowed, z));
+        uint24 taxRate = taxes[marketId][address(marketVars.buyToken)][0];
+        uint firstAmount = Utils.toAmountBeforeTax(borrowed, taxRate);
+        uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(firstAmount, taxRate));
         marketVars.buyPool.repayBorrowBehalf(msg.sender, transferAmount);
         require(marketVars.buyPool.borrowBalanceCurrent(msg.sender) == 0, "IRP");
         delete activeTrades[msg.sender][marketId][longToken];
