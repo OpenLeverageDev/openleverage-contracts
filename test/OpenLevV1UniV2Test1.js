@@ -325,8 +325,6 @@ contract("OpenLev UniV2", async accounts => {
         let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("PriceData0: \t", JSON.stringify(priceData0));
 
-        let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
-        assert.equal(shouldUpatePrice, true);
         // should update price first
         await assertThrows(openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2}), 'MPT');
 
@@ -379,9 +377,6 @@ contract("OpenLev UniV2", async accounts => {
         assert.equal(marginRatio0.current.toString(), 0);
         let priceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, Uni2DexData);
         m.log("PriceData0: \t", JSON.stringify(priceData0));
-
-        let shouldUpatePrice = await openLev.shouldUpdatePrice(pairId, Uni2DexData);
-        assert.equal(shouldUpatePrice, true);
 
         // should update price first
         await assertThrows(openLev.liquidate(trader, pairId, 0, 0, utils.maxUint(), Uni2DexData, {from: liquidator2}), 'MPT');
