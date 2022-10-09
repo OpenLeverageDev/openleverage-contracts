@@ -97,6 +97,11 @@ async function initializeLenderPool(accounts, network) {
             m.log("waiting controller create KSC - KUS market ......");
             await intializeMarket(accounts, network, '0x4446fc4eb47f2f6586f9faab68b3498f86c07521', '0x4a81704d8c16d9fb0d7f61b747d0b5a272badf14', 3000, '0x0e00000002');
             break;
+        case utils.cronosTest:
+        case utils.cronosMainnet:
+            m.log("waiting controller create wcro - usdc market ......");
+            await intializeMarket(accounts, network, '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23', '0xc21223249CA28397B4B6541dfFaEcC539BfF0c59', 3000, '0x1400000002');
+            break;
     }
 }
 
