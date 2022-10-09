@@ -162,7 +162,7 @@ contract("OpenLev payoff trade", async accounts => {
         assert.equal(token0BalanceAfter, 1987978478630008709);
         assert.equal(token1BalanceAfter, 8997999999571870243534);
 
-        console.log("-- check event...");
+        m.log("-- check event...");
         let depositToken = payoffTradeTx.logs[0].args.depositToken;
         let depositDecrease = payoffTradeTx.logs[0].args.depositDecrease;
         let closeAmount = payoffTradeTx.logs[0].args.closeAmount;
