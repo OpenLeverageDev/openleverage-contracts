@@ -198,6 +198,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     function _closeTradeFor(address trader, uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) internal returns (uint256){
         Types.Trade storage trade = activeTrades[trader][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
+        bool depositToken = trade.depositToken;
 
         //verify
         require(closeHeld <= trade.held, "CBH");
@@ -224,7 +225,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             closeTradeVars.depositDecrease = trade.deposited;
         }
 
-        if (trade.depositToken != longToken) {
+        if (depositToken != longToken) {
             minOrMaxAmount = Utils.maxOf(closeTradeVars.repayAmount, minOrMaxAmount);
             closeTradeVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
@@ -264,9 +265,38 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             OpenLevV1Lib.updatePrice(address(marketVars.buyToken), address(marketVars.sellToken), dexData);
         }
 
-        emit TradeClosed(trader, marketId, longToken, trade.depositToken, closeHeld, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
+        emit TradeClosed(trader, marketId, longToken, depositToken, closeHeld, closeTradeVars.depositDecrease, closeTradeVars.depositReturn, closeTradeVars.fees,
             closeTradeVars.token0Price, closeTradeVars.dexDetail);
         return closeTradeVars.depositReturn;
+    }
+
+    /// @notice payoff trade by shares.
+    /// @dev To support token with tax, function expect to fail if share of borrowed funds not repayed.
+    /// @param longToken Token to long. False for token0, true for token1.
+    function payoffTrade(uint16 marketId, bool longToken) external payable override nonReentrant {
+        Types.Trade storage trade = activeTrades[msg.sender][marketId][longToken];
+        bool depositToken = trade.depositToken;
+        uint deposited = trade.deposited;
+        Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
+
+        //verify
+        require(trade.held != 0 && trade.lastBlockNum != block.number, "HI0");
+        (ControllerInterface(addressConfig.controller)).closeTradeAllowed(marketId);
+        uint heldAmount = trade.held;
+        uint closeAmount = OpenLevV1Lib.shareToAmount(heldAmount, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
+        uint borrowed = marketVars.buyPool.borrowBalanceCurrent(msg.sender);
+
+        //first transfer token to OpenLeve, then repay to pool, two transactions with two tax deductions
+        uint24 taxRate = taxes[marketId][address(marketVars.buyToken)][0];
+        uint firstAmount = Utils.toAmountBeforeTax(borrowed, taxRate);
+        uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(firstAmount, taxRate),true);
+        marketVars.buyPool.repayBorrowBehalf(msg.sender, transferAmount);
+        require(marketVars.buyPool.borrowBalanceCurrent(msg.sender) == 0, "IRP");
+        delete activeTrades[msg.sender][marketId][longToken];
+        totalHelds[address(marketVars.sellToken)] = totalHelds[address(marketVars.sellToken)].sub(heldAmount);
+        doTransferOut(msg.sender, marketVars.sellToken, closeAmount);
+
+        emit TradeClosed(msg.sender, marketId, longToken, depositToken, heldAmount, deposited, heldAmount, 0, 0, 0);
     }
 
     /// @notice Liquidate if trade below margin limit.
