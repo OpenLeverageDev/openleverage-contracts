@@ -23,7 +23,7 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     IUniswapV2Factory public uniV2Factory;
     address public openLev;
 
-    uint8 private constant priceDecimals = 18;
+    uint8 private constant priceDecimals = 24;
 
     mapping(uint8 => DexInfo) public dexInfo;
 
