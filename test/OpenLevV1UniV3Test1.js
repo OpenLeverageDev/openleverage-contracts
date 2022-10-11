@@ -491,8 +491,8 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(2, market.feesRate);
         assert.equal(3, market.marginLimit);
         assert.equal(4, market.priceDiffientRatio);
-        let dexes = await openLev.getMarketSupportDexs(1);
-        assert.equal(1, dexes[0]);
+        // let dexes = await openLev.getMarketSupportDexs(1);
+        // assert.equal(1, dexes[0]);
         await assertThrows(openLev.setMarketConfig(1, 2, 3, 4, [1]), 'caller must be admin');
 
     })

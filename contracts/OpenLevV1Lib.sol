@@ -34,6 +34,7 @@ library OpenLevV1Lib {
         mapping(uint8 => bool) storage _supportDexs,
         mapping(uint16 => mapping(address => mapping(uint => uint24))) storage taxes
     ) external {
+        require(marketId < 65535, "TMP");
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         uint8 dex = dexData.toDex();
@@ -116,15 +117,43 @@ library OpenLevV1Lib {
         market.priceDiffientRatio = priceDiffientRatio;
     }
 
+
+    struct MarketWithoutDexs {// Market info
+        LPoolInterface pool0;
+        LPoolInterface pool1;
+        address token0;
+        address token1;
+        uint16 marginLimit;
+    }
+
     function marginRatio(
+        uint16 marketId,
         address owner,
-        uint held,
-        address heldToken,
-        address sellToken,
-        LPoolInterface borrowPool,
+        bool longToken,
         bytes memory dexData
-    ) external view returns (uint, uint, uint, uint, uint){
-        return marginRatioPrivate(owner, held, heldToken, sellToken, borrowPool, false, dexData);
+    ) external view returns (uint current, uint cAvg, uint hAvg, uint32 limit){
+        address tokenToLong;
+        MarketWithoutDexs  memory market;
+        (market.pool0, market.pool1, market.token0, market.token1, market.marginLimit,,,,,) = (OpenLevStorage(address(this))).markets(marketId);
+        tokenToLong = longToken ? market.token1 : market.token0;
+        limit = market.marginLimit;
+        (,uint amount,,) = OpenLevStorage(address(this)).activeTrades(owner, marketId, longToken);
+        amount = shareToAmount(
+            amount,
+            OpenLevStorage(address(this)).totalHelds(tokenToLong),
+            IERC20(tokenToLong).balanceOf(address(this))
+        );
+
+        (current, cAvg, hAvg,,) =
+        marginRatioPrivate(
+            owner,
+            amount,
+            tokenToLong,
+            longToken ? market.token0 : market.token1,
+            longToken ? market.pool0 : market.pool1,
+            true,
+            dexData
+        );
     }
 
     function marginRatioPrivate(
