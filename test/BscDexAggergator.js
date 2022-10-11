@@ -55,8 +55,8 @@ contract("DexAggregator BSC", async accounts => {
     it("get Price", async () => {
         r = await dexAgg.getPrice(token0.address, token1.address, utils.PancakeDexData);
         m.log(r.price, r.decimals);
-        assert.equal(r.price, "1000000000000000000", "wrong token1/token0 price");
-        assert.equal(r.decimals, "18", "wrong decimals");
+        assert.equal(r.price, "1000000000000000000000000", "wrong token1/token0 price");
+        assert.equal(r.decimals, "24", "wrong decimals");
     })
 
     it("sell exact amount", async () => {
@@ -137,11 +137,11 @@ contract("DexAggregator BSC", async accounts => {
         let originalPriceData = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, utils.PancakeDexData);
         m.log("originalPriceData: \t", JSON.stringify(originalPriceData));
 
-        assert.equal(originalPriceData.price, "1000000000000000000", "wrong token1/token0 price");
+        assert.equal(originalPriceData.price, "1000000000000000000000000", "wrong token1/token0 price");
         assert.equal(originalPriceData.hAvgPrice, "0", "wrong hAvgPrice token1/token0 price");
-        assert.equal(originalPriceData.decimals, "18", "wrong decimals");
+        assert.equal(originalPriceData.decimals, "24", "wrong decimals");
         assert.equal(originalPriceData.timestamp, "0" , "wrong timestamp");
-        assert.equal(originalPriceData.cAvgPrice, "19259299", "wrong cAvgPrice token1/token0 price");
+        assert.equal(originalPriceData.cAvgPrice.toString(), "19259299443872", "wrong cAvgPrice token1/token0 price");
 
         await pair.setPriceUpdateAfter(token0.address, token1.address, "120");
         reserveData = await pair.getReserves();
@@ -161,10 +161,10 @@ contract("DexAggregator BSC", async accounts => {
         let updatedPriceData0 = await dexAgg.getPriceCAvgPriceHAvgPrice(token0.address, token1.address, 60, utils.PancakeDexData);
         m.log("updatedPriceData0: \t", JSON.stringify(updatedPriceData0));
 
-        assert.equal(updatedPriceData0.price, "1200000000000000000", "wrong token1/token0 price");
-        assert.equal(updatedPriceData0.cAvgPrice, "1199999999999999999", "wrong cAvgPrice token1/token0 price");
-        assert.equal(updatedPriceData0.hAvgPrice, "1199999999999999999", "wrong hAvgPrice token1/token0 price");
-        assert.equal(updatedPriceData0.decimals, "18", "wrong decimals");
+        assert.equal(updatedPriceData0.price, "1200000000000000000000000", "wrong token1/token0 price");
+        assert.equal(updatedPriceData0.cAvgPrice, "1199999999999999999999999", "wrong cAvgPrice token1/token0 price");
+        assert.equal(updatedPriceData0.hAvgPrice, "1199999999999999999999999", "wrong hAvgPrice token1/token0 price");
+        assert.equal(updatedPriceData0.decimals, "24", "wrong decimals");
         assert.equal(updatedPriceData0.timestamp.toString(), reserveData[2].toString(), "wrong timestamp");
     })
 
@@ -180,8 +180,8 @@ contract("DexAggregator BSC", async accounts => {
         await dexAgg.updatePriceOracle(token0.address, token1.address, timeWindow, utils.PancakeDexData);
 
         r = await dexAgg.getAvgPrice(token0.address, token1.address, 0, utils.PancakeDexData);
-        assert.equal(r.price, "1199999999999999999", "wrong token1/token0 avg price");
-        assert.equal(r.decimals, "18", "wrong decimals");
+        assert.equal(r.price.toString(), "1199999999999999999999999", "wrong token1/token0 avg price");
+        assert.equal(r.decimals, "24", "wrong decimals");
         assert.equal(r.timestamp, await utils.lastBlockTime() , "wrong timestamp");
     })
 });
