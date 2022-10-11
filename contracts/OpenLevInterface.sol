@@ -46,7 +46,7 @@ abstract contract OpenLevStorage {
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
     //useless
-    mapping(address => bool) public allowedDepositTokens;
+    mapping(address => bool) internal allowedDepositTokens;
 
     CalculateConfig public calculateConfig;
 
@@ -153,7 +153,6 @@ interface OpenLevInterface {
 
     function updatePrice(uint16 marketId, bytes memory dexData) external;
 
-    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
 
     /*** Admin Functions ***/
     function setCalculateConfig(uint16 defaultFeesRate, uint8 insuranceRatio, uint16 defaultMarginLimit, uint16 priceDiffientRatio,
