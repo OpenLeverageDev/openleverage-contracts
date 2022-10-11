@@ -70,7 +70,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     ) external override returns (uint16) {
         uint16 marketId = numPairs;
         OpenLevV1Lib.addMarket(pool0, pool1, marginLimit, dexData, marketId, markets, calculateConfig, addressConfig, supportDexs, taxes);
-        require(numPairs < 65535, "TMP");
         numPairs ++;
         return marketId;
     }
@@ -289,7 +288,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         //first transfer token to OpenLeve, then repay to pool, two transactions with two tax deductions
         uint24 taxRate = taxes[marketId][address(marketVars.buyToken)][0];
         uint firstAmount = Utils.toAmountBeforeTax(borrowed, taxRate);
-        uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(firstAmount, taxRate),true);
+        uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(firstAmount, taxRate), true);
         marketVars.buyPool.repayBorrowBehalf(msg.sender, transferAmount);
         require(marketVars.buyPool.borrowBalanceCurrent(msg.sender) == 0, "IRP");
         delete activeTrades[msg.sender][marketId][longToken];
@@ -395,27 +394,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @return hAvg Margin ratio calculated using last recorded twap price.
     /// @return limit The liquidation trigger ratio of deposited token value to borrowed token value.
     function marginRatio(address owner, uint16 marketId, bool longToken, bytes memory dexData) external override onlySupportDex(dexData) view returns (uint current, uint cAvg, uint hAvg, uint32 limit) {
-        address tokenToLong;
-        Types.Market memory market = markets[marketId];
-        tokenToLong = longToken ? market.token1 : market.token0;
-        limit = market.marginLimit;
-
-        uint amount = activeTrades[owner][marketId][longToken].held;
-        amount = OpenLevV1Lib.shareToAmount(
-            amount,
-            totalHelds[tokenToLong],
-            IERC20(tokenToLong).balanceOf(address(this))
-        );
-
-        (current, cAvg, hAvg,,) =
-        OpenLevV1Lib.marginRatio(
-            owner,
-            amount,
-            tokenToLong,
-            longToken ? market.token0 : market.token1,
-            longToken ? market.pool0 : market.pool1,
-            dexData
-        );
+        (current, cAvg, hAvg, limit) = OpenLevV1Lib.marginRatio(marketId, owner, longToken, dexData);
     }
 
     /// @notice Update price on Dex.
@@ -424,10 +403,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         OpenLevV1Lib.updatePrice(markets[marketId], dexData);
     }
 
-    /// @notice List of all supporting Dexes.
-    function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
-        return markets[marketId].dexs;
-    }
+
 
     function reduceInsurance(uint totalRepayment, uint remaining, uint16 marketId, bool longToken, address token, uint reserve) internal returns (uint maxCanRepayAmount) {
         Types.Market storage market = markets[marketId];
