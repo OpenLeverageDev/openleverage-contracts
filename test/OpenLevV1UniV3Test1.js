@@ -157,7 +157,7 @@ contract("OpenLev UniV3", async accounts => {
         m.log("Trade.deposited:", trade.deposited);
 
         m.log("Margin Ratio after deposit:", marginRatio_3.current, marginRatio_3.limit);
-        assert.equal(marginRatio_3.current.toString(), 12098); // TODO check
+        assert.equal(marginRatio_3.current.toString(), 12107); // TODO check
 
         // Close trade
         await openLev.closeTrade(0, 0, "821147572990716389330", 0, Uni3DexData, {from: trader});
