@@ -119,7 +119,7 @@ contract("OpenLev UniV3", async accounts => {
 
         let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
         m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
-        assert.equal(8041, marginRatio_2.current.toString());
+        assert.equal(8045, marginRatio_2.current.toString());
 
         // Partial Close trade
         m.log("Partial Close Trade", 400);
@@ -140,7 +140,7 @@ contract("OpenLev UniV3", async accounts => {
 
         let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
         m.log("Ratio, current:", ratio.current, "limit", ratio.marketLimit);
-        assert.equal(7936, ratio.current.toString());
+        assert.equal(7964, ratio.current.toString());
 
         // Partial Close trade
         let tx_full_close = await openLev.closeTrade(0, 0, "493327303890107812554", maxUint(), Uni3DexData, {from: trader});
@@ -199,7 +199,7 @@ contract("OpenLev UniV3", async accounts => {
 
         let marginRatio_2 = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
         m.log("Margin Ratio:", marginRatio_2.current / 100, "%");
-        assert.equal(8041, marginRatio_2.current.toString());
+        assert.equal(8045, marginRatio_2.current.toString());
 
         // Partial Close trade
         m.log("Partial Close Trade", 400);
@@ -220,7 +220,7 @@ contract("OpenLev UniV3", async accounts => {
 
         let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
         m.log("Ratio, current:", ratio.current, "limit", ratio.marketLimit);
-        assert.equal(7936, ratio.current.toString());
+        assert.equal(7964, ratio.current.toString());
 
         // Partial Close trade
         let tx_full_close = await openLev.closeTrade(0, 0, "493327303890107812554", maxUint(), Uni3DexData, {from: trader});
