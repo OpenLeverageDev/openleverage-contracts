@@ -81,7 +81,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         require(buyAmount >= minBuyAmount, 'buy amount less than min');
     }
 
-        function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
+    function uniV3Buy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint24 fee, bool checkPool) internal returns (uint amountIn){
         SwapCallbackData memory data = SwapCallbackData({tokenIn : sellToken, tokenOut : buyToken, fee : fee, payer : msg.sender});
         bool zeroForOne = data.tokenIn < data.tokenOut;
         IUniswapV3Pool pool = getPool(data.tokenIn, data.tokenOut, fee);
@@ -134,11 +134,16 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         uint priceScale = 10 ** decimals;
         // maximum～2**
         uint token0Price;
-        // when sqrtPrice>1  retain 4 decimals
+        // when sqrtPrice>1  retain 6 decimals
         if (sqrtPriceX96 > (2 ** 96)) {
-            token0Price = (uint(sqrtPriceX96) >> (86)).mul((uint(sqrtPriceX96) >> (86))).mul(priceScale) >> (10 * 2);
+            token0Price = (uint(sqrtPriceX96) >> (78)).mul((uint(sqrtPriceX96) >> (78))).mul(priceScale) >> (18 * 2);
         } else {
-            token0Price = uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(priceScale) >> (96 * 2);
+            uint priceX192 = uint(sqrtPriceX96).mul(uint(sqrtPriceX96));
+            if (priceX192 >= (2 ** 170)) {
+                token0Price = (priceX192 >> (96)).mul(priceScale) >> (96);
+            } else {
+                token0Price = priceX192.mul(priceScale) >> (96 * 2);
+            }
         }
         if (desToken < quoteToken) {
             return token0Price;
@@ -197,7 +202,7 @@ contract UniV3Dex is IUniswapV3SwapCallback {
         uint24 fee
     ) internal view returns (IUniswapV3Pool) {
         if (address(uniV3Factory) == 0x1F98431c8aD98523631AE4a59f267346ea31F984) {
-            return IUniswapV3Pool(PoolAddress.computeAddress(address(uniV3Factory) , PoolAddress.getPoolKey(tokenA, tokenB, fee)));
+            return IUniswapV3Pool(PoolAddress.computeAddress(address(uniV3Factory), PoolAddress.getPoolKey(tokenA, tokenB, fee)));
         } else {
             return IUniswapV3Pool(uniV3Factory.getPool(tokenA, tokenB, fee));
         }

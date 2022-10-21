@@ -17,7 +17,6 @@
 *
 */
 
-const { bscTestnet } = require("./migrations/util");
 
 // const HDWalletProvider = require('@truffle/hdwallet-provider');
 // const infuraKey = "fj4jll3k.....";
@@ -46,12 +45,7 @@ module.exports = {
       host: "127.0.0.1",     // Localhost (default: none)
       port: 8545,            // Standard Ethereum port (default: none)
       network_id: "*",
-      disableConfirmationListener: true
-    },
-    local: {
-      host: "127.0.0.1",     // Localhost (default: none)
-      port: 7545,            // Standard Ethereum port (default: none)
-      network_id: "*",
+      gas : 8000000,
       disableConfirmationListener: true
     },
 

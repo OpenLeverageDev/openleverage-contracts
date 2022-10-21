@@ -157,7 +157,7 @@ contract("OpenLev UniV3", async accounts => {
         m.log("Trade.deposited:", trade.deposited);
 
         m.log("Margin Ratio after deposit:", marginRatio_3.current, marginRatio_3.limit);
-        assert.equal(marginRatio_3.current.toString(), 12098); // TODO check
+        assert.equal(marginRatio_3.current.toString(), 12107); // TODO check
 
         // Close trade
         await openLev.closeTrade(0, 0, "821147572990716389330", 0, Uni3DexData, {from: trader});
@@ -491,8 +491,8 @@ contract("OpenLev UniV3", async accounts => {
         assert.equal(2, market.feesRate);
         assert.equal(3, market.marginLimit);
         assert.equal(4, market.priceDiffientRatio);
-        let dexes = await openLev.getMarketSupportDexs(1);
-        assert.equal(1, dexes[0]);
+        // let dexes = await openLev.getMarketSupportDexs(1);
+        // assert.equal(1, dexes[0]);
         await assertThrows(openLev.setMarketConfig(1, 2, 3, 4, [1]), 'caller must be admin');
 
     })
@@ -560,6 +560,15 @@ contract("OpenLev UniV3", async accounts => {
 
         await assertThrows(openLev.moveInsurance(pairId, 1, accounts[5], pool1Insurance), 'caller must be admin');
 
+    })
+
+    it("Admin setOpLimitOrder test", async () => {
+        let {timeLock, openLev} = await instanceSimpleOpenLev();
+        let opLimitOrder = timeLock.address;
+        await timeLock.executeTransaction(openLev.address, 0, 'setOpLimitOrder(address)',
+            web3.eth.abi.encodeParameters(['address'], [opLimitOrder]), 0);
+        assert.equal(opLimitOrder, await openLev.opLimitOrder());
+        await assertThrows(openLev.setOpLimitOrder(opLimitOrder), 'caller must be admin');
     })
 
     it("Admin setImplementation test", async () => {
