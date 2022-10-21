@@ -100,6 +100,11 @@ abstract contract LPoolStorage {
     mapping(address => BorrowSnapshot) internal accountBorrows;
 
 
+    /**
+    * Block timestamp that interest was last accrued at
+    */
+    uint public accrualBlockTimestamp;
+
 
 
     /*** Token Events ***/
