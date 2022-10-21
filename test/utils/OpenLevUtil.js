@@ -2,6 +2,8 @@
 const {toBN, maxUint} = require("./EtheUtil");
 const LPoolDelegator = artifacts.require("LPoolDelegator");
 const LPool = artifacts.require('LPool');
+const LTimePool = artifacts.require('LTimePool');
+
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
 const TestToken = artifacts.require("MockERC20");
@@ -147,6 +149,26 @@ exports.createPool = async (tokenSymbol, controller, admin, wethToken) => {
     };
 }
 
+exports.createTimePool = async (tokenSymbol, controller, admin, wethToken) => {
+    let testToken = wethToken ? wethToken : await TestToken.new('Test Token: ' + tokenSymbol, tokenSymbol);
+    let erc20Delegate = await LTimePool.new();
+    let pool = await LPoolDelegator.new();
+    await pool.initialize(testToken.address, wethToken ? true : false,
+        controller.address,
+        toBN(5e16).div(toBN(31536000)), toBN(10e16).div(toBN(31536000)), toBN(20e16).div(toBN(31536000)), 50e16 + '',
+        1e18 + '',
+        'TestPool',
+        'TestPool',
+        18,
+        admin,
+        erc20Delegate.address);
+    return {
+        'token': testToken,
+        'controller': controller,
+        'pool': await LTimePool.at(pool.address)
+    };
+}
+
 exports.mint = async (token, to, amount) => {
     await token.mint(to, toBN(amount).mul(toBN(1e18)).toString());
 }
@@ -213,6 +235,17 @@ exports.approxAssertPrint = (desc, expected, value) => {
     // m.log("diff/expectedNum", diff/expectedNum);
     assert((diff / expectedNum) < 0.00001, "Diff is too big. expectedNum=" + expectedNum + " valueNum=" + valueNum + " " +
         "diff=" + diff + " diff/expectedNum=" + diff / expectedNum);
+}
+
+exports.approxPrecisionAssertPrint = (desc, expected, value, precision) => {
+    m.log(desc, "approx equals to:", value);
+    let expectedNum = Number(expected);
+    let valueNum = Number(value);
+    let diff = expectedNum > valueNum ? expectedNum - valueNum : valueNum - expectedNum;
+    let diffLimit = Math.pow(0.1, precision);
+    m.log("approxPrecisionAssertPrint expectedNum, valueNum, diff/expectedNum, diffLimit", expectedNum, valueNum, (diff / expectedNum), diffLimit);
+    assert((diff / expectedNum) < diffLimit, "Diff is too big. expectedNum=" + expectedNum + " valueNum=" + valueNum + " " +
+        "diff=" + diff + " diff/expectedNum=" + diff / expectedNum+ " diffLimit=" + diffLimit);
 }
 
 let currentStep;

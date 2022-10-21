@@ -10,7 +10,7 @@ import "../../lib/TransferHelper.sol";
 import "../../lib/DexData.sol";
 import "../../lib/Utils.sol";
 
-contract KccUniV2Dex {
+contract CronosUniV2Dex {
     using SafeMath for uint;
     using Utils for uint;
     using TransferHelper for IERC20;
@@ -226,21 +226,13 @@ contract KccUniV2Dex {
 
     function getUniClassPair(address tokenA, address tokenB, IUniswapV2Factory factory) internal view returns (address pair){
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        if (address(factory) == 0x79855A03426e15Ad120df77eFA623aF87bd54eF3) {
-            // mojito
+        if (address(factory) == 0x3B44B2a187a7b3824131F8db5a74194D0a42Fc15) {
+            // VVS
             return address(uint(keccak256(abi.encodePacked(
                     hex'ff',
                     address(factory),
                     keccak256(abi.encodePacked(token0, token1)),
-                    hex'3b58864b0ea7cc084fc3a5dc3ca7ea2fb5cedd9aac7f9fff0c3dd9a15713f1c7'
-                ))));
-        } else if (address(factory) == 0xAE46cBBCDFBa3bE0F02F463Ec5486eBB4e2e65Ae) {
-            // ku
-            return address(uint(keccak256(abi.encodePacked(
-                    hex'ff',
-                    address(factory),
-                    keccak256(abi.encodePacked(token0, token1)),
-                    hex'5d71f8561d80ed979ca73d5b742278f4719baab5f0dd78b6ca91bec31f0e2dbc'
+                    hex'a77ee1cc0f39570ddde947459e293d7ebc2c30ff4e8fc45860afdcb2c2d3dc17'
                 ))));
         } else {
             return factory.getPair(tokenA, tokenB);
@@ -248,26 +240,10 @@ contract KccUniV2Dex {
     }
 
     function getPairFees(DexInfo memory dexInfo, address pair) private view returns (uint16){
-        if (address(dexInfo.factory) == 0x79855A03426e15Ad120df77eFA623aF87bd54eF3) {
-            // mojito
-            return toUint16((IMojitoPair)(pair).swapFeeNumerator());
-        } else if (address(dexInfo.factory) == 0xAE46cBBCDFBa3bE0F02F463Ec5486eBB4e2e65Ae) {
-            // ku
-            return toUint16((uint(10)).mul((IKuswapPair)(pair).swapFee()));
-        } else {
-            return dexInfo.fees;
-        }
+        return dexInfo.fees;
     }
 
     function toUint16(uint256 y) internal pure returns (uint16 z) {
         require((z = uint16(y)) == y);
     }
-}
-
-interface IMojitoPair {
-    function swapFeeNumerator() external view returns (uint);
-}
-
-interface IKuswapPair {
-    function swapFee() external view returns (uint32);
 }

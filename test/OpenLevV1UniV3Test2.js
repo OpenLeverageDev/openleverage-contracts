@@ -234,7 +234,7 @@ contract("OpenLev UniV3", async accounts => {
 
     let ratio = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Ratio, current:", ratio.current, "limit", ratio.limit);
-    assert.equal(7907, ratio.current.toString());
+    assert.equal(7908, ratio.current.toString());
     //
     // Partial Close trade
     let tx_full_close = await openLev.closeTrade(0, 0, "486675826237735294796", 0, Uni3DexData, {from: trader});
@@ -304,7 +304,7 @@ contract("OpenLev UniV3", async accounts => {
     // Market price change, then check margin ratio
     let marginRatio_1 = await openLev.marginRatio(trader, 0, 0, Uni3DexData, {from: saver});
     m.log("Margin Ratio:", marginRatio_1.current / 100, "%");
-    assert.equal(marginRatio_1.current.toString(), 8046);
+    assert.equal(marginRatio_1.current.toString(), 8052);
 
     m.log("Margin Trade Again:", "Deposit=", deposit, "Borrow=", borrow);
     await token1.approve(openLev.address, deposit, {from: trader});

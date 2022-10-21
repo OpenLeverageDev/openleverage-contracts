@@ -46,7 +46,7 @@ abstract contract OpenLevStorage {
     mapping(address => mapping(uint16 => mapping(bool => Types.Trade))) public activeTrades;
 
     //useless
-    mapping(address => bool) public allowedDepositTokens;
+    mapping(address => bool) internal allowedDepositTokens;
 
     CalculateConfig public calculateConfig;
 
@@ -58,6 +58,8 @@ abstract contract OpenLevStorage {
 
     // map(marketId, tokenAddress, index) => taxRate)
     mapping(uint16 => mapping(address => mapping(uint => uint24))) public taxes;
+
+    address public opLimitOrder;
 
     event MarginTrade(
         address trader,
@@ -135,9 +137,15 @@ interface OpenLevInterface {
     ) external returns (uint16);
 
 
-    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable;
+    function marginTrade(uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable returns (uint256);
 
-    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external;
+    function marginTradeFor(address trader, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) external payable returns (uint256);
+
+    function closeTrade(uint16 marketId, bool longToken, uint closeAmount, uint minOrMaxAmount, bytes memory dexData) external returns (uint256);
+
+    function closeTradeFor(address trader, uint16 marketId, bool longToken, uint closeHeld, uint minOrMaxAmount, bytes memory dexData) external returns (uint256);
+
+    function payoffTrade(uint16 marketId, bool longToken) external payable;
 
     function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxAmount, bytes memory dexData) external;
 
@@ -145,11 +153,6 @@ interface OpenLevInterface {
 
     function updatePrice(uint16 marketId, bytes memory dexData) external;
 
-    function shouldUpdatePrice(uint16 marketId, bytes memory dexData) external view returns (bool);
-
-    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
-
-    // function getCalculateConfig() external view returns (OpenLevStorage.CalculateConfig memory);
 
     /*** Admin Functions ***/
     function setCalculateConfig(uint16 defaultFeesRate, uint8 insuranceRatio, uint16 defaultMarginLimit, uint16 priceDiffientRatio,
@@ -164,5 +167,7 @@ interface OpenLevInterface {
     function setSupportDex(uint8 dex, bool support) external;
 
     function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external;
+
+    function setOpLimitOrder(address _opLimitOrder) external;
 
 }
