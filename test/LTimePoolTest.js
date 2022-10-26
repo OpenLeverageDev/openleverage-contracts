@@ -634,25 +634,25 @@ contract("LPoolDelegator", async accounts => {
 
         accountSnapshot = await erc20Pool.getAccountSnapshot(accounts[0]);
         assert.equal(accountSnapshot[0], 0);
-        approxPrecisionAssertPrint("balanceOf", '9999665144596864000000', (await testToken.balanceOf(accounts[0])).toString(), 8);
-        approxPrecisionAssertPrint("Check borrow rate", '1585489599', await erc20Pool.borrowRatePerBlock(), 8);
+        approxPrecisionAssertPrint("balanceOf", '9999665144596864000000', (await testToken.balanceOf(accounts[0])).toString(), 7);
+        approxPrecisionAssertPrint("Check borrow rate", '1585489599', await erc20Pool.borrowRatePerBlock(), 7);
         assert.equal(toETH(await erc20Pool.supplyRatePerBlock()), 0);
         assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
-        approxPrecisionAssertPrint("reserves", '334855403136000000', reserves.toString(), 8);
+        approxPrecisionAssertPrint("reserves", '334855403136000000', reserves.toString(), 7);
 
         //reduce reserves
         await erc20Pool.reduceReserves(accounts[1], '34855403136000000');
         let reservesAfterReduce = await erc20Pool.totalReserves();
-        approxPrecisionAssertPrint("reservesAfterReduce", '300000000000000000', reservesAfterReduce.toString(), 8);
-        approxPrecisionAssertPrint("Check borrow rate", '1585489599', (await erc20Pool.borrowRatePerBlock()).toString(), 8);
+        approxPrecisionAssertPrint("reservesAfterReduce", '300000000000000000', reservesAfterReduce.toString(), 7);
+        approxPrecisionAssertPrint("Check borrow rate", '1585489599', (await erc20Pool.borrowRatePerBlock()).toString(), 7);
         assert.equal(toETH(await erc20Pool.supplyRatePerBlock()), 0);
         assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
-        approxPrecisionAssertPrint("balanceOf", '34855403136000000', (await testToken.balanceOf(accounts[1])).toString(), 8);
-        approxPrecisionAssertPrint("cash", '300000000000000000', (await erc20Pool.getCash()).toString(), 8);
+        approxPrecisionAssertPrint("balanceOf", '34855403136000000', (await testToken.balanceOf(accounts[1])).toString(), 7);
+        approxPrecisionAssertPrint("cash", '300000000000000000', (await erc20Pool.getCash()).toString(), 7);
         // add reserves
         await erc20Pool.addReserves('100000000000000000');
-        approxPrecisionAssertPrint("totalReserves", '400000000000000000', (await erc20Pool.totalReserves()).toString(), 8);
-        approxPrecisionAssertPrint("cash", '400000000000000000', (await erc20Pool.getCash()).toString(), 8);
+        approxPrecisionAssertPrint("totalReserves", '400000000000000000', (await erc20Pool.totalReserves()).toString(), 7);
+        approxPrecisionAssertPrint("cash", '400000000000000000', (await erc20Pool.getCash()).toString(), 7);
 
     })
 
