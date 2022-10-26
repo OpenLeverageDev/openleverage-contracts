@@ -76,7 +76,6 @@ contract RetroactiveAirdropLock is Adminable{
 
     function lockedAmount(address beneficiary) public view returns (uint256){
         ReleaseVar memory releaseVar = releaseVars[beneficiary];
-        require(endTime >= block.timestamp, 'locked end');
         return releaseVar.amount.mul(endTime - releaseVar.lastUpdateTime)
         .div(endTime - startTime);
     }
