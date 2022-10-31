@@ -8,7 +8,7 @@ import "../Adminable.sol";
 
 /// @title Farming Pools
 /// @author OpenLeverage
-/// @notice Deposit OLE to earn inerest
+/// @notice Deposit OLE to earn interest
 /// @dev Rewards are released linearly 
 contract FarmingPools is Adminable {
     using SafeMath for uint256;
