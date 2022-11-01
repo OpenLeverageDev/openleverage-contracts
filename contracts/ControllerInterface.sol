@@ -64,34 +64,28 @@ contract ControllerStorage {
 
     bool public suspend;
 
+    //useless
     OLETokenDistribution public oleTokenDistribution;
     //token0=>token1=>pair
     mapping(address => mapping(address => LPoolPair)) public lpoolPairs;
+    //useless
     //marketId=>isDistribution
     mapping(uint => bool) public marketExtraDistribution;
     //marketId=>isSuspend
     mapping(uint => bool) public marketSuspend;
+    //useless
     //pool=>allowed
     mapping(address => bool) public lpoolUnAlloweds;
+    //useless
     //pool=>bool=>distribution(true is borrow,false is supply)
     mapping(LPoolInterface => mapping(bool => LPoolDistribution)) public lpoolDistributions;
+    //useless
     //pool=>bool=>distribution(true is borrow,false is supply)
     mapping(LPoolInterface => mapping(bool => mapping(address => LPoolRewardByAccount))) public lPoolRewardByAccounts;
 
     bool public suspendAll;
 
     event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint16 marginLimit, bytes dexData);
-
-    event Distribution2Pool(address pool, uint supplyAmount, uint borrowerAmount, uint64 startTime, uint64 duration, uint newSupplyBorrowBalance);
-
-    event UpdatePriceReward(uint marketId, address updator, uint reward, uint newExtraBalance);
-
-    event LiquidateReward(uint marketId, address liquidator, uint reward, uint newExtraBalance);
-
-    event PoolReward(address pool, address rewarder, bool isBorrow, uint reward);
-
-    event NewOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount);
-
 
 }
 /**
@@ -142,20 +136,6 @@ interface ControllerInterface {
 
     function setOleWethDexData(bytes memory _oleWethDexData) external;
 
-    // liquidatorOLERatio: Two decimal in percentage, ex. 300% => 300
-    function setOLETokenDistribution(uint moreSupplyBorrowBalance, uint moreExtraBalance, uint128 updatePricePer, uint128 liquidatorMaxPer, uint16 liquidatorOLERatio, uint16 xoleRaiseRatio, uint128 xoleRaiseMinAmount) external;
-
-    function distributeRewards2Pool(address pool, uint supplyAmount, uint borrowAmount, uint64 startTime, uint64 duration) external;
-
-    function distributeRewards2PoolMore(address pool, uint supplyAmount, uint borrowAmount) external;
-
-    function distributeExtraRewards2Markets(uint[] memory marketIds, bool isDistribution) external;
-
-    /***Distribution Functions ***/
-
-    function earned(LPoolInterface lpool, address account, bool isBorrow) external view returns (uint256);
-
-    function getSupplyRewards(LPoolInterface[] calldata lpools, address account) external;
 
 }
 

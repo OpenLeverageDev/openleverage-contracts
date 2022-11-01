@@ -358,12 +358,12 @@ library OpenLevV1Lib {
         if (poolIndex == 0) {
             market.pool0Insurance = market.pool0Insurance.sub(amount);
             uint256 totalHeld = totalHelds[market.token0];
-            totalHelds[market.token0] = totalHelds[market.token0].sub(amount);
+            totalHelds[market.token0] = totalHeld.sub(amount);
             (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token0).balanceOf(address(this))));
         } else {
             market.pool1Insurance = market.pool1Insurance.sub(amount);
             uint256 totalHeld = totalHelds[market.token1];
-            totalHelds[market.token1] = totalHelds[market.token1].sub(amount);
+            totalHelds[market.token1] = totalHeld.sub(amount);
             (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token1).balanceOf(address(this))));
         }
     }
