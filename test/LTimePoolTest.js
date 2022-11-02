@@ -574,8 +574,8 @@ contract("LPoolDelegator", async accounts => {
         } else {
             m.log("totalBorrows is 0----", totalBorrows)
             assert.equal((await erc20Pool.borrowRatePerBlock()).toString(), '1585489599');
+            assert.equal(toETH(await erc20Pool.supplyRatePerBlock()).toString(), '0');
         }
-        assert.equal(toETH(await erc20Pool.supplyRatePerBlock()).toString(), '0');
         assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
     })
 
