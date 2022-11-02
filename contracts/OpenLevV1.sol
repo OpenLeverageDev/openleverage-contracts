@@ -290,7 +290,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint firstAmount = Utils.toAmountBeforeTax(borrowed, taxRate);
         uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(firstAmount, taxRate), true);
         marketVars.buyPool.repayBorrowBehalf(msg.sender, transferAmount);
-        require(marketVars.buyPool.borrowBalanceCurrent(msg.sender) == 0, "IRP");
+        require(marketVars.buyPool.borrowBalanceStored(msg.sender) == 0, "IRP");
         delete activeTrades[msg.sender][marketId][longToken];
         totalHelds[address(marketVars.sellToken)] = totalHelds[address(marketVars.sellToken)].sub(heldAmount);
         doTransferOut(msg.sender, marketVars.sellToken, closeAmount);
