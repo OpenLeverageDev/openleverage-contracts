@@ -570,13 +570,12 @@ contract("LPoolDelegator", async accounts => {
         let totalBorrows = (await erc20Pool.totalBorrows()).toString();
         if (totalBorrows == 1){
             m.log("totalBorrows is 1----", totalBorrows)
-            assert.equal((await erc20Pool.borrowRatePerBlock()).toString(), '1588225560');
         } else {
             m.log("totalBorrows is 0----", totalBorrows)
             assert.equal((await erc20Pool.borrowRatePerBlock()).toString(), '1585489599');
             assert.equal(toETH(await erc20Pool.supplyRatePerBlock()).toString(), '0');
+            assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
         }
-        assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
     })
 
     it("pool not allowed test", async () => {
