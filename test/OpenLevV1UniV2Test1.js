@@ -509,4 +509,40 @@ contract("OpenLev UniV2", async accounts => {
 
         assert.equal((await token1.balanceOf(trader)).toString(), "390651431412239210117");
     })
+
+    it("LONG Token0, Close Amount>=99.999%, Close 100% default", async () => {
+        let pairId = 0;
+        await printBlockNum();
+        // provide some funds for trader and saver
+        await utils.mint(token1, trader, 10000);
+        checkAmount(await token1.symbol() + " Trader " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(trader), 18);
+
+        await utils.mint(token1, saver, 10000);
+        checkAmount(await token1.symbol() + " Saver " + last8(saver) + " Balance", 10000000000000000000000, await token1.balanceOf(saver), 18);
+        // Trader to approve openLev to spend
+        let deposit = utils.toWei(400);
+        await token1.approve(openLev.address, deposit, {from: trader});
+
+        // Saver deposit to pool1
+        let saverSupply = utils.toWei(1000);
+        let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
+        await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
+        await pool1.mint(saverSupply, {from: saver});
+        let borrow = utils.toWei(500);
+        m.log("toBorrow from Pool 1: \t", borrow);
+        await advanceMultipleBlocksAndTime(100);
+        await openLev.updatePrice(pairId, Uni2DexData);
+
+        await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+
+        let tradeBefore = await openLev.activeTrades(trader, pairId, 0);
+        assert.equal(tradeBefore.held, "886675826237735294796");
+        let close_99 = toBN(tradeBefore.held).mul(toBN(999991)).div(toBN(1000000));
+        m.log("Close 99.999% : \t", close_99);
+        await openLev.closeTrade(0, false, close_99, 0, Uni2DexData, {from: trader});
+
+        let tradeAfter = await openLev.activeTrades(trader, pairId, 0);
+        m.log("Trade.held:", tradeAfter.held);
+        assert.equal(tradeAfter.held, 0);
+    })
 })
