@@ -204,6 +204,11 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         require(trade.held != 0 && trade.lastBlockNum != block.number && OpenLevV1Lib.isInSupportDex(marketVars.dexs, dexData.toDexDetail()), "HI0");
         (ControllerInterface(addressConfig.controller)).closeTradeAllowed(marketId);
 
+        //avoid mantissa errors
+        if (closeHeld.mul(100000).div(trade.held) >= 99999) {
+            closeHeld = trade.held;
+        }
+
         uint closeAmount = OpenLevV1Lib.shareToAmount(closeHeld, totalHelds[address(marketVars.sellToken)], marketVars.reserveSellToken);
 
         Types.CloseTradeVars memory closeTradeVars;
