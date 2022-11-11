@@ -102,7 +102,7 @@ contract QueryHelper {
         uint256 timestamp;
         bytes dexData;
     }
-    //offchain call
+    // Offchain call
     function getTraderLiqs(IOpenLev openLev, uint16 marketId, address[] calldata traders, bool[] calldata longTokens, bytes calldata dexData) external returns (LiqVars[] memory results){
         results = new LiqVars[](traders.length);
         LiqReqVars memory reqVar;
@@ -161,7 +161,7 @@ contract QueryHelper {
         }
         return results;
     }
-    // offchain call
+    // Offchain call
     function calPriceCAvgPriceHAvgPrice(IOpenLev openLev, uint16 marketId, address desToken, address quoteToken, uint32 secondsAgo, bytes memory dexData) external
     returns (uint price, uint cAvgPrice, uint256 hAvgPrice, uint8 decimals, uint256 timestamp){
         IOpenLev.AddressConfig memory adrConf = openLev.addressConfig();
@@ -187,7 +187,7 @@ contract QueryHelper {
         uint totalHeld;
         uint balance;
     }
-    //offchain call slippage 10%=>100
+    // Offchain call slippage 10%=>100
     function getLiqCallData(IOpenLev openLev, IV3Quoter v3Quoter, uint16 marketId, uint16 slippage, address trader, bool longToken, bytes memory dexData)
     external returns (uint minBuy, uint maxSell)
     {
@@ -223,11 +223,11 @@ contract QueryHelper {
         adrConf.dexAggregator.calBuyAmount(callVars.buyToken, callVars.sellToken, callVars.buyTax, callVars.sellTax, callVars.heldAfterFees, dexData) :
         v3Quoter.quoteExactInputSingle(callVars.sellToken, callVars.buyToken, dexData.toFee(), callVars.heldAfterFees, 0);
         callVars.canRepayBorrows = callVars.currentBuyAmount >= callVars.borrows;
-        //flash sell,cal minBuyAmount
+        // Flash sell,cal minBuyAmount
         if (trade.depositToken != longToken || !callVars.canRepayBorrows) {
             minBuy = callVars.currentBuyAmount.sub(callVars.currentBuyAmount.mul(slippage).div(1000));
         }
-        // flash buy,cal maxSellAmount
+        // Flash buy,cal maxSellAmount
         else {
             callVars.currentSellAmount = dexData.isUniV2Class() ?
             adrConf.dexAggregator.calSellAmount(callVars.buyToken, callVars.sellToken, callVars.buyTax, callVars.sellTax, callVars.borrows, dexData) :
@@ -314,8 +314,8 @@ interface IOpenLev {
     struct MarketVar {// Market info
         LPoolInterface pool0;       // Lending Pool 0
         LPoolInterface pool1;       // Lending Pool 1
-        address token0;              // Lending Token 0
-        address token1;              // Lending Token 1
+        address token0;             // Lending Token 0
+        address token1;             // Lending Token 1
         uint16 marginLimit;         // Margin ratio limit for specific trading pair. Two decimal in percentage, ex. 15.32% => 1532
         uint16 feesRate;            // feesRate 30=>0.3%
         uint16 priceDiffientRatio;
