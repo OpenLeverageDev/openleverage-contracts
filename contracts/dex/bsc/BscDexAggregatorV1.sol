@@ -3,6 +3,7 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./UniV2ClassDex.sol";
+import "../aggregator/OneInchDexV5.sol";
 import "../DexAggregatorInterface.sol";
 import "../../lib/DexData.sol";
 import "../../lib/Utils.sol";
@@ -14,7 +15,7 @@ import "../../Adminable.sol";
 /// @author OpenLeverage
 /// @notice Use this contract to swap tokens.
 /// @dev Routers for different swap requests.
-contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex {
+contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex, OneInchDexV5 {
     using DexData for bytes;
     using SafeMath for uint;
 
@@ -62,9 +63,14 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param minBuyAmount minmum amount of token to receive.
     /// @param data Dex to use for swap
     /// @return buyAmount Exact Amount bought
-    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
+    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, bytes memory aggData) external override returns (uint buyAmount){
         address payer = msg.sender;
-        buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
+        uint8 dex = data.toDex();
+        if (dex != DexData.DEX_1INCH) {
+            buyAmount = uniClassSell(dexInfo[dex], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
+        } else {
+            buyAmount = oneInchSwap(sellToken, buyToken, sellAmount, minBuyAmount, aggData);
+        }
     }
 
     /// @notice Sell tokens 
