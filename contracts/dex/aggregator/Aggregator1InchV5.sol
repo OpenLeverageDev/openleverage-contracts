@@ -6,17 +6,16 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../lib/TransferHelper.sol";
 
-contract OneInchDexV5 {
+contract Aggregator1InchV5 {
     using SafeMath for uint;
     using TransferHelper for IERC20;
-    address public oneInchRouter;
+    address public router1inch;
     address wETH;
 
-    event OneInchRouterSwap(
+    event Swap1InchRouter(
         address indexed fromToken,
         address indexed toToken,
         uint256 fromAmount,
-        uint256 minToAmount,
         uint256 realToAmount
     );
 
@@ -24,25 +23,22 @@ contract OneInchDexV5 {
         address _token,
         uint _amount
     ) internal {
-        uint allowance = IERC20(_token).allowance(address(this), oneInchRouter);
+        uint allowance = IERC20(_token).allowance(address(this), router1inch);
         if (allowance < _amount) {
-            IERC20(_tokenIn).safeApprove(oneInchRouter, _amount);
+            IERC20(_token).safeApprove(router1inch, _amount);
         }
     }
 
-    function oneInchSwap(
+    function swap1inch(
         address fromToken,
         address toToken,
         uint256 fromAmount,
-        uint256 minToAmount,
         bytes calldata data
     ) internal returns (uint realToAmount) {
         _approveIfNeeded(fromToken, fromAmount);
-        uint256 preBalance = IERC20(toToken).balanceOf(address(this));
-        (bool success, bytes memory returnData) = oneInchRouter.call{value: fromToken == wETH ? fromAmount : 0}(data);
-        uint256 postBalance = IERC20(toToken).balanceOf(address(this));
-        realToAmount = postBalance.sub(preBalance);
-        require(realToAmount >= minToAmount, '1InchRouter: realToAmount_NOT_ENOUGH');
-        emit OneInchRouterSwap(fromToken, toToken, fromAmount, minToAmount, realToAmount);
+        (bool success, bytes memory returnData) = router1inch.call{value: fromToken == wETH ? fromAmount : 0}(data);
+        require(success, '1InchRouter: swap_fail');
+        (uint realToAmount, uint spentAmount) = abi.decode(returnData, (uint, uint));
+        emit Swap1InchRouter(fromToken, toToken, fromAmount, realToAmount);
     }
 }

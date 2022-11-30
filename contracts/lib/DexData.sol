@@ -170,4 +170,32 @@ library DexData {
             path[i] = pool;
         }
     }
+
+    function to1InchCallData(bytes memory data) internal pure returns(bytes memory bts){
+        uint len = data.length - 8;
+        require(len > 0, "DexData: to1InchCallData wrong data format");
+        uint addr;
+        assembly {
+            addr := add(data, 32)
+        }
+        addr = addr + 8;
+        bts = new bytes(len);
+        uint btsptr;
+        assembly {
+            btsptr := add(bts, 32)
+        }
+        for (; len >= 32; len -= 32) {
+            assembly {
+                mstore(btsptr, mload(addr))
+            }
+            btsptr += 32;
+            src += 32;
+        }
+        uint mask = 256 ** (32 - len) - 1;
+        assembly {
+            let srcpart := and(mload(addr), not(mask))
+            let destpart := and(mload(btsptr), mask)
+            mstore(btsptr, or(destpart, srcpart))
+        }
+    }
 }
