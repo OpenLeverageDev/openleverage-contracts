@@ -242,7 +242,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         } else {
             uint balance = marketVars.buyToken.balanceOf(address(this));
             minOrMaxAmount = Utils.minOf(closeTradeVars.closeAmountAfterFees, minOrMaxAmount);
-            closeTradeVars.sellAmount = flashBuy(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, minOrMaxAmount, dexData);
+            closeTradeVars.sellAmount = flashBuy(marketId, marketVars.dexs[0], address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, minOrMaxAmount, closeTradeVars.closeAmountAfterFees, dexData);
             closeTradeVars.receiveAmount = marketVars.buyToken.balanceOf(address(this)).sub(balance);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
@@ -424,10 +424,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         return OpenLevV1Lib.flashSell(buyToken, sellToken, sellAmount, minBuyAmount, data, addressConfig.dexAggregator);
     }
 
-    function flashBuy(uint16 marketId, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data) internal returns (uint){
+    function flashBuy(uint16 marketId, uint32 marketDefaultDex, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data) internal returns (uint){
         uint24 buyTax = taxes[marketId][buyToken][2];
         uint24 sellTax = taxes[marketId][sellToken][1];
-        return OpenLevV1Lib.flashBuy(buyToken, sellToken, buyAmount, maxSellAmount, data, addressConfig.dexAggregator, buyTax, sellTax);
+        return OpenLevV1Lib.flashBuy(buyToken, sellToken, buyAmount, maxSellAmount, closeAmount, data, addressConfig.dexAggregator, buyTax, sellTax, toUint8(marketDefaultDex));
+    }
+
+    function toUint8(uint32 y) internal pure returns (uint8 z) {
+        require((z = uint8(y)) == y);
     }
 
     /// @dev All credited on this contract and share with all token holder if any rewards for the transfer.

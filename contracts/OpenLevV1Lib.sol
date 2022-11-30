@@ -247,13 +247,18 @@ library OpenLevV1Lib {
         }
     }
 
-    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, bytes memory data,
+    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data,
         DexAggregatorInterface dexAggregator,
         uint24 buyTax,
-        uint24 sellTax) external returns (uint sellAmount){
+        uint24 sellTax,
+        uint8 marketDefaultDex) external returns (uint sellAmount){
         if (buyAmount > 0) {
-            IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
-            sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
+            IERC20(sellToken).safeApprove(address(dexAggregator), closeAmount);
+            if (data.toDex() == DexData.DEX_1INCH){
+                // approve max?
+                IERC20(buyToken).safeApprove(address(dexAggregator), );
+            }
+            sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, marketDefaultDex, buyAmount, maxSellAmount, closeAmount, data);
         }
     }
 
