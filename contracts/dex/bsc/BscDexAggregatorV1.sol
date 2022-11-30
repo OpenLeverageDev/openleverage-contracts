@@ -3,7 +3,7 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./UniV2ClassDex.sol";
-import "../aggregator/OneInchDexV5.sol";
+import "../aggregator/Aggregator1InchV5.sol";
 import "../DexAggregatorInterface.sol";
 import "../../lib/DexData.sol";
 import "../../lib/Utils.sol";
@@ -15,7 +15,7 @@ import "../../Adminable.sol";
 /// @author OpenLeverage
 /// @notice Use this contract to swap tokens.
 /// @dev Routers for different swap requests.
-contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex, OneInchDexV5 {
+contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex, Aggregator1InchV5 {
     using DexData for bytes;
     using SafeMath for uint;
 
@@ -63,13 +63,13 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param minBuyAmount minmum amount of token to receive.
     /// @param data Dex to use for swap
     /// @return buyAmount Exact Amount bought
-    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, bytes memory aggData) external override returns (uint buyAmount){
+    function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
         uint8 dex = data.toDex();
         if (dex != DexData.DEX_1INCH) {
             buyAmount = uniClassSell(dexInfo[dex], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
         } else {
-            buyAmount = oneInchSwap(sellToken, buyToken, sellAmount, minBuyAmount, aggData);
+            buyAmount = swap1inch(sellToken, buyToken, sellAmount, data.to1InchCallData());
         }
     }
 
@@ -93,8 +93,17 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param maxSellAmount maximum amount of token to receive.
     /// @param data Dex to use for swap
     /// @return sellAmount Exact amount sold
-    function buy(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint buyAmount, uint maxSellAmount, bytes memory data) external override returns (uint sellAmount){
-        sellAmount = uniClassBuy(dexInfo[data.toDex()], buyToken, sellToken, buyAmount, maxSellAmount, buyTax, sellTax);
+    function buy(address buyToken, address sellToken, uint24 buyTax, uint24 sellTax, uint8 marketDefaultDex, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data) external override returns (uint sellAmount){
+        uint8 dex = data.toDex();
+        if (dex != DexData.DEX_1INCH) {
+            sellAmount = uniClassBuy(dexInfo[data.toDex()], buyToken, sellToken, buyAmount, maxSellAmount, buyTax, sellTax);
+        } else {
+            address payer = msg.sender;
+            uint firstBuyAmount = swap1inch(sellToken, buyToken, closeAmount, data.to1InchCallData());
+            // need approve buyToken and sellToken in advance
+            uint secondBuyAmount = uniClassSell(dexInfo[marketDefaultDex], buyToken, sellToken, firstBuyAmount.sub(buyAmount), maxSellAmount, payer, payer);
+            sellAmount = heldAmount.sub(secondBuyAmount);
+        }
     }
 
     /// @notice Calculate amount of token to buy 
