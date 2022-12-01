@@ -343,7 +343,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             marketVars.sellToken.safeApprove(address(addressConfig.dexAggregator), maxSell);
             (buySuccess, sellAmountData) = address(addressConfig.dexAggregator).call(
                 abi.encodeWithSelector(addressConfig.dexAggregator.buy.selector, address(marketVars.buyToken), address(marketVars.sellToken), taxes[liquidateVars.marketId][address(marketVars.buyToken)][2],
-                taxes[liquidateVars.marketId][address(marketVars.sellToken)][1], liquidateVars.borrowed, maxSell, dexData)
+                taxes[liquidateVars.marketId][address(marketVars.sellToken)][1], toUint8(marketVars.dexs[0]), liquidateVars.borrowed, maxSell, dexData)
             );
         }
 
