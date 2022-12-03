@@ -38,7 +38,7 @@ library OpenLevV1Lib {
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         uint8 dex = dexData.toDex();
-        require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
+        require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000 && dex != DexData.DEX_1INCH, "UDX");
 
         {
             uint24[] memory taxRates = dexData.toTransferFeeRates();
@@ -243,22 +243,34 @@ library OpenLevV1Lib {
     function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, DexAggregatorInterface dexAggregator) external returns (uint buyAmount){
         if (sellAmount > 0) {
             IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
-            buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
+            uint8 dex = data.toDex();
+            if (dex != DexData.DEX_1INCH) {
+                buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
+            } else {
+                buyAmount = dexAggregator.sellBy1inch(buyToken, sellAmount, sellAmount, data);
+            }
         }
     }
 
     function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data,
+        bytes memory marketDefaultDex,
         DexAggregatorInterface dexAggregator,
         uint24 buyTax,
-        uint24 sellTax,
-        uint8 marketDefaultDex) external returns (uint sellAmount){
+        uint24 sellTax) external returns (uint sellAmount){
         if (buyAmount > 0) {
-            IERC20(sellToken).safeApprove(address(dexAggregator), closeAmount);
-            if (data.toDex() == DexData.DEX_1INCH){
-                // approve max?
-                IERC20(buyToken).safeApprove(address(dexAggregator), );
+            uint8 dex = data.toDex();
+            if (dex != DexData.DEX_1INCH) {
+                IERC20(sellToken).safeApprove(address(dexAggregator), buyAmount);
+                sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
+            } else {
+                address payer = msg.sender;
+                IERC20(sellToken).safeApprove(address(dexAggregator), closeAmount);
+                uint firstBuyAmount = dexAggregator.sellBy1inch(sellToken, buyToken, closeAmount, data);
+                uint secondSellAmount = firstBuyAmount.sub(buyAmount);
+                IERC20(buyToken).safeApprove(address(dexAggregator), secondSellAmount);
+                uint secondBuyAmount = dexAggregator.sell(sellToken, buyToken, secondSellAmount, maxSellAmount, marketDefaultDex);
+                sellAmount = closeAmount.sub(secondBuyAmount);
             }
-            sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, marketDefaultDex, buyAmount, maxSellAmount, closeAmount, data);
         }
     }
 

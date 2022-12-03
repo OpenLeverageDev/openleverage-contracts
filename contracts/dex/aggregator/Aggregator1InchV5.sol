@@ -33,12 +33,15 @@ contract Aggregator1InchV5 {
         address fromToken,
         address toToken,
         uint256 fromAmount,
+        address payee,
         bytes calldata data
     ) internal returns (uint realToAmount) {
         _approveIfNeeded(fromToken, fromAmount);
+        uint balanceBefore = IERC20(toToken).balanceOf(payee);
         (bool success, bytes memory returnData) = router1inch.call{value: fromToken == wETH ? fromAmount : 0}(data);
         require(success, '1InchRouter: swap_fail');
         (uint realToAmount, uint spentAmount) = abi.decode(returnData, (uint, uint));
+        require(realToAmount == IERC20(toToken).balanceOf(payee).sub(balanceBefore), '1InchRouter: swap_data_error');
         emit Swap1InchRouter(fromToken, toToken, fromAmount, realToAmount);
     }
 }
