@@ -247,7 +247,7 @@ library OpenLevV1Lib {
             if (dex != DexData.DEX_1INCH) {
                 buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
             } else {
-                buyAmount = dexAggregator.sellBy1inch(buyToken, sellAmount, sellAmount, data);
+                buyAmount = dexAggregator.sellBy1inch(buyToken, sellToken, sellAmount, data);
             }
         }
     }
