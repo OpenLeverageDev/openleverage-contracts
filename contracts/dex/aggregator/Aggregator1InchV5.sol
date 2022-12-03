@@ -19,16 +19,6 @@ contract Aggregator1InchV5 {
         uint256 realToAmount
     );
 
-    function _approveIfNeeded(
-        address _token,
-        uint _amount
-    ) internal {
-        uint allowance = IERC20(_token).allowance(address(this), router1inch);
-        if (allowance < _amount) {
-            IERC20(_token).safeApprove(router1inch, _amount);
-        }
-    }
-
     function swap1inch(
         address fromToken,
         address toToken,
@@ -36,12 +26,13 @@ contract Aggregator1InchV5 {
         address payee,
         bytes calldata data
     ) internal returns (uint realToAmount) {
-        _approveIfNeeded(fromToken, fromAmount);
-        uint balanceBefore = IERC20(toToken).balanceOf(payee);
+        uint fromTokenBalanceBefore = IERC20(fromToken).balanceOf(payee);
+        uint toTokenBalanceBefore = IERC20(toToken).balanceOf(payee);
         (bool success, bytes memory returnData) = router1inch.call{value: fromToken == wETH ? fromAmount : 0}(data);
         require(success, '1InchRouter: swap_fail');
         (uint realToAmount, uint spentAmount) = abi.decode(returnData, (uint, uint));
-        require(realToAmount == IERC20(toToken).balanceOf(payee).sub(balanceBefore), '1InchRouter: swap_data_error');
+        require(fromAmount == fromTokenBalanceBefore.sub(IERC20(fromToken).balanceOf(payee)), '1InchRouter: sell_amount_error');
+        require(realToAmount == IERC20(toToken).balanceOf(payee).sub(toTokenBalanceBefore), '1InchRouter: receive_amount_error');
         emit Swap1InchRouter(fromToken, toToken, fromAmount, realToAmount);
     }
 }
