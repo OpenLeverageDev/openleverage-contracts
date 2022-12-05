@@ -8,7 +8,7 @@ interface DexAggregatorInterface {
 
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 
-    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, bytes memory data) external override returns (uint buyAmount);
+    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount);
 
     function sellMul(uint sellAmount, uint minBuyAmount, bytes memory data) external returns (uint buyAmount);
 

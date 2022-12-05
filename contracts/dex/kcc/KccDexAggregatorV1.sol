@@ -69,14 +69,14 @@ contract KccDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     /// @notice Sell tokens by 1inch
     /// @dev
-    /// @param buyToken Address of token transfer from Dex pair
-    /// @param sellToken Address of token transfer into Dex pair
+    /// @param buyToken Address of token
+    /// @param sellToken Address of token
     /// @param sellAmount Exact amount to sell
     /// @param data Dex to use for 1inch swap
     /// @return buyAmount Exact Amount bought
-    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, bytes memory data) external override returns (uint buyAmount){
+    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         // Shh - currently unused
-        (buyToken, sellToken, sellAmount, data);
+        (buyToken, sellToken, sellAmount, minBuyAmount, data);
         revert("Not implemented");
     }
 
