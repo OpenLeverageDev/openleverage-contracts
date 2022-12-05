@@ -114,8 +114,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
         tv.totalHeld = totalHelds[address(vars.buyToken)];
         tv.depositErc20 = depositToken == longToken ? vars.buyToken : vars.sellToken;
-        deposit = transferIn(msg.sender, tv.depositErc20, deposit, msg.sender == opLimitOrder ? false : true);
 
+        deposit = transferIn(msg.sender, tv.depositErc20, deposit, msg.sender == opLimitOrder ? false : true);
 
         // Borrow
         uint borrowed;
