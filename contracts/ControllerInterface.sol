@@ -116,6 +116,8 @@ interface ControllerInterface {
 
     function updatePriceAllowed(uint marketId, address to) external;
 
+    function updateInterestAllowed(address payable sender) external;
+
     /*** Admin Functions ***/
 
     function setLPoolImplementation(address _lpoolImplementation) external;
