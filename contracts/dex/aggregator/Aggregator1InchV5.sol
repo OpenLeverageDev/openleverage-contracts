@@ -13,26 +13,29 @@ contract Aggregator1InchV5 {
     address wETH;
 
     event Swap1InchRouter(
-        address indexed fromToken,
-        address indexed toToken,
-        uint256 fromAmount,
-        uint256 realToAmount
+        address indexed buyToken,
+        address indexed sellToken,
+        uint sellAmount,
+        uint minBuyAmount,
+        uint realToAmount
     );
 
     function swap1inch(
-        address fromToken,
-        address toToken,
-        uint256 fromAmount,
+        address buyToken,
+        address sellToken,
+        uint sellAmount,
+        uint minBuyAmount,
+        address payer,
         address payee,
         bytes calldata data
     ) internal returns (uint realToAmount) {
-        uint fromTokenBalanceBefore = IERC20(fromToken).balanceOf(payee);
-        uint toTokenBalanceBefore = IERC20(toToken).balanceOf(payee);
-        (bool success, bytes memory returnData) = router1inch.call{value: fromToken == wETH ? fromAmount : 0}(data);
-        require(success, '1InchRouter: swap_fail');
+        uint sellTokenBalanceBefore = IERC20(sellToken).balanceOf(payer);
+        uint buyTokenBalanceBefore = IERC20(buyToken).balanceOf(payee);
+        (bool success, bytes memory returnData) = router1inch.call{value: sellToken == wETH ? sellAmount : 0}(data);
+        require(sellAmount == sellTokenBalanceBefore.sub(IERC20(sellToken).balanceOf(payer)), '1InchRouter: sell_amount_error');
         (uint realToAmount, uint spentAmount) = abi.decode(returnData, (uint, uint));
-        require(fromAmount == fromTokenBalanceBefore.sub(IERC20(fromToken).balanceOf(payee)), '1InchRouter: sell_amount_error');
-        require(realToAmount == IERC20(toToken).balanceOf(payee).sub(toTokenBalanceBefore), '1InchRouter: receive_amount_error');
-        emit Swap1InchRouter(fromToken, toToken, fromAmount, realToAmount);
+        require(realToAmount == IERC20(buyToken).balanceOf(payee).sub(buyTokenBalanceBefore), '1InchRouter: receive_amount_error');
+        require(realToAmount >= minBuyAmount, 'buy amount less than min');
+        emit Swap1InchRouter(buyToken, sellToken, sellAmount, minBuyAmount, realToAmount);
     }
 }

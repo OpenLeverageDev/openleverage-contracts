@@ -247,7 +247,7 @@ library OpenLevV1Lib {
             if (dex != DexData.DEX_1INCH) {
                 buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
             } else {
-                buyAmount = dexAggregator.sellBy1inch(buyToken, sellToken, sellAmount, data);
+                buyAmount = dexAggregator.sellBy1inch(buyToken, sellToken, sellAmount, minBuyAmount, data);
             }
         }
     }
@@ -260,12 +260,12 @@ library OpenLevV1Lib {
         if (buyAmount > 0) {
             uint8 dex = data.toDex();
             if (dex != DexData.DEX_1INCH) {
-                IERC20(sellToken).safeApprove(address(dexAggregator), buyAmount);
+                IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
                 sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
             } else {
                 address payer = msg.sender;
                 IERC20(sellToken).safeApprove(address(dexAggregator), closeAmount);
-                uint firstBuyAmount = dexAggregator.sellBy1inch(sellToken, buyToken, closeAmount, data);
+                uint firstBuyAmount = dexAggregator.sellBy1inch(buyToken, sellToken, closeAmount, 0, data);
                 uint secondSellAmount = firstBuyAmount.sub(buyAmount);
                 IERC20(buyToken).safeApprove(address(dexAggregator), secondSellAmount);
                 uint secondBuyAmount = dexAggregator.sell(sellToken, buyToken, secondSellAmount, maxSellAmount, marketDefaultDex);
