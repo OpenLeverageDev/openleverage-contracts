@@ -3,7 +3,6 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./UniV2ClassDex.sol";
-import "../aggregator/Aggregator1InchV5.sol";
 import "../DexAggregatorInterface.sol";
 import "../../lib/DexData.sol";
 import "../../lib/Utils.sol";
@@ -15,7 +14,7 @@ import "../../Adminable.sol";
 /// @author OpenLeverage
 /// @notice Use this contract to swap tokens.
 /// @dev Routers for different swap requests.
-contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex, Aggregator1InchV5 {
+contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterface, UniV2ClassDex {
     using DexData for bytes;
     using SafeMath for uint;
 
@@ -66,18 +65,6 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     function sell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
         address payer = msg.sender;
         buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
-    }
-
-    /// @notice Sell tokens by 1inch
-    /// @dev
-    /// @param buyToken Address of token
-    /// @param sellToken Address of token
-    /// @param sellAmount Exact amount to sell
-    /// @param data Dex to use for 1inch swap
-    /// @return buyAmount Exact Amount bought
-    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
-        address payer = msg.sender;
-        buyAmount = swap1inch(buyToken, sellToken, sellAmount, minBuyAmount, payer, payer, data.to1InchCallData());
     }
 
     /// @notice Sell tokens 
@@ -137,14 +124,9 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param desToken Token to be priced
     /// @param quoteToken Token used for pricing
     /// @param data Dex to use for swap
-    function getPrice(address desToken, address quoteToken, bytes memory data, uint8 defaultDex) external view override returns (uint256 price, uint8 decimals){
+    function getPrice(address desToken, address quoteToken, bytes memory data) external view override returns (uint256 price, uint8 decimals){
         decimals = priceDecimals;
-        uint8 dex = data.toDex();
-        if (dex != DexData.DEX_1INCH) {
-            price = uniClassGetPrice(dexInfo[dex].factory, desToken, quoteToken, decimals);
-        } else {
-            price = uniClassGetPrice(dexInfo[defaultDex].factory, desToken, quoteToken, decimals);
-        }
+        price = uniClassGetPrice(dexInfo[data.toDex()].factory, desToken, quoteToken, decimals);
     }
 
     /// @dev Get average price of desToken / quoteToken in the last period of time

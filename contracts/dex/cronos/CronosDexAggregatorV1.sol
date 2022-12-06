@@ -66,19 +66,6 @@ contract CronosDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInt
         buyAmount = uniClassSell(dexInfo[data.toDex()], buyToken, sellToken, sellAmount, minBuyAmount, payer, payer);
     }
 
-    /// @notice Sell tokens by 1inch
-    /// @dev
-    /// @param buyToken Address of token
-    /// @param sellToken Address of token
-    /// @param sellAmount Exact amount to sell
-    /// @param data Dex to use for 1inch swap
-    /// @return buyAmount Exact Amount bought
-    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
-        // Shh - currently unused
-        (buyToken, sellToken, sellAmount, minBuyAmount, data);
-        revert("Not implemented");
-    }
-
     /// @notice Sell tokens
     /// @dev Sell exact amount of token through path
     /// @param sellAmount Exact amount to sell
