@@ -855,6 +855,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     /// @param payer the account paying off the borrow
     /// @param borrower the account with the debt being payed off
     /// @param repayAmount the amount of undelrying tokens being returned
+    /// @param isEnd if is true, the account with the debt change to 0
     function repayBorrowFresh(address payer, address borrower, uint repayAmount, bool isEnd) internal sameBlock returns (uint) {
         (ControllerInterface(controller)).repayBorrowAllowed(payer, borrower, repayAmount, isEnd);
 
