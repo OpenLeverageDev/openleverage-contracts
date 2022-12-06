@@ -189,7 +189,7 @@ library DexData {
                 mstore(btsptr, mload(addr))
             }
             btsptr += 32;
-            src += 32;
+            addr += 32;
         }
         uint mask = 256 ** (32 - len) - 1;
         assembly {

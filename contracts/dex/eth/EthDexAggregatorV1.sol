@@ -77,19 +77,6 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         }
     }
 
-    /// @notice Sell tokens by 1inch
-    /// @dev
-    /// @param buyToken Address of token transfer
-    /// @param sellToken Address of token transfer
-    /// @param sellAmount Exact amount to sell
-    /// @param data Dex to use for 1inch swap
-    /// @return buyAmount Exact Amount bought
-    function sellBy1inch(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) external override returns (uint buyAmount){
-        // Shh - currently unused
-        (buyToken, sellToken, sellAmount, minBuyAmount, data);
-        revert("Not implemented");
-    }
-
     /// @notice Sell tokens 
     /// @dev Sell exact amount of token through path
     /// @param sellAmount Exact amount to sell
