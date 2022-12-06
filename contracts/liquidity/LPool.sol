@@ -24,7 +24,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     constructor() {
 
     }
-    
+
     /// @notice Initialize the money market
     /// @param controller_ The address of the Controller
     /// @param baseRatePerBlock_ The base interest rate which is the y-intercept when utilization rate is 0
@@ -354,7 +354,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         return getBorrowRateInternal(getCashPrior(), totalBorrows, totalReserves);
     }
 
-    
+
     /// @notice Returns the current per-block supply interest rate for this cToken
     /// @return The supply interest rate per block, scaled by 1e18
     function supplyRatePerBlock() external override view returns (uint) {
@@ -855,6 +855,7 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
     /// @param payer the account paying off the borrow
     /// @param borrower the account with the debt being payed off
     /// @param repayAmount the amount of undelrying tokens being returned
+    /// @param isEnd if is true, the account with the debt change to 0
     function repayBorrowFresh(address payer, address borrower, uint repayAmount, bool isEnd) internal sameBlock returns (uint) {
         (ControllerInterface(controller)).repayBorrowAllowed(payer, borrower, repayAmount, isEnd);
 
@@ -889,21 +890,17 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
             require(vars.actualRepayAmount.mul(1e18).div(vars.accountBorrows) <= 105e16, 'repay more than 5%');
             vars.accountBorrowsNew = 0;
         } else {
-            if (isEnd) {
-                vars.accountBorrowsNew = 0;
-            } else {
-                vars.accountBorrowsNew = vars.accountBorrows - vars.actualRepayAmount;
-            }
+            vars.accountBorrowsNew = vars.accountBorrows - vars.actualRepayAmount;
+        }
+
+        if (isEnd) {
+            vars.accountBorrowsNew = 0;
         }
         //Avoid mantissa errors
-        if (vars.actualRepayAmount > totalBorrows) {
+        if (totalBorrows < vars.accountBorrows.sub(vars.accountBorrowsNew) || vars.actualRepayAmount > totalBorrows) {
             vars.totalBorrowsNew = 0;
         } else {
-            if (isEnd) {
-                vars.totalBorrowsNew = totalBorrows.sub(vars.accountBorrows);
-            } else {
-                vars.totalBorrowsNew = totalBorrows - vars.actualRepayAmount;
-            }
+            vars.totalBorrowsNew = totalBorrows.sub(vars.accountBorrows.sub(vars.accountBorrowsNew));
         }
 
         /* We write the previously calculated values into storage */
@@ -938,7 +935,8 @@ contract LPool is DelegateInterface, Adminable, LPoolInterface, Exponential, Ree
         emit NewBorrowCapFactorMantissa(oldBorrowCapFactorMantissa, borrowCapFactorMantissa);
     }
 
-    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) external override onlyAdmin {
+    function setInterestParams(uint baseRatePerBlock_, uint multiplierPerBlock_, uint jumpMultiplierPerBlock_, uint kink_) external override {
+        (ControllerInterface(controller)).updateInterestAllowed(msg.sender);
         //accrueInterest except first
         if (baseRatePerBlock != 0) {
             accrueInterest();
