@@ -102,7 +102,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     function _marginTradeFor(address trader, uint16 marketId, bool longToken, bool depositToken, uint deposit, uint borrow, uint minBuyAmount, bytes memory dexData) internal returns (uint256 newHeld){
         Types.TradeVars memory tv;
         Types.MarketVars memory vars = toMarketVar(longToken, true, markets[marketId]);
-        bytes memory calPriceDexData = dexData.toDex() != DexData.DEX_1INCH ? dexData : toBytes(marketVars.dexs[0]);
+        bytes memory calPriceDexData = dexData.toDex() != DexData.DEX_1INCH ? dexData : toBytes(vars.dexs[0]);
         {
             Types.Trade memory t = activeTrades[trader][marketId][longToken];
             OpenLevV1Lib.verifyTrade(vars, longToken, depositToken, deposit, borrow, dexData, addressConfig, t, msg.sender == opLimitOrder ? false : true);
@@ -148,13 +148,13 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
 
         if (depositToken == longToken) {
             if (borrowed > 0) {
-                tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData);
+                tv.newHeld = flashSell(OpenLevV1Lib.FlashSellVar(address(vars.buyToken), address(vars.sellToken), borrowed, minBuyAmount, dexData));
                 tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(borrowed) : borrowed.mul(1e18).div(tv.newHeld);
             }
             tv.newHeld = tv.newHeld.add(tv.depositAfterFees);
         } else {
             tv.tradeSize = tv.depositAfterFees.add(borrowed);
-            tv.newHeld = flashSell(address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData);
+            tv.newHeld = flashSell(OpenLevV1Lib.FlashSellVar(address(vars.buyToken), address(vars.sellToken), tv.tradeSize, minBuyAmount, dexData));
             tv.token0Price = longToken ? tv.newHeld.mul(1e18).div(tv.tradeSize) : tv.tradeSize.mul(1e18).div(tv.newHeld);
         }
         newHeld = tv.newHeld;
@@ -232,7 +232,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         bytes memory calPriceDexData = dexData.toDex() != DexData.DEX_1INCH ? dexData : toBytes(marketVars.dexs[0]);
         if (depositToken != longToken) {
             minOrMaxAmount = Utils.maxOf(closeTradeVars.repayAmount, minOrMaxAmount);
-            closeTradeVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData);
+            closeTradeVars.receiveAmount = flashSell(OpenLevV1Lib.FlashSellVar(address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.closeAmountAfterFees, minOrMaxAmount, dexData));
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
@@ -243,7 +243,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         } else {
             uint balance = marketVars.buyToken.balanceOf(address(this));
             minOrMaxAmount = Utils.minOf(closeTradeVars.closeAmountAfterFees, minOrMaxAmount);
-            closeTradeVars.sellAmount = flashBuy(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount, minOrMaxAmount, closeTradeVars.closeAmountAfterFees, dexData, calPriceDexData);
+            closeTradeVars.sellAmount = flashBuy(marketId, OpenLevV1Lib.FlashBuyVar(address(marketVars.buyToken), address(marketVars.sellToken),
+                closeTradeVars.repayAmount, minOrMaxAmount, closeTradeVars.closeAmountAfterFees, dexData, calPriceDexData));
             closeTradeVars.receiveAmount = marketVars.buyToken.balanceOf(address(this)).sub(balance);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
@@ -311,7 +312,8 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     /// @param minBuy Slippage for Dex trading.
     /// @param maxSell Slippage for Dex trading.
     /// @param dexData Index and fee rate for the trading Dex.
-    function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxSell, bytes memory dexData) external override nonReentrant onlySupportDexExclude1inch(dexData) {
+    function liquidate(address owner, uint16 marketId, bool longToken, uint minBuy, uint maxSell, bytes memory dexData) external override nonReentrant onlySupportDex(dexData) {
+        require(dexData.toDex() != DexData.DEX_1INCH, "UDX");
         Types.Trade memory trade = activeTrades[owner][marketId][longToken];
         Types.MarketVars memory marketVars = toMarketVar(longToken, false, markets[marketId]);
         if (dexData.isUniV2Class()) {
@@ -363,7 +365,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
         } else {
             liquidateVars.sellAmount = liquidateVars.remainAmountAfterFees;
-            liquidateVars.receiveAmount = flashSell(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minBuy, dexData);
+            liquidateVars.receiveAmount = flashSell(OpenLevV1Lib.FlashSellVar(address(marketVars.buyToken), address(marketVars.sellToken), liquidateVars.sellAmount, minBuy, dexData));
             if (liquidateVars.receiveAmount >= liquidateVars.borrowed) {
                 // fail if buy failed but sell succeeded
                 require(longToken != trade.depositToken, "PH");
@@ -421,14 +423,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         return OpenLevV1Lib.feeAndInsurance(trader, tradeSize, token, addressConfig.xOLE, totalHeld, reserve, market, totalHelds, calculateConfig);
     }
 
-    function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data) internal returns (uint){
-        return OpenLevV1Lib.flashSell(buyToken, sellToken, sellAmount, minBuyAmount, data, addressConfig.dexAggregator);
+    function flashSell(OpenLevV1Lib.FlashSellVar memory sellVar) internal returns (uint){
+        return OpenLevV1Lib.flashSell(sellVar, addressConfig.dexAggregator);
     }
 
-    function flashBuy(uint16 marketId, address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data, bytes memory marketDefaultDex) internal returns (uint){
-        uint24 buyTax = taxes[marketId][buyToken][2];
-        uint24 sellTax = taxes[marketId][sellToken][1];
-        return OpenLevV1Lib.flashBuy(buyToken, sellToken, buyAmount, maxSellAmount, closeAmount, data, marketDefaultDex, addressConfig.dexAggregator, buyTax, sellTax);
+    function flashBuy(uint16 marketId, OpenLevV1Lib.FlashBuyVar memory buyVar) internal returns (uint){
+        uint24 buyTax = taxes[marketId][buyVar.buyToken][2];
+        uint24 sellTax = taxes[marketId][buyVar.sellToken][1];
+        return OpenLevV1Lib.flashBuy(buyVar, addressConfig.dexAggregator, buyTax, sellTax);
     }
 
     /// @dev All credited on this contract and share with all token holder if any rewards for the transfer.
@@ -486,8 +488,12 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         opLimitOrder = _opLimitOrder;
     }
 
+    function setRouter1inch(address _router1inch) external override onlyAdmin() {
+        router1inch = _router1inch;
+    }
+
     function toBytes(uint32 x) public view returns (bytes memory) {
-        require(x < x**8, "error");
+        require(x < 256, "error");
         return abi.encodePacked(uint8(x));
     }
 
@@ -497,7 +503,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
     }
 
     modifier onlySupportDexExclude1inch(bytes memory dexData) {
-        uint8 dex = data.toDex();
+        uint8 dex = dexData.toDex();
         require(OpenLevV1Lib.isSupportDex(supportDexs, dex) && dex != DexData.DEX_1INCH, "UDX");
         _;
     }
