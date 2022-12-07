@@ -34,10 +34,9 @@ library Aggregator1InchV5 {
     ) internal returns (uint realToAmount) {
         uint sellTokenBalanceBefore = IERC20(swapVar.sellToken).balanceOf(swapVar.payer);
         uint buyTokenBalanceBefore = IERC20(swapVar.buyToken).balanceOf(swapVar.payee);
-        (bool success, bytes memory returnData) = swapVar.router.call{value: 0}(swapVar.data);
+        (,bytes memory returnData) = swapVar.router.call{value: 0}(swapVar.data);
         require(swapVar.sellAmount == sellTokenBalanceBefore.sub(IERC20(swapVar.sellToken).balanceOf(swapVar.payer)), '1InchRouter: sell_amount_error');
-        uint spentAmount;
-        (realToAmount, spentAmount) = abi.decode(returnData, (uint, uint));
+        (realToAmount,) = abi.decode(returnData, (uint, uint));
         require(realToAmount == IERC20(swapVar.buyToken).balanceOf(swapVar.payee).sub(buyTokenBalanceBefore), '1InchRouter: receive_amount_error');
         require(realToAmount >= swapVar.minBuyAmount, 'buy amount less than min');
         emit Swap1InchRouter(swapVar.buyToken, swapVar.sellToken, swapVar.sellAmount, swapVar.minBuyAmount, realToAmount);

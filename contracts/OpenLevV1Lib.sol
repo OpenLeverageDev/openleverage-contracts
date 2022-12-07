@@ -23,24 +23,6 @@ library OpenLevV1Lib {
         uint cAvgPrice;
     }
 
-    struct FlashBuyVar {
-        address buyToken;
-        address sellToken;
-        uint buyAmount;
-        uint maxSellAmount;
-        uint closeAmount;
-        bytes data;
-        bytes marketDefaultDex;
-    }
-
-    struct FlashSellVar {
-        address buyToken;
-        address sellToken;
-        uint sellAmount;
-        uint minBuyAmount;
-        bytes data;
-    }
-
     function addMarket(
         LPoolInterface pool0,
         LPoolInterface pool1,
@@ -259,7 +241,7 @@ library OpenLevV1Lib {
         }
     }
 
-    function flashSell(FlashSellVar memory sellVar, DexAggregatorInterface dexAggregator) external returns (uint buyAmount){
+    function flashSell(Types.FlashSellVar memory sellVar, DexAggregatorInterface dexAggregator, address router1inch) external returns (uint buyAmount){
         if (sellVar.sellAmount > 0) {
             IERC20(sellVar.sellToken).safeApprove(address(dexAggregator), sellVar.sellAmount);
             uint8 dex = sellVar.data.toDex();
@@ -268,12 +250,12 @@ library OpenLevV1Lib {
             } else {
                 address payer = address(this);
                 buyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(sellVar.buyToken, sellVar.sellToken, sellVar.sellAmount,
-                    sellVar.minBuyAmount, payer, payer, OpenLevStorage(address(this)).router1inch(), sellVar.data.to1InchCallData()));
+                    sellVar.minBuyAmount, payer, payer, router1inch, sellVar.data.to1InchCallData()));
             }
         }
     }
 
-    function flashBuy(FlashBuyVar memory buyVar, DexAggregatorInterface dexAggregator,  uint24 buyTax, uint24 sellTax) external returns (uint sellAmount){
+    function flashBuy(Types.FlashBuyVar memory buyVar, DexAggregatorInterface dexAggregator, address router1inch, uint24 buyTax, uint24 sellTax) external returns (uint sellAmount){
         if (buyVar.buyAmount > 0) {
             uint8 dex = buyVar.data.toDex();
             if (dex != DexData.DEX_1INCH) {
@@ -282,7 +264,7 @@ library OpenLevV1Lib {
             } else {
                 IERC20(buyVar.sellToken).safeApprove(address(dexAggregator), buyVar.closeAmount);
                 uint firstBuyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(buyVar.buyToken, buyVar.sellToken, buyVar.closeAmount, 0, address(this),
-                    address(this), OpenLevStorage(address(this)).router1inch(), buyVar.data.to1InchCallData()));
+                    address(this), router1inch, buyVar.data.to1InchCallData()));
                 uint secondSellAmount = firstBuyAmount.sub(buyVar.buyAmount);
                 IERC20(buyVar.buyToken).safeApprove(address(dexAggregator), secondSellAmount);
                 uint secondBuyAmount = dexAggregator.sell(buyVar.sellToken, buyVar.buyToken, secondSellAmount, buyVar.maxSellAmount, buyVar.marketDefaultDex);
@@ -414,6 +396,11 @@ library OpenLevV1Lib {
         if (totalShare > 0 && reserve > 0) {
             amount = reserve.mul(share) / totalShare;
         }
+    }
+
+    function toBytes(uint32 x) internal pure returns (bytes memory) {
+        require(x < 256, "error");
+        return abi.encodePacked(uint8(x));
     }
 
     function verifyTrade(Types.MarketVars memory vars, bool longToken, bool depositToken, uint deposit, uint borrow,
