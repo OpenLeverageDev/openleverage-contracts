@@ -469,9 +469,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         return OpenLevV1Lib.reduceInsurance(totalRepayment, remaining, longToken, token, reserve, market, totalHelds);
     }
 
-    function feesAndInsurance(address trader, uint tradeSize, address token, uint16 marketId, uint totalHeld, uint reserve) internal returns (uint) {
-        Types.Market storage market = markets[marketId];
-        return OpenLevV1Lib.feeAndInsurance(trader, tradeSize, token, addressConfig.xOLE, totalHeld, reserve, market, totalHelds, calculateConfig);
+    function feesAndInsurance(Types.FeesAndInsuranceVar memory paramVar) internal returns (uint) {
+        Types.Market storage market = markets[paramVar.marketId];
+        return OpenLevV1Lib.feeAndInsurance(paramVar.trader, paramVar.tradeSize, paramVar.token, addressConfig.xOLE, paramVar.totalHeld, paramVar.reserve, market, totalHelds, calculateConfig);
     }
 
     function flashSell(Types.FlashSellVar memory sellVar) internal returns (uint){
