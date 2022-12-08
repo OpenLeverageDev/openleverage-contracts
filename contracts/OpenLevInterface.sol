@@ -37,7 +37,7 @@ abstract contract OpenLevStorage {
     }
 
     // number of markets
-    uint16 internal numPairs;
+    uint16 public numPairs;
 
     // marketId => Pair
     mapping(uint16 => Types.Market) public markets;
@@ -59,7 +59,7 @@ abstract contract OpenLevStorage {
     // map(marketId, tokenAddress, index) => taxRate)
     mapping(uint16 => mapping(address => mapping(uint => uint24))) public taxes;
 
-    address internal opLimitOrder;
+    address public opLimitOrder;
 
     address internal router1inch;
 
