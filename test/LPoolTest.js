@@ -437,7 +437,46 @@ contract("LPoolDelegator", async accounts => {
         assert.equal((await erc20Pool.exchangeRateStored()).toString(), 1e18);
         assert.equal((await erc20Pool.availableForBorrow()).toString(), '1540');
     })
-    
+
+
+    it("Repay more and liquidate test", async () => {
+        let controller = await utils.createController(accounts[0]);
+        let createPoolResult = await utils.createPool(accounts[0], controller, admin);
+        let erc20Pool = createPoolResult.pool;
+        let testToken = createPoolResult.token;
+        await utils.mint(testToken, admin, 100000);
+        await utils.mint(testToken, accounts[1], 100000);
+        await erc20Pool.setReserveFactor(toBN(2e17));
+        await controller.setOpenLev(accounts[1]);
+        // deposit 20000
+        await testToken.approve(erc20Pool.address, maxUint());
+        await erc20Pool.mint(20000 * 1e10);
+        await testToken.approve(erc20Pool.address, maxUint(), {from: accounts[1]});
+
+        // borrow  5000
+        await erc20Pool.borrowBehalf(accounts[2], 5000 * 1e10, {from: accounts[1]});
+        await erc20Pool.borrowBehalf(accounts[3], 5000 * 1e10, {from: accounts[1]});
+        // advance 1000 blocks
+        await advanceMultipleBlocks(1000);
+        m.log("advance 1000 blocks...");
+        // repay more than 1%
+        await erc20Pool.repayBorrowBehalf(accounts[2], 5050 * 1e10, {from: accounts[1]});
+        let totalBorrows = await erc20Pool.totalBorrowsCurrent();
+        let acc2Borrows = await erc20Pool.borrowBalanceCurrent(accounts[2]);
+        let acc3Borrows = await erc20Pool.borrowBalanceCurrent(accounts[3]);
+        assertPrint("totalBorrows", '50002380612658', totalBorrows.toString());
+        assertPrint("acc2Borrows", '0', acc2Borrows.toString());
+        assertPrint("acc3Borrows", '50002380612658', acc3Borrows.toString());
+        await erc20Pool.repayBorrowEndByOpenLev(accounts[3], 1000 * 1e10, {from: accounts[1]});
+        totalBorrows = await erc20Pool.totalBorrowsCurrent();
+        assertPrint("totalBorrows", '0', totalBorrows.toString());
+        acc3Borrows = await erc20Pool.borrowBalanceCurrent(accounts[3]);
+        assertPrint("acc3Borrows", '0', acc3Borrows.toString());
+        let exchangeRate = await erc20Pool.exchangeRateStored();
+        // lose 20%
+        assertPrint("exchangeRate", '802495235208625000', exchangeRate.toString());
+    })
+
     it("pool not allowed test", async () => {
         let controller = await utils.createController(accounts[0]);
         let createPoolResult = await utils.createPool(accounts[0], controller, admin);
@@ -617,7 +656,7 @@ contract("LPoolDelegator", async accounts => {
 
     it("Admin setInterestParams test", async () => {
         let timeLock = await utils.createTimelock(admin);
-        let controller = await utils.createController(accounts[0]);
+        let controller = await utils.createController(timeLock.address);
         let createPoolResult = await utils.createPool(accounts[0], controller, timeLock.address);
         let erc20Pool = createPoolResult.pool;
 
@@ -627,7 +666,7 @@ contract("LPoolDelegator", async accounts => {
         assert.equal(1, await erc20Pool.multiplierPerBlock());
         assert.equal(2, await erc20Pool.jumpMultiplierPerBlock());
         assert.equal(3, await erc20Pool.kink());
-        await assertThrows(erc20Pool.setInterestParams(0, 1, 2, 3), 'caller must be admin');
+        await assertThrows(erc20Pool.setInterestParams(0, 1, 2, 3,{from:accounts[5]}), 'caller must be admin or developer');
     })
 
     it("Admin setReserveFactor test", async () => {
