@@ -151,34 +151,38 @@ library OpenLevV1Lib {
         }
     }
 
-    function flashSell(Types.FlashSellVar memory sellVar, DexAggregatorInterface dexAggregator, address router1inch) external returns (uint buyAmount){
-        if (sellVar.sellAmount > 0) {
-            safeApprove(IERC20(sellVar.sellToken), address(dexAggregator), sellVar.sellAmount);
-            uint8 dex = sellVar.data.toDex();
+    function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, DexAggregatorInterface dexAggregator, address router1inch) external returns (uint buyAmount){
+        if (sellAmount > 0) {
+            safeApprove(IERC20(sellToken), address(dexAggregator), sellAmount);
+            uint8 dex = data.toDex();
             if (dex != DexData.DEX_1INCH) {
-                buyAmount = dexAggregator.sell(sellVar.buyToken, sellVar.sellToken, sellVar.sellAmount, sellVar.minBuyAmount, sellVar.data);
+                buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
             } else {
                 address payer = address(this);
-                buyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(sellVar.buyToken, sellVar.sellToken, sellVar.sellAmount,
-                    sellVar.minBuyAmount, payer, payer, router1inch, sellVar.data.to1InchCallData()));
+                buyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(buyToken, sellToken, sellAmount,
+                    minBuyAmount, payer, payer, router1inch, data.to1InchCallData()));
             }
         }
     }
 
-    function flashBuy(Types.FlashBuyVar memory buyVar, DexAggregatorInterface dexAggregator, address router1inch, uint24 buyTax, uint24 sellTax) external returns (uint sellAmount){
-        if (buyVar.buyAmount > 0) {
-            uint8 dex = buyVar.data.toDex();
+    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data, bytes memory marketDefaultDex,
+        DexAggregatorInterface dexAggregator,
+        address router1inch,
+        uint24 buyTax,
+        uint24 sellTax) external returns (uint sellAmount){
+        if (buyAmount > 0) {
+            uint8 dex = data.toDex();
             if (dex != DexData.DEX_1INCH) {
-                safeApprove(IERC20(buyVar.sellToken), address(dexAggregator), buyVar.maxSellAmount);
-                sellAmount = dexAggregator.buy(buyVar.buyToken, buyVar.sellToken, buyTax, sellTax, buyVar.buyAmount, buyVar.maxSellAmount, buyVar.data);
+                safeApprove(IERC20(sellToken), address(dexAggregator), maxSellAmount);
+                sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
             } else {
-                safeApprove(IERC20(buyVar.sellToken), address(dexAggregator), buyVar.closeAmount);
-                uint firstBuyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(buyVar.buyToken, buyVar.sellToken, buyVar.closeAmount, 0, address(this),
-                    address(this), router1inch, buyVar.data.to1InchCallData()));
-                uint secondSellAmount = firstBuyAmount.sub(buyVar.buyAmount);
-                safeApprove(IERC20(buyVar.buyToken), address(dexAggregator), secondSellAmount);
-                uint secondBuyAmount = dexAggregator.sell(buyVar.sellToken, buyVar.buyToken, secondSellAmount, buyVar.maxSellAmount, buyVar.marketDefaultDex);
-                sellAmount = buyVar.closeAmount.sub(secondBuyAmount);
+                safeApprove(IERC20(sellToken), address(dexAggregator), closeAmount);
+                uint firstBuyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(buyToken, sellToken, closeAmount, 0, address(this),
+                    address(this), router1inch, data.to1InchCallData()));
+                uint secondSellAmount = firstBuyAmount.sub(buyAmount);
+                safeApprove(IERC20(buyToken), address(dexAggregator), secondSellAmount);
+                uint secondBuyAmount = dexAggregator.sell(sellToken, buyToken, secondSellAmount, maxSellAmount, marketDefaultDex);
+                sellAmount = closeAmount.sub(secondBuyAmount);
             }
         }
     }

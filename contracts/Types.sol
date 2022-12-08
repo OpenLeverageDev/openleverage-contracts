@@ -106,31 +106,4 @@ library Types {
         uint lastUpdateTime;
     }
 
-    struct FlashBuyVar {
-        address buyToken;
-        address sellToken;
-        uint buyAmount;
-        uint maxSellAmount;
-        uint closeAmount;
-        bytes data;
-        bytes marketDefaultDex;
-    }
-
-    struct FlashSellVar {
-        address buyToken;
-        address sellToken;
-        uint sellAmount;
-        uint minBuyAmount;
-        bytes data;
-    }
-
-    struct FeesAndInsuranceVar {
-        address trader;
-        uint tradeSize;
-        address token;
-        uint16 marketId;
-        uint totalHeld;
-        uint reserve;
-    }
-
 }
