@@ -141,6 +141,10 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         payee;
     }
 
+    function updateInterestAllowed(address payable sender) external override {
+        require(sender == admin || sender == developer, 'caller must be admin or developer');
+    }
+
 
     function setLPoolImplementation(address _lpoolImplementation) external override onlyAdmin {
         require(address(0) != _lpoolImplementation, '0x');
