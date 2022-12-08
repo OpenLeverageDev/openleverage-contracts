@@ -38,7 +38,7 @@ library OpenLevV1Lib {
         address token0 = pool0.underlying();
         address token1 = pool1.underlying();
         uint8 dex = dexData.toDex();
-        require(isSupportDex(_supportDexs, dex) && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
+        require(_supportDexs[dex] && msg.sender == address(addressConfig.controller) && marginLimit >= config.defaultMarginLimit && marginLimit < 100000, "UDX");
 
         {
             uint24[] memory taxRates = dexData.toTransferFeeRates();
@@ -52,70 +52,20 @@ library OpenLevV1Lib {
         }
 
         // Approve the max number for pools
-        IERC20(token0).safeApprove(address(pool0), uint256(- 1));
-        IERC20(token1).safeApprove(address(pool1), uint256(- 1));
+        safeApprove(IERC20(token0), address(pool0), uint256(- 1));
+        safeApprove(IERC20(token1), address(pool1), uint256(- 1));
         //Create Market
         uint32[] memory dexs = new uint32[](1);
         dexs[0] = dexData.toDexDetail();
         markets[marketId] = Types.Market(pool0, pool1, token0, token1, marginLimit, config.defaultFeesRate, config.priceDiffientRatio, address(0), 0, 0, dexs);
         // Init price oracle
         if (dexData.isUniV2Class()) {
-            updatePrice(token0, token1, dexData);
+            updatePriceInternal(token0, token1, dexData);
         } else if (dex == DexData.DEX_UNIV3) {
             addressConfig.dexAggregator.updateV3Observation(token0, token1, dexData);
         }
     }
 
-    function setCalculateConfigInternal(
-        uint16 defaultFeesRate,
-        uint8 insuranceRatio,
-        uint16 defaultMarginLimit,
-        uint16 priceDiffientRatio,
-        uint16 updatePriceDiscount,
-        uint16 feesDiscount,
-        uint128 feesDiscountThreshold,
-        uint16 penaltyRatio,
-        uint8 maxLiquidationPriceDiffientRatio,
-        uint16 twapDuration,
-        OpenLevStorage.CalculateConfig storage calculateConfig
-    ) external {
-        require(defaultFeesRate < 10000 && insuranceRatio < 100 && defaultMarginLimit > 0 && updatePriceDiscount <= 100
-        && feesDiscount <= 100 && penaltyRatio < 10000 && twapDuration > 0, 'PRI');
-        calculateConfig.defaultFeesRate = defaultFeesRate;
-        calculateConfig.insuranceRatio = insuranceRatio;
-        calculateConfig.defaultMarginLimit = defaultMarginLimit;
-        calculateConfig.priceDiffientRatio = priceDiffientRatio;
-        calculateConfig.updatePriceDiscount = updatePriceDiscount;
-        calculateConfig.feesDiscount = feesDiscount;
-        calculateConfig.feesDiscountThreshold = feesDiscountThreshold;
-        calculateConfig.penaltyRatio = penaltyRatio;
-        calculateConfig.maxLiquidationPriceDiffientRatio = maxLiquidationPriceDiffientRatio;
-        calculateConfig.twapDuration = twapDuration;
-    }
-
-    function setAddressConfigInternal(
-        address controller,
-        DexAggregatorInterface dexAggregator,
-        OpenLevStorage.AddressConfig storage addressConfig
-    ) external {
-        require(controller != address(0) && address(dexAggregator) != address(0), 'CD0');
-        addressConfig.controller = controller;
-        addressConfig.dexAggregator = dexAggregator;
-    }
-
-    function setMarketConfigInternal(
-        uint16 feesRate,
-        uint16 marginLimit,
-        uint16 priceDiffientRatio,
-        uint32[] memory dexs,
-        Types.Market storage market
-    ) external {
-        require(feesRate < 10000 && marginLimit > 0 && dexs.length > 0, 'PRI');
-        market.feesRate = feesRate;
-        market.marginLimit = marginLimit;
-        market.dexs = dexs;
-        market.priceDiffientRatio = priceDiffientRatio;
-    }
 
 
     struct MarketWithoutDexs {// Market info
@@ -141,7 +91,7 @@ library OpenLevV1Lib {
         amount = shareToAmount(
             amount,
             OpenLevStorage(address(this)).totalHelds(tokenToLong),
-            IERC20(tokenToLong).balanceOf(address(this))
+            balanceOf(IERC20(tokenToLong))
         );
 
         (current, cAvg, hAvg,,) =
@@ -156,44 +106,6 @@ library OpenLevV1Lib {
         );
     }
 
-    function marginRatioPrivate(
-        address owner,
-        uint held,
-        address heldToken,
-        address sellToken,
-        LPoolInterface borrowPool,
-        bool isOpen,
-        bytes memory dexData
-    ) private view returns (uint, uint, uint, uint, uint){
-        Types.MarginRatioVars memory ratioVars;
-        ratioVars.held = held;
-        ratioVars.dexData = dexData;
-        ratioVars.heldToken = heldToken;
-        ratioVars.sellToken = sellToken;
-        ratioVars.owner = owner;
-        ratioVars.multiplier = 10000;
-
-        (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
-        (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
-
-        uint borrowed = isOpen ? borrowPool.borrowBalanceStored(ratioVars.owner) : borrowPool.borrowBalanceCurrent(ratioVars.owner);
-        if (borrowed == 0) {
-            return (ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier);
-        }
-        (ratioVars.price, ratioVars.cAvgPrice, ratioVars.hAvgPrice, ratioVars.decimals, ratioVars.lastUpdateTime) = dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, twapDuration, ratioVars.dexData);
-        //Ignore hAvgPrice
-        if (block.timestamp > ratioVars.lastUpdateTime.add(twapDuration)) {
-            ratioVars.hAvgPrice = ratioVars.cAvgPrice;
-        }
-        //marginRatio=(marketValue-borrowed)/borrowed
-        uint marketValue = ratioVars.held.mul(ratioVars.price).div(10 ** uint(ratioVars.decimals));
-        uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
-        marketValue = ratioVars.held.mul(ratioVars.cAvgPrice).div(10 ** uint(ratioVars.decimals));
-        uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
-        marketValue = ratioVars.held.mul(ratioVars.hAvgPrice).div(10 ** uint(ratioVars.decimals));
-        uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
-        return (current, cAvg, hAvg, ratioVars.price, ratioVars.cAvgPrice);
-    }
 
     function isPositionHealthy(
         address owner,
@@ -225,15 +137,13 @@ library OpenLevV1Lib {
         }
     }
 
-    function updatePrice(address token0, address token1, bytes memory dexData) public returns (bool){
-        (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
-        (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
-        return dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
+    function updatePrice(address token0, address token1, bytes memory dexData) external returns (bool){
+        return updatePriceInternal(token0, token1, dexData);
     }
 
 
     function updatePrice(Types.Market storage market, bytes memory dexData) external {
-        bool updateResult = updatePrice(market.token0, market.token1, dexData);
+        bool updateResult = updatePriceInternal(market.token0, market.token1, dexData);
         if (updateResult) {
             //Discount
             market.priceUpdater = msg.sender;
@@ -242,7 +152,7 @@ library OpenLevV1Lib {
 
     function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, DexAggregatorInterface dexAggregator) external returns (uint buyAmount){
         if (sellAmount > 0) {
-            IERC20(sellToken).safeApprove(address(dexAggregator), sellAmount);
+            safeApprove(IERC20(sellToken), address(dexAggregator), sellAmount);
             buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
         }
     }
@@ -252,7 +162,7 @@ library OpenLevV1Lib {
         uint24 buyTax,
         uint24 sellTax) external returns (uint sellAmount){
         if (buyAmount > 0) {
-            IERC20(sellToken).safeApprove(address(dexAggregator), maxSellAmount);
+            safeApprove(IERC20(sellToken), address(dexAggregator), maxSellAmount);
             sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
         }
     }
@@ -276,17 +186,6 @@ library OpenLevV1Lib {
         }
     }
 
-    function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){
-        for (uint i = 0; i < dexs.length; i++) {
-            if (dexs[i] == 0) {
-                break;
-            }
-            if (dexs[i] == dex) {
-                supported = true;
-                break;
-            }
-        }
-    }
 
     function feeAndInsurance(
         address trader,
@@ -297,7 +196,7 @@ library OpenLevV1Lib {
         uint reserve,
         Types.Market storage market,
         mapping(address => uint) storage totalHelds,
-        OpenLevStorage.CalculateConfig memory calculateConfig
+        OpenLevStorage.CalculateConfig storage calculateConfig
     ) external returns (uint newFees) {
         uint defaultFees = tradeSize.mul(market.feesRate).div(10000);
         newFees = defaultFees;
@@ -355,35 +254,20 @@ library OpenLevV1Lib {
     }
 
     function moveInsurance(Types.Market storage market, uint8 poolIndex, address to, uint amount, mapping(address => uint) storage totalHelds) external {
+        address token = poolIndex == 0 ? market.token0 : market.token1;
         if (poolIndex == 0) {
             market.pool0Insurance = market.pool0Insurance.sub(amount);
-            uint256 totalHeld = totalHelds[market.token0];
-            totalHelds[market.token0] = totalHeld.sub(amount);
-            (IERC20(market.token0)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token0).balanceOf(address(this))));
         } else {
             market.pool1Insurance = market.pool1Insurance.sub(amount);
-            uint256 totalHeld = totalHelds[market.token1];
-            totalHelds[market.token1] = totalHeld.sub(amount);
-            (IERC20(market.token1)).safeTransfer(to, shareToAmount(amount, totalHeld, IERC20(market.token1).balanceOf(address(this))));
         }
+        uint256 totalHeld = totalHelds[token];
+        totalHelds[token] = totalHeld.sub(amount);
+        (IERC20(token)).safeTransfer(to, shareToAmount(amount, totalHeld, balanceOf(IERC20(token))));
     }
 
-    function isSupportDex(mapping(uint8 => bool) storage _supportDexs, uint8 dex) internal view returns (bool){
-        return _supportDexs[dex];
-    }
-
-    function amountToShare(uint amount, uint totalShare, uint reserve) internal pure returns (uint share){
-        share = totalShare > 0 && reserve > 0 ? totalShare.mul(amount) / reserve : amount;
-    }
-
-    function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
-        if (totalShare > 0 && reserve > 0) {
-            amount = reserve.mul(share) / totalShare;
-        }
-    }
 
     function verifyTrade(Types.MarketVars memory vars, bool longToken, bool depositToken, uint deposit, uint borrow,
-        bytes memory dexData, OpenLevStorage.AddressConfig memory addressConfig, Types.Trade memory trade, bool convertWeth) external view {
+        bytes memory dexData, OpenLevStorage.AddressConfig storage addressConfig, Types.Trade storage trade, bool convertWeth) external view {
         //verify if deposit token allowed
         address depositTokenAddr = depositToken == longToken ? address(vars.buyToken) : address(vars.sellToken);
 
@@ -404,15 +288,149 @@ library OpenLevV1Lib {
         }
     }
 
-    function toMarketVar(bool longToken, bool open, Types.Market storage market) external view returns (Types.MarketVars memory) {
+    function setCalculateConfig(
+        uint16 defaultFeesRate,
+        uint8 insuranceRatio,
+        uint16 defaultMarginLimit,
+        uint16 priceDiffientRatio,
+        uint16 updatePriceDiscount,
+        uint16 feesDiscount,
+        uint128 feesDiscountThreshold,
+        uint16 penaltyRatio,
+        uint8 maxLiquidationPriceDiffientRatio,
+        uint16 twapDuration,
+        OpenLevStorage.CalculateConfig storage calculateConfig
+    ) external {
+        require(defaultFeesRate < 10000 && insuranceRatio < 100 && defaultMarginLimit > 0 && updatePriceDiscount <= 100
+        && feesDiscount <= 100 && penaltyRatio < 10000 && twapDuration > 0, 'PRI');
+        calculateConfig.defaultFeesRate = defaultFeesRate;
+        calculateConfig.insuranceRatio = insuranceRatio;
+        calculateConfig.defaultMarginLimit = defaultMarginLimit;
+        calculateConfig.priceDiffientRatio = priceDiffientRatio;
+        calculateConfig.updatePriceDiscount = updatePriceDiscount;
+        calculateConfig.feesDiscount = feesDiscount;
+        calculateConfig.feesDiscountThreshold = feesDiscountThreshold;
+        calculateConfig.penaltyRatio = penaltyRatio;
+        calculateConfig.maxLiquidationPriceDiffientRatio = maxLiquidationPriceDiffientRatio;
+        calculateConfig.twapDuration = twapDuration;
+    }
+
+    function setMarketConfig(
+        uint16 feesRate,
+        uint16 marginLimit,
+        uint16 priceDiffientRatio,
+        uint32[] memory dexs,
+        Types.Market storage market
+    ) external {
+        require(feesRate < 10000 && marginLimit > 0 && dexs.length > 0, 'PRI');
+        market.feesRate = feesRate;
+        market.marginLimit = marginLimit;
+        market.dexs = dexs;
+        market.priceDiffientRatio = priceDiffientRatio;
+    }
+
+
+    function marginRatioPrivate(
+        address owner,
+        uint held,
+        address heldToken,
+        address sellToken,
+        LPoolInterface borrowPool,
+        bool isOpen,
+        bytes memory dexData
+    ) private view returns (uint, uint, uint, uint, uint){
+        Types.MarginRatioVars memory ratioVars;
+        ratioVars.held = held;
+        ratioVars.dexData = dexData;
+        ratioVars.heldToken = heldToken;
+        ratioVars.sellToken = sellToken;
+        ratioVars.owner = owner;
+        ratioVars.multiplier = 10000;
+
+        (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
+        (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
+
+        uint borrowed = isOpen ? borrowStored(borrowPool, ratioVars.owner) : borrowCurrent(borrowPool, ratioVars.owner);
+        if (borrowed == 0) {
+            return (ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier, ratioVars.multiplier);
+        }
+        (ratioVars.price, ratioVars.cAvgPrice, ratioVars.hAvgPrice, ratioVars.decimals, ratioVars.lastUpdateTime) = dexAggregator.getPriceCAvgPriceHAvgPrice(ratioVars.heldToken, ratioVars.sellToken, twapDuration, ratioVars.dexData);
+        //Ignore hAvgPrice
+        if (block.timestamp > ratioVars.lastUpdateTime.add(twapDuration)) {
+            ratioVars.hAvgPrice = ratioVars.cAvgPrice;
+        }
+        //marginRatio=(marketValue-borrowed)/borrowed
+        uint marketValue = ratioVars.held.mul(ratioVars.price).div(10 ** uint(ratioVars.decimals));
+        uint current = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
+        marketValue = ratioVars.held.mul(ratioVars.cAvgPrice).div(10 ** uint(ratioVars.decimals));
+        uint cAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
+        marketValue = ratioVars.held.mul(ratioVars.hAvgPrice).div(10 ** uint(ratioVars.decimals));
+        uint hAvg = marketValue >= borrowed ? marketValue.sub(borrowed).mul(ratioVars.multiplier).div(borrowed) : 0;
+        return (current, cAvg, hAvg, ratioVars.price, ratioVars.cAvgPrice);
+    }
+
+
+    function borrowCurrent(LPoolInterface pool, address trader) internal view returns (uint256) {
+        return pool.borrowBalanceCurrent(trader);
+    }
+
+    function borrowStored(LPoolInterface pool, address trader) internal view returns (uint256) {
+        return pool.borrowBalanceStored(trader);
+    }
+
+    function repay(LPoolInterface pool, address trader, uint amount) internal {
+        pool.repayBorrowBehalf(trader, amount);
+    }
+
+
+    function balanceOf(IERC20 token) internal view returns (uint256) {
+        return token.balanceOf(address(this));
+    }
+
+    function safeApprove(IERC20 token, address spender, uint256 amount) internal {
+        token.safeApprove(spender, amount);
+    }
+
+    function amountToShare(uint amount, uint totalShare, uint reserve) internal pure returns (uint share){
+        share = totalShare > 0 && reserve > 0 ? totalShare.mul(amount) / reserve : amount;
+    }
+
+    function shareToAmount(uint share, uint totalShare, uint reserve) internal pure returns (uint amount){
+        if (totalShare > 0 && reserve > 0) {
+            amount = reserve.mul(share) / totalShare;
+        }
+    }
+
+    function isInSupportDex(uint32[] memory dexs, uint32 dex) internal pure returns (bool supported){
+        for (uint i = 0; i < dexs.length; i++) {
+            if (dexs[i] == 0) {
+                break;
+            }
+            if (dexs[i] == dex) {
+                supported = true;
+                break;
+            }
+        }
+    }
+
+    function updatePriceInternal(address token0, address token1, bytes memory dexData) internal returns (bool){
+        (DexAggregatorInterface dexAggregator,,,) = OpenLevStorage(address(this)).addressConfig();
+        (,,,,,,,,,uint16 twapDuration) = OpenLevStorage(address(this)).calculateConfig();
+        return dexAggregator.updatePriceOracle(token0, token1, twapDuration, dexData);
+    }
+
+    function toMarketVar(bool longToken, bool open, Types.Market storage market) internal view returns (Types.MarketVars memory) {
+        uint token0Bal = balanceOf(IERC20(market.token0));
+        uint token1Bal = balanceOf(IERC20(market.token1));
+
         return open == longToken ?
         Types.MarketVars(
             market.pool1,
             market.pool0,
             IERC20(market.token1),
             IERC20(market.token0),
-            IERC20(market.token1).balanceOf(address(this)),
-            IERC20(market.token0).balanceOf(address(this)),
+            token1Bal,
+            token0Bal,
             market.pool1Insurance,
             market.pool0Insurance,
             market.marginLimit,
@@ -423,8 +441,8 @@ library OpenLevV1Lib {
             market.pool1,
             IERC20(market.token0),
             IERC20(market.token1),
-            IERC20(market.token0).balanceOf(address(this)),
-            IERC20(market.token1).balanceOf(address(this)),
+            token0Bal,
+            token1Bal,
             market.pool0Insurance,
             market.pool1Insurance,
             market.marginLimit,

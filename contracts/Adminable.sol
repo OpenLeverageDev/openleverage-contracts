@@ -16,7 +16,7 @@ abstract contract Adminable {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "caller must be admin");
+        checkAdmin();
         _;
     }
     modifier onlyAdminOrDeveloper() {
@@ -46,4 +46,7 @@ abstract contract Adminable {
         emit NewPendingAdmin(oldPendingAdmin, pendingAdmin);
     }
 
+    function checkAdmin() private view {
+        require(msg.sender == admin, "caller must be admin");
+    }
 }
