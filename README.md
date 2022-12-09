@@ -39,6 +39,7 @@ Audits
 - [PeckShield Sep 2021](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-v1.0.pdf)
 - [PeckShield Dec 2021](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-1.0.1.pdf)
 - [Code4Rena - Mar 2022](https://code4rena.com/reports/2022-01-openleverage)
+- [PeckShield Nov 2022](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-OpenLeverage-v1.0.pdf)
 
 Licensing
 ----------
