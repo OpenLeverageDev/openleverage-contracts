@@ -172,19 +172,27 @@ library DexData {
     }
 
     function to1InchCallData(bytes memory data) internal pure returns(bytes memory bts){
-        uint len = data.length - 5;
-        require(len > 0, "DexData: to1InchCallData wrong data format");
+        return subByte(data, TRANSFERFEE_INDEX, data.length - TRANSFERFEE_INDEX);
+    }
+
+    function to1InchSellToken(bytes memory data) internal pure returns(address sellToken){
+        bytes memory bts = subByte(data, 36, 32);
+        return bytesToAddress(bts);
+    }
+
+    function subByte(bytes memory data, uint startIndex, uint len) internal pure returns(bytes memory bts){
+        require(startIndex <= data.length && data.length - startIndex >= len, "DexData: to1InchCallData wrong data format");
         uint addr;
         assembly {
             addr := add(data, 32)
         }
-        addr = addr + 5;
+        addr = addr + startIndex;
         bts = new bytes(len);
         uint btsptr;
         assembly {
             btsptr := add(bts, 32)
         }
-        for (; len >= 32; len -= 32) {
+        for (; len > 32; len -= 32) {
             assembly {
                 mstore(btsptr, mload(addr))
             }
@@ -198,4 +206,12 @@ library DexData {
             mstore(btsptr, or(destpart, srcpart))
         }
     }
+
+    function bytesToAddress(bytes memory bys) internal pure returns (address addr) {
+        require(bys.length == 32, "length error");
+        assembly {
+            addr := mload(add(bys, 32))
+        }
+    }
+
 }
