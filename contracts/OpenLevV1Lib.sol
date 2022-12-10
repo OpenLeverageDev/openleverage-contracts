@@ -153,38 +153,38 @@ library OpenLevV1Lib {
 
     function flashSell(address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory data, DexAggregatorInterface dexAggregator, address router1inch) external returns (uint buyAmount){
         if (sellAmount > 0) {
-            safeApprove(IERC20(sellToken), address(dexAggregator), sellAmount);
             uint8 dex = data.toDex();
             if (dex != DexData.DEX_1INCH) {
-                buyAmount = dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, data);
+                safeApprove(IERC20(sellToken), address(dexAggregator), sellAmount);
+                buyAmount = dexAggSell(dexAggregator, buyToken, sellToken, sellAmount, minBuyAmount, data);
             } else {
-                address payer = address(this);
-                buyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(buyToken, sellToken, sellAmount,
-                    minBuyAmount, payer, payer, router1inch, data.to1InchCallData()));
+                buyAmount = Aggregator1InchV5.swap1inch(router1inch, data.to1InchCallData(), address(this), buyToken, sellToken, sellAmount, minBuyAmount);
             }
         }
     }
 
-    function flashBuy(address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data, bytes memory marketDefaultDex,
-        DexAggregatorInterface dexAggregator,
-        address router1inch,
+    function flashBuy(
         uint24 buyTax,
-        uint24 sellTax) external returns (uint sellAmount){
+        uint24 sellTax,
+        address router1inch,
+        DexAggregatorInterface dexAggregator,
+        address buyToken, address sellToken, uint buyAmount, uint maxSellAmount, uint closeAmount, bytes memory data, bytes memory marketDefaultDex) external returns (uint sellAmount){
         if (buyAmount > 0) {
-            uint8 dex = data.toDex();
-            if (dex != DexData.DEX_1INCH) {
+            if (data.toDex() != DexData.DEX_1INCH) {
                 safeApprove(IERC20(sellToken), address(dexAggregator), maxSellAmount);
                 sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
             } else {
-                safeApprove(IERC20(sellToken), address(dexAggregator), closeAmount);
-                uint firstBuyAmount = Aggregator1InchV5.swap1inch(Aggregator1InchV5.Swap1inchVar(buyToken, sellToken, closeAmount, 0, address(this),
-                    address(this), router1inch, data.to1InchCallData()));
+                uint firstBuyAmount = Aggregator1InchV5.swap1inch(router1inch, data.to1InchCallData(), address(this), buyToken, sellToken, closeAmount, 0);
                 uint secondSellAmount = firstBuyAmount.sub(buyAmount);
                 safeApprove(IERC20(buyToken), address(dexAggregator), secondSellAmount);
-                uint secondBuyAmount = dexAggregator.sell(sellToken, buyToken, secondSellAmount, maxSellAmount, marketDefaultDex);
+                uint secondBuyAmount = dexAggSell(dexAggregator, sellToken, buyToken, secondSellAmount, maxSellAmount, marketDefaultDex);
                 sellAmount = closeAmount.sub(secondBuyAmount);
             }
         }
+    }
+
+    function dexAggSell(DexAggregatorInterface dexAggregator, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount, bytes memory dexData) internal returns(uint){
+        return dexAggregator.sell(buyToken, sellToken, sellAmount, minBuyAmount, dexData);
     }
 
     function transferIn(address from, IERC20 token, address weth, uint amount) external returns (uint) {
@@ -285,6 +285,9 @@ library OpenLevV1Lib {
         (IERC20(token)).safeTransfer(to, shareToAmount(amount, totalHeld, balanceOf(IERC20(token))));
     }
 
+    function getCalPriceDexData(bytes memory dexData, uint32 defaultDex) internal pure returns (bytes memory) {
+        return dexData.toDex() != DexData.DEX_1INCH ? dexData : toBytes(defaultDex);
+    }
 
     function toBytes(uint32 x) internal pure returns (bytes memory) {
         require(x < 256, "error");
