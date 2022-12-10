@@ -5,40 +5,23 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../lib/TransferHelper.sol";
+import "../lib/DexData.sol";
 
 library Aggregator1InchV5 {
     using SafeMath for uint;
     using TransferHelper for IERC20;
+    using DexData for bytes;
 
-    struct Swap1inchVar {
-        address buyToken;
-        address sellToken;
-        uint sellAmount;
-        uint minBuyAmount;
-        address payer;
-        address payee;
-        address router;
-        bytes data;
-    }
-
-    event Swap1InchRouter(
-        address indexed buyToken,
-        address indexed sellToken,
-        uint sellAmount,
-        uint minBuyAmount,
-        uint realToAmount
-    );
-
-    function swap1inch(
-        Swap1inchVar memory swapVar
-    ) internal returns (uint realToAmount) {
-        uint sellTokenBalanceBefore = IERC20(swapVar.sellToken).balanceOf(swapVar.payer);
-        uint buyTokenBalanceBefore = IERC20(swapVar.buyToken).balanceOf(swapVar.payee);
-        (,bytes memory returnData) = swapVar.router.call{value: 0}(swapVar.data);
-        require(swapVar.sellAmount == sellTokenBalanceBefore.sub(IERC20(swapVar.sellToken).balanceOf(swapVar.payer)), '1InchRouter: sell_amount_error');
-        (realToAmount,) = abi.decode(returnData, (uint, uint));
-        require(realToAmount == IERC20(swapVar.buyToken).balanceOf(swapVar.payee).sub(buyTokenBalanceBefore), '1InchRouter: receive_amount_error');
-        require(realToAmount >= swapVar.minBuyAmount, 'buy amount less than min');
-        emit Swap1InchRouter(swapVar.buyToken, swapVar.sellToken, swapVar.sellAmount, swapVar.minBuyAmount, realToAmount);
+    function swap1inch(address router, bytes memory data, address payee, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint returnAmount) {
+        // verify sell token
+        require(data.to1InchSellToken() == sellToken, "sell token error");
+        uint buyTokenBalanceBefore = IERC20(buyToken).balanceOf(payee);
+        IERC20(sellToken).safeApprove(router, sellAmount);
+        (bool success, bytes memory returnData) = router.call(data);
+        assembly {
+            if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
+        }
+        returnAmount = IERC20(buyToken).balanceOf(payee).sub(buyTokenBalanceBefore);
+        require(returnAmount >= minBuyAmount, 'buy amount less than min');
     }
 }

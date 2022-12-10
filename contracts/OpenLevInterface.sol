@@ -61,7 +61,7 @@ abstract contract OpenLevStorage {
 
     address public opLimitOrder;
 
-    address internal router1inch;
+    address public router1inch;
 
     event MarginTrade(
         address trader,

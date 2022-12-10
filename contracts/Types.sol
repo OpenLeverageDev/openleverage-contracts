@@ -105,5 +105,4 @@ library Types {
         uint8 decimals;
         uint lastUpdateTime;
     }
-
 }
