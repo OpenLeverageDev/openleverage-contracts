@@ -177,7 +177,7 @@ library OpenLevV1Lib {
                 uint firstBuyAmount = Aggregator1InchV5.swap1inch(router1inch, data.to1InchCallData(), address(this), buyToken, sellToken, closeAmount, 0);
                 uint secondSellAmount = firstBuyAmount.sub(buyAmount);
                 safeApprove(IERC20(buyToken), address(dexAggregator), secondSellAmount);
-                uint secondBuyAmount = dexAggSell(dexAggregator, sellToken, buyToken, secondSellAmount, maxSellAmount, marketDefaultDex);
+                uint secondBuyAmount = dexAggSell(dexAggregator, sellToken, buyToken, secondSellAmount, closeAmount.sub(maxSellAmount), marketDefaultDex);
                 sellAmount = closeAmount.sub(secondBuyAmount);
             }
         }
