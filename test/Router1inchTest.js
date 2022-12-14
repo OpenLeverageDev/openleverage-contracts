@@ -1,11 +1,10 @@
 const utils = require("./utils/OpenLevUtil");
 const {
-    last8,
     Uni2DexData,
     assertThrows,
     getCall1inchData,
 } = require("./utils/OpenLevUtil");
-const {advanceMultipleBlocksAndTime, toBN, maxUint} = require("./utils/EtheUtil");
+const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
 const OpenLevDelegator = artifacts.require("OpenLevDelegator");
 const TestToken = artifacts.require("MockERC20");
@@ -75,11 +74,11 @@ contract("1inch router", async accounts => {
 
     it("open and close by 1inch, success", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader});
 
         let trade = await openLev.activeTrades(trader, pairId, 1);
@@ -91,8 +90,8 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "1000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        await utils.mint(token0, dev, 2);
         let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), trade.held.toString());
+        await utils.mint(token0, dev, 2);
         await openLev.closeTrade(pairId, true, trade.held, 0, closeCallData, {from: trader});
         let tradeAfter = await openLev.activeTrades(trader, pairId, 1);
         m.log("finish closeTrade, current held = ", tradeAfter.held)
@@ -101,77 +100,76 @@ contract("1inch router", async accounts => {
         m.log("current borrowed =", borrowedAfter);
         assert.equal(tradeAfter.held.toString(), 0);
         assert.equal(borrowedAfter, 0);
-        m.log("dev token0 balance = ", await token0.balanceOf(dev));
     })
 
     it("verify call 1inch data, receive buyToken address is not openLevV1, revert", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, trader, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(token1, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'buy amount less than min');
     })
 
     it("verify call 1inch data, sellToken address is another token, revert", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, weth.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(token1, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'sell token error');
     })
 
     it("verify call 1inch data, buyToken address is another token, revert", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(weth, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         await weth.approve(router.address, utils.toWei(10000000000), {from: dev});
         let callData = getCall1inchData(router, token0.address, weth.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(weth, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'buy amount less than min');
     })
 
     it("verify call 1inch data, sellAmount more than actual amount, revert", async () => {
         let sellAmount = utils.toWei(4);
-        await utils.mint(token1, dev, 4);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "3999999999999999999");
+        await utils.mint(token1, dev, 4);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'ERC20: transfer amount exceeds balance');
     })
 
     it("sell by 1inch data,if 1inch revert, then revert with error info", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "2000000000000000001");
+        await utils.mint(token1, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'ReturnAmountIsNotEnough');
     })
 
     it("sell by 1inch data, buyAmount less than minBuyAmount, revert", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 1);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
+        await utils.mint(token1, dev, 1);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, "1999999999999999999", callData, {from: trader}), 'buy amount less than min');
     })
 
     it("long token = deposit token, close by sell twice, success", async () => {
         let sellAmount = utils.toWei(1);
-        await utils.mint(token1, dev, 1);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
+        await utils.mint(token1, dev, 1);
         await openLev.marginTrade(pairId, true, true, deposit, borrow, "999999999999999999", callData, {from: trader});
 
         let trade = await openLev.activeTrades(trader, pairId, 1);
@@ -183,8 +181,8 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "1000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        await utils.mint(token0, dev, 2);
         let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "1999999999999999999");
+        await utils.mint(token0, dev, 2);
         let token1BalanceBefore = await token1.balanceOf(trader);
         await openLev.closeTrade(pairId, true, trade.held, trade.held, closeCallData, {from: trader});
         let token1BalanceAfter =await token1.balanceOf(trader);
@@ -202,11 +200,11 @@ contract("1inch router", async accounts => {
         let deposit = utils.toWei(1);
         let borrow = utils.toWei(2);
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, true, deposit, borrow, "1999999999999999999", callData, {from: trader});
 
         let trade = await openLev.activeTrades(trader, pairId, 1);
@@ -218,8 +216,8 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "2000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        await utils.mint(token0, dev, 2);
         let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "1999999999999999999");
+        await utils.mint(token0, dev, 2);
         await assertThrows(openLev.closeTrade(pairId, true, trade.held, trade.held, closeCallData, {from: trader}), 'SafeMath: subtraction overflow');
     })
 
@@ -227,11 +225,11 @@ contract("1inch router", async accounts => {
         let deposit = utils.toWei(2);
         let borrow = utils.toWei(2);
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, true, deposit, borrow, "1999999999999999999", callData, {from: trader});
 
         let trade = await openLev.activeTrades(trader, pairId, 1);
@@ -243,18 +241,18 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "2000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        await utils.mint(token0, dev, 3);
         let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "2999999999999999999");
+        await utils.mint(token0, dev, 3);
         await assertThrows(openLev.closeTrade(pairId, true, trade.held, "2500000000000000000", closeCallData, {from: trader}), 'buy amount less than min');
     })
 
     it("liquidate not support 1inch", async () => {
         let sellAmount = utils.toWei(2);
-        await utils.mint(token1, dev, 2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader});
 
         await assertThrows(openLev.liquidate(trader, pairId, true, 0, utils.maxUint(), callData), 'UDX');
