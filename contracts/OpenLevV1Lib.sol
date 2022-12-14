@@ -290,8 +290,11 @@ library OpenLevV1Lib {
     }
 
     function toBytes(uint32 x) internal pure returns (bytes memory) {
-        require(x < 256, "error");
-        return abi.encodePacked(uint8(x));
+        if (x < 256){
+            return abi.encodePacked(uint8(x));
+        } else {
+            return abi.encodePacked(x);
+        }
     }
 
     function verifyTrade(Types.MarketVars memory vars, bool longToken, bool depositToken, uint deposit, uint borrow,
