@@ -18,6 +18,7 @@ library Aggregator1InchV5 {
         uint buyTokenBalanceBefore = IERC20(buyToken).balanceOf(payee);
         IERC20(sellToken).safeApprove(router, sellAmount);
         (bool success, bytes memory returnData) = router.call(data);
+        IERC20(sellToken).safeApprove(router, 0);
         assembly {
             if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
         }
