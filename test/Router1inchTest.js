@@ -109,7 +109,7 @@ contract("1inch router", async accounts => {
 
         let callData = getCall1inchData(router, token0.address, token1.address, trader, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
-        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'buy amount less than min');
+        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
 
     it("verify call 1inch data, sellToken address is another token, revert", async () => {
@@ -130,7 +130,7 @@ contract("1inch router", async accounts => {
         await weth.approve(router.address, utils.toWei(10000000000), {from: dev});
         let callData = getCall1inchData(router, token0.address, weth.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(weth, dev, 2);
-        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'buy amount less than min');
+        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
 
     it("verify call 1inch data, sellAmount more than actual amount, revert", async () => {
@@ -160,7 +160,7 @@ contract("1inch router", async accounts => {
 
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
         await utils.mint(token1, dev, 1);
-        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, "1999999999999999999", callData, {from: trader}), 'buy amount less than min');
+        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, "1999999999999999999", callData, {from: trader}), '1inch: buy amount less than min');
     })
 
     it("long token = deposit token, close by sell twice, success", async () => {
