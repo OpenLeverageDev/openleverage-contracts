@@ -29,8 +29,6 @@ contract Mock1inchRouter {
         uint256 flags;
     }
 
-    event Swap(address executor,  address srcToken, address dstToken, address srcReceiver, address payable dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit, bytes data);
-
     function swap(
         IAggregationExecutor executor,
         SwapDescription calldata desc,
@@ -44,7 +42,6 @@ contract Mock1inchRouter {
         uint256 spentAmount
     )
     {
-        emit Swap(address(executor), address(desc.srcToken), address(desc.dstToken), desc.srcReceiver, desc.dstReceiver, desc.amount, desc.minReturnAmount, desc.flags, permit, data);
         if (desc.minReturnAmount == 0) revert("ZeroMinReturn");
         IERC20 srcToken = desc.srcToken;
         IERC20 dstToken = desc.dstToken;
