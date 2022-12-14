@@ -22,6 +22,6 @@ library Aggregator1InchV5 {
             if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
         }
         returnAmount = IERC20(buyToken).balanceOf(payee).sub(buyTokenBalanceBefore);
-        require(returnAmount >= minBuyAmount, 'buy amount less than min');
+        require(returnAmount >= minBuyAmount, '1inch: buy amount less than min');
     }
 }
