@@ -3,7 +3,7 @@ pragma solidity 0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "./UniV2Dex.sol";
-import "./UniV3Dex.sol";
+import "../UniV3Dex.sol";
 import "../DexAggregatorInterface.sol";
 import "../../lib/DexData.sol";
 import "../../lib/Utils.sol";

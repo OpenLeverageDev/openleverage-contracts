@@ -102,6 +102,12 @@ async function initializeLenderPool(accounts, network) {
             m.log("waiting controller create wcro - usdc market ......");
             await intializeMarket(accounts, network, '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23', '0xc21223249CA28397B4B6541dfFaEcC539BfF0c59', 3000, '0x1400000002');
             break;
+        case utils.polygonMainnet:
+            throw new Error("Not Implemented");
+        case utils.arbitrumMainnet:
+            throw new Error("Not Implemented");
+        case utils.optimismMainnet:
+            throw new Error("Not Implemented");
     }
 }
 
