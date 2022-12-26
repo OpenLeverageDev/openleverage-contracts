@@ -6,6 +6,10 @@ let mainnet = exports.mainnet = 'mainnet';
 let kccMainnet = exports.kccMainnet = 'kccMainnet';
 let cronosTest = exports.cronosTest = 'cronosTest';
 let cronosMainnet = exports.cronosMainnet = 'cronosMainnet';
+let polygonMainnet = exports.polygonMainnet = 'polygonMainnet';
+let arbitrumMainnet = exports.arbitrumMainnet = 'arbitrumMainnet';
+let optimismMainnet = exports.optimismMainnet = 'optimismMainnet';
+
 
 
 
@@ -17,13 +21,13 @@ exports.isSkip = function (network) {
         network == ('huobiTest');
 }
 exports.deployOption = function (accounts) {
-    return {from: accounts[0], overwrite: false}
+    return { from: accounts[0], overwrite: false }
 }
 exports.getAdmin = function (accounts) {
     return accounts[0];
 }
 exports.uniswapV2Address = function (network) {
-    switch (network){
+    switch (network) {
         case bscIntegrationTest:
         case bscTestnet:
             return '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
@@ -41,9 +45,10 @@ exports.uniswapV2Address = function (network) {
 }
 
 exports.uniswapV3Address = function (network) {
-    switch (network){
+    switch (network) {
         case kovan:
-        case mainnet:
+        /// Uniswap Address is the same
+        case (mainnet, polygonMainnet, arbitrumMainnet, optimismMainnet):
             return '0x1f98431c8ad98523631ae4a59f267346ea31f984';
         default:
             return zeroAddress;
@@ -51,7 +56,7 @@ exports.uniswapV3Address = function (network) {
 }
 
 exports.getDepositTokens = function (network) {
-    switch (network){
+    switch (network) {
         case mainnet:
             return [
                 "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",//wbtc
@@ -82,13 +87,37 @@ exports.getDepositTokens = function (network) {
                 "0x094616f0bdfb0b526bd735bf66eca0ad254ca81f",//WBNB
                 "0x8301f2213c0eed49a7e28ae4c3e91722919b8b47"//BUSD
             ]
+        case polygonMainnet:
+            return [
+                "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619", // WETH
+                "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // USDT
+                "0x2791bca1f2de4661ed88a30c99a7a9449aa84174", // USDC
+                "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063", // DAI
+                "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"  // WMATIC
+            ]
+        case arbitrumMainnet:
+            return [
+                "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", // USDT
+                "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", // USDC
+                "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1", // DAI
+                "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f", // WBTC
+                "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"  // WETH
+            ]
+        case optimismMainnet:
+            return [
+                "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", // USDT
+                "0x7f5c764cbc14f9669b88837ca1490cca17c31607", // USDC
+                "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1", // DAI
+                "0x68f180fcce6836688e9084f035309e29bf0a2095", // WBTC
+                "0x4200000000000000000000000000000000000006"  // WETH
+            ]
         default:
             return [];
     }
 }
 
 exports.blocksPerYear = function (network) {
-    switch (network){
+    switch (network) {
         case kovan:
         case mainnet:
             return 2102400;
@@ -100,11 +129,17 @@ exports.blocksPerYear = function (network) {
         case cronosTest:
         case cronosMainnet:
             return 31536000;
+        case polygonMainnet:
+            return 14677953; // 3.15576e+7 / 2.15 (Could use more accuracy)
+        case arbitrumMainnet:
+            return 63115200; // 3.15576e+7 / 0.5 (Could use more accuracy)
+        case optimismMainnet:
+            throw new Error("Not Implemented")       // Unclear, will require research
     }
 }
 
 exports.tokenName = function (network) {
-    switch (network){
+    switch (network) {
         case bscIntegrationTest:
         case bscTestnet:
         case cronosTest:
@@ -115,7 +150,7 @@ exports.tokenName = function (network) {
 }
 
 exports.tokenSymbol = function (network) {
-    switch (network){
+    switch (network) {
         case bscIntegrationTest:
         case bscTestnet:
         case cronosTest:
@@ -126,7 +161,7 @@ exports.tokenSymbol = function (network) {
 }
 
 exports.getWChainToken = function (network) {
-    switch (network){
+    switch (network) {
         case mainnet:
             //WETH9
             return "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
@@ -142,6 +177,12 @@ exports.getWChainToken = function (network) {
         case cronosTest:
         case cronosMainnet:
             return "0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23";
+        case polygonMainnet:
+            return "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
+        case arbitrumMainnet:
+            return "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1";
+        case optimismMainnet:
+            return "0x4200000000000000000000000000000000000006";
         default:
             return zeroAddress;
     }
@@ -160,8 +201,8 @@ exports.getFarmingDuration = function () {
     return 8 * 7 * 24 * 60 * 60;
 }
 
-exports.getUniV2DexData = function (network){
-    switch (network){
+exports.getUniV2DexData = function (network) {
+    switch (network) {
         case kovan:
         case mainnet:
             return "0x01";

@@ -5,6 +5,9 @@ const EthDexAggregatorV1 = artifacts.require("EthDexAggregatorV1");
 const BscDexAggregatorV1 = artifacts.require("BscDexAggregatorV1");
 const KccDexAggregatorV1 = artifacts.require("KccDexAggregatorV1");
 const CronosDexAggregatorV1 = artifacts.require("CronosDexAggregatorV1");
+const PolygonDexAggregatorV1 = artifacts.require("PolygonDexAggregatorV1")
+const ArbitrumDexAggregatorV1 = artifacts.require("ArbitrumDexAggregatorV1")
+const OptimismDexAggregatorV1 = artifacts.require("OptimismDexAggregatorV1")
 const DexAggregatorDelegator = artifacts.require("DexAggregatorDelegator");
 const Gov = artifacts.require("GovernorAlpha");
 const QueryHelper = artifacts.require("QueryHelper");
@@ -71,6 +74,18 @@ module.exports = async function (deployer, network, accounts) {
             await deployer.deploy(CronosDexAggregatorV1, utils.deployOption(accounts));
             await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, CronosDexAggregatorV1.address, utils.deployOption(accounts));
             break;
+        case utils.polygonMainnet:
+            await deployer.deploy(PolygonDexAggregatorV1, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
+            break;
+        case utils.arbitrumMainnet:
+            await deployer.deploy(ArbitrumDexAggregatorV1, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
+            break;
+        case utils.optimismMainnet:
+            await deployer.deploy(OptimismDexAggregatorV1, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
+            break;
         default:
             await deployer.deploy(EthDexAggregatorV1, utils.deployOption(accounts));
             await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
@@ -99,6 +114,12 @@ module.exports = async function (deployer, network, accounts) {
         case utils.cronosMainnet:
             await deployer.deploy(ControllerDelegator, oleAddr, xOLEDelegator.address, weth9, LTimePool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x14', adminCtr, ControllerV1.address, utils.deployOption(accounts));
             break;
+        case utils.polygonMainnet:
+            throw new Error("Not Implemented")
+        case utils.arbitrumMainnet:
+            throw new Error("Not Implemented")
+        case utils.optimismMainnet:
+            throw new Error("Not Implemented")
         default:
             await deployer.deploy(ControllerDelegator, oleAddr, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02000bb8', adminCtr, ControllerV1.address, utils.deployOption(accounts));
     }
@@ -116,6 +137,15 @@ module.exports = async function (deployer, network, accounts) {
             break;
         case utils.cronosTest:
         case utils.cronosMainnet:
+            await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [20], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
+            break;
+        case utils.polygonMainnet:
+            await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [20], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
+            break;
+        case utils.arbitrumMainnet:
+            await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [20], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
+            break;
+        case utils.optimismMainnet:
             await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [20], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
             break;
         default:
