@@ -10,11 +10,11 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "../../DelegateInterface.sol";
 import "../../Adminable.sol";
 
-/// @title Swap logic on Polygon
+/// @title Swap logic on Optimism
 /// @author OpenLeverage
 /// @notice Use this contract to swap tokens.
 /// @dev Routers for different swap requests.
-contract PolygonDexAggregatorV1 is
+contract OptimismDexAggregatorV1 is
     DelegateInterface,
     Adminable,
     DexAggregatorInterface,
@@ -160,7 +160,7 @@ contract PolygonDexAggregatorV1 is
     /// @param buyAmount Exact amount to buy
     /// @param data Dex to use for swap
     /// @return sellAmount Amount of sellToken would sold
-    // TODO make work for only Uniswap V3
+    // TODO mmake work for only Uniswap V3
     function calSellAmount(
         address buyToken,
         address sellToken,

@@ -10,8 +10,8 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import '@uniswap/v3-core/contracts/libraries/SafeCast.sol';
 import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
-import "../../lib/DexData.sol";
-import "../../lib/TransferHelper.sol";
+import "../lib/DexData.sol";
+import "../lib/TransferHelper.sol";
 
 contract UniV3Dex is IUniswapV3SwapCallback {
     using SafeMath for uint;
