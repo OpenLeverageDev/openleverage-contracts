@@ -15,6 +15,7 @@ library Aggregator1InchV5 {
     function swap1inch(address router, bytes memory data, address payee, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint returnAmount) {
         // verify sell token
         require(data.to1InchSellToken() == sellToken, "sell token error");
+        data = data.replace1InchSellAmount(sellAmount);
         uint buyTokenBalanceBefore = IERC20(buyToken).balanceOf(payee);
         IERC20(sellToken).safeApprove(router, sellAmount);
         (bool success, bytes memory returnData) = router.call(data);

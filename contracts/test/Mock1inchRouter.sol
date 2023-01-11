@@ -42,7 +42,8 @@ contract Mock1inchRouter {
         uint256 spentAmount
     )
     {
-        if (desc.minReturnAmount == 0) revert("ZeroMinReturn");
+        if (desc.amount == 0) revert("ZeroMinReturn1");
+        if (desc.minReturnAmount == 0) revert("ZeroMinReturn2");
         IERC20 srcToken = desc.srcToken;
         IERC20 dstToken = desc.dstToken;
 
@@ -62,9 +63,9 @@ contract Mock1inchRouter {
                 spentAmount -= unspentAmount;
                 srcToken.transfer(payable(msg.sender), unspentAmount);
             }
-            if (returnAmount * desc.amount < desc.minReturnAmount * spentAmount) revert("ReturnAmountIsNotEnough");
+            if (returnAmount * desc.amount < desc.minReturnAmount * spentAmount) revert("ReturnAmountIsNotEnough1");
         } else {
-            if (returnAmount < desc.minReturnAmount) revert("ReturnAmountIsNotEnough");
+            if (returnAmount < desc.minReturnAmount) revert("ReturnAmountIsNotEnough2");
         }
 
         address payable dstReceiver = (desc.dstReceiver == address(0)) ? payable(msg.sender) : desc.dstReceiver;

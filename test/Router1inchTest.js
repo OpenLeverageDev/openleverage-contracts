@@ -133,14 +133,28 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
 
-    it("verify call 1inch data, sellAmount more than actual amount, revert", async () => {
+    it("test replace call 1inch data", async () => {
         let sellAmount = utils.toWei(4);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "3999999999999999999");
-        await utils.mint(token1, dev, 4);
-        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'ERC20: transfer amount exceeds balance');
+        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        m.log("set incoming sell amount more than actual sell amount");
+        await utils.mint(token1, dev, 2);
+        await token0.balanceOf(openLev.address);
+        await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader});
+        await token0.balanceOf(openLev.address);
+        let tradeAfter = await openLev.activeTrades(trader, pairId, 1);
+        m.log("margin trade successful, current held = ", tradeAfter.held)
+        assert.equal(tradeAfter.held.toString(), "1999999999999999999");
+
+        let callData2 = getCall1inchData(router, token1.address, token0.address, openLev.address, utils.toWei(1).toString(), "1999999999999999999");
+        m.log("set incoming sell amount less than actual sell amount");
+        await utils.mint(token0, dev, 2);
+        await openLev.marginTrade(pairId, false, true, deposit, borrow, borrow, callData2, {from: trader});
+        let tradeAfter2 = await openLev.activeTrades(trader, pairId, 0);
+        m.log("margin trade successful, current held = ", tradeAfter2.held)
+        assert.equal(tradeAfter2.held.toString(), "1999999999999999999");
     })
 
     it("sell by 1inch data,if 1inch revert, then revert with error info", async () => {
