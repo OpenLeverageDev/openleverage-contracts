@@ -33,8 +33,10 @@ library DexData {
     uint8 constant DEX_BABY = 12;
     uint8 constant DEX_MOJITO = 13;
     uint8 constant DEX_KU = 14;
-    uint8 constant DEX_BISWAP=15;
-    uint8 constant DEX_VVS=20;
+    uint8 constant DEX_BISWAP = 15;
+    uint8 constant DEX_VVS = 20;
+    uint8 constant DEX_1INCH = 21;
+
 
     struct V3PoolData {
         address tokenA;
@@ -168,4 +170,98 @@ library DexData {
             path[i] = pool;
         }
     }
+
+    function to1InchCallData(bytes memory data) internal pure returns(bytes memory bts){
+        return subByte(data, TRANSFERFEE_INDEX, data.length - TRANSFERFEE_INDEX);
+    }
+
+    function to1InchSellToken(bytes memory data) internal pure returns(address sellToken){
+        bytes memory bts = subByte(data, 36, 32);
+        return bytesToAddress(bts);
+    }
+
+    function subByte(bytes memory data, uint startIndex, uint len) internal pure returns(bytes memory bts){
+        require(startIndex <= data.length && data.length - startIndex >= len, "DexData: to1InchCallData wrong data format");
+        uint addr;
+        assembly {
+            addr := add(data, 32)
+        }
+        addr = addr + startIndex;
+        bts = new bytes(len);
+        uint btsptr;
+        assembly {
+            btsptr := add(bts, 32)
+        }
+        for (; len > 32; len -= 32) {
+            assembly {
+                mstore(btsptr, mload(addr))
+            }
+            btsptr += 32;
+            addr += 32;
+        }
+        uint mask = 256 ** (32 - len) - 1;
+        assembly {
+            let srcpart := and(mload(addr), not(mask))
+            let destpart := and(mload(btsptr), mask)
+            mstore(btsptr, or(destpart, srcpart))
+        }
+    }
+
+    function bytesToAddress(bytes memory bys) internal pure returns (address addr) {
+        require(bys.length == 32, "length error");
+        assembly {
+            addr := mload(add(bys, 32))
+        }
+    }
+
+    function toBytes(uint _num) internal pure returns (bytes memory _ret) {
+        assembly {
+            _ret := mload(0x10)
+            mstore(_ret, 0x20)
+            mstore(add(_ret, 0x20), _num)
+        }
+    }
+
+    function replace1InchSellAmount(bytes memory data, uint sellAmount) internal pure returns(bytes memory){
+        bytes memory b1 = concat(subByte(data, 0, 164),toBytes(sellAmount));
+        return concat(b1, subByte(data, 196, data.length - 196));
+    }
+
+    function concat(bytes memory _preBytes, bytes memory _postBytes) internal pure returns (bytes memory) {
+        bytes memory tempBytes;
+        assembly {
+            tempBytes := mload(0x40)
+            let length := mload(_preBytes)
+            mstore(tempBytes, length)
+            let mc := add(tempBytes, 0x20)
+            let end := add(mc, length)
+            for {
+                let cc := add(_preBytes, 0x20)
+            } lt(mc, end) {
+                mc := add(mc, 0x20)
+                cc := add(cc, 0x20)
+            } {
+                mstore(mc, mload(cc))
+            }
+            length := mload(_postBytes)
+            mstore(tempBytes, add(length, mload(tempBytes)))
+            mc := end
+            end := add(mc, length)
+            for {
+                let cc := add(_postBytes, 0x20)
+            } lt(mc, end) {
+                mc := add(mc, 0x20)
+                cc := add(cc, 0x20)
+            } {
+                mstore(mc, mload(cc))
+            }
+            mstore(0x40, and(
+            add(add(end, iszero(add(length, mload(_preBytes)))), 31),
+            not(31)
+            ))
+        }
+        return tempBytes;
+    }
+
+
 }
