@@ -72,7 +72,7 @@ contract("1inch router", async accounts => {
         await pool1.mint(utils.toWei(10000), {from: trader});
     });
 
-    it("open and close by 1inch, success", async () => {
+    it("Open and close by 1inch, success", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -102,7 +102,7 @@ contract("1inch router", async accounts => {
         assert.equal(borrowedAfter, 0);
     })
 
-    it("verify call 1inch data, receive buyToken address is not openLevV1, revert", async () => {
+    it("Verify call 1inch data, receive buyToken address is not openLevV1, revert", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -112,7 +112,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
 
-    it("verify call 1inch data, sellToken address is another token, revert", async () => {
+    it("Verify call 1inch data, sellToken address is another token, revert", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -122,7 +122,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'sell token error');
     })
 
-    it("verify call 1inch data, buyToken address is another token, revert", async () => {
+    it("Verify call 1inch data, buyToken address is another token, revert", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -133,7 +133,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
 
-    it("test replace call 1inch data", async () => {
+    it("Test replace call 1inch data", async () => {
         let sellAmount = utils.toWei(4);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -141,9 +141,10 @@ contract("1inch router", async accounts => {
         let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         m.log("set incoming sell amount more than actual sell amount");
         await utils.mint(token1, dev, 2);
-        await token0.balanceOf(openLev.address);
+        assert.equal(await token0.balanceOf(openLev.address), 0);
         await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader});
-        await token0.balanceOf(openLev.address);
+        assert.equal(await token0.balanceOf(openLev.address), 0);
+        m.log("openLev balance check passed");
         let tradeAfter = await openLev.activeTrades(trader, pairId, 1);
         m.log("margin trade successful, current held = ", tradeAfter.held)
         assert.equal(tradeAfter.held.toString(), "1999999999999999999");
@@ -151,13 +152,16 @@ contract("1inch router", async accounts => {
         let callData2 = getCall1inchData(router, token1.address, token0.address, openLev.address, utils.toWei(1).toString(), "1999999999999999999");
         m.log("set incoming sell amount less than actual sell amount");
         await utils.mint(token0, dev, 2);
+        assert.equal(await token1.balanceOf(openLev.address), "1999999999999999999");
         await openLev.marginTrade(pairId, false, true, deposit, borrow, borrow, callData2, {from: trader});
+        assert.equal(await token1.balanceOf(openLev.address), "1999999999999999999");
+        m.log("openLev balance check passed");
         let tradeAfter2 = await openLev.activeTrades(trader, pairId, 0);
         m.log("margin trade successful, current held = ", tradeAfter2.held)
         assert.equal(tradeAfter2.held.toString(), "1999999999999999999");
     })
 
-    it("sell by 1inch data,if 1inch revert, then revert with error info", async () => {
+    it("Sell by 1inch data, if 1inch revert, then revert with error info", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -167,7 +171,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'ReturnAmountIsNotEnough');
     })
 
-    it("sell by 1inch data, buyAmount less than minBuyAmount, revert", async () => {
+    it("Sell by 1inch data, buyAmount less than minBuyAmount, revert", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -177,7 +181,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, "1999999999999999999", callData, {from: trader}), '1inch: buy amount less than min');
     })
 
-    it("long token = deposit token, close by sell twice, success", async () => {
+    it("Long token = deposit token, close by sell twice, success", async () => {
         let sellAmount = utils.toWei(1);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -210,7 +214,7 @@ contract("1inch router", async accounts => {
         assert.equal(borrowedAfter, 0);
     })
 
-    it("long token = deposit token, close by sell twice, fist sell return amount less than buyAmount, revert", async () => {
+    it("Long token = deposit token, close by sell twice, fist sell return amount less than buyAmount, revert", async () => {
         let deposit = utils.toWei(1);
         let borrow = utils.toWei(2);
         let sellAmount = utils.toWei(2);
@@ -235,7 +239,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.closeTrade(pairId, true, trade.held, trade.held, closeCallData, {from: trader}), 'SafeMath: subtraction overflow');
     })
 
-    it("long token = deposit token, close by sell twice, second sell return amount less than maxSellAmount, revert", async () => {
+    it("Long token = deposit token, close by sell twice, second sell return amount less than maxSellAmount, revert", async () => {
         let deposit = utils.toWei(2);
         let borrow = utils.toWei(2);
         let sellAmount = utils.toWei(2);
@@ -260,7 +264,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.closeTrade(pairId, true, trade.held, "2500000000000000000", closeCallData, {from: trader}), 'buy amount less than min');
     })
 
-    it("liquidate not support 1inch", async () => {
+    it("Liquidate not support 1inch", async () => {
         let sellAmount = utils.toWei(2);
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
@@ -272,7 +276,7 @@ contract("1inch router", async accounts => {
         await assertThrows(openLev.liquidate(trader, pairId, true, 0, utils.maxUint(), callData), 'UDX');
     })
 
-    it("market create default dex not allow 1inch", async () => {
+    it("Market create default dex not allow 1inch", async () => {
         await assertThrows(controller.createLPoolPair(weth.address, token1.address, 3000, "0x1500000002"), 'UDX');
     })
 

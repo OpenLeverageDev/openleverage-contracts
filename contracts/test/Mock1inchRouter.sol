@@ -42,6 +42,9 @@ contract Mock1inchRouter {
         uint256 spentAmount
     )
     {
+        executor;
+        permit;
+        data;
         if (desc.amount == 0) revert("ZeroMinReturn1");
         if (desc.minReturnAmount == 0) revert("ZeroMinReturn2");
         IERC20 srcToken = desc.srcToken;

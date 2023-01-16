@@ -235,7 +235,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
             closeTradeVars.sellAmount = closeTradeVars.closeAmountAfterFees;
-            //            marketVars.buyPool.repayBorrowBehalf(trader, closeTradeVars.repayAmount);
             OpenLevV1Lib.repay(marketVars.buyPool, trader, closeTradeVars.repayAmount);
             closeTradeVars.depositReturn = closeTradeVars.receiveAmount.sub(closeTradeVars.repayAmount);
             doTransferOut(trader, marketVars.buyToken, closeTradeVars.depositReturn);
@@ -247,9 +246,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             closeTradeVars.receiveAmount = OpenLevV1Lib.balanceOf(marketVars.buyToken).sub(balance);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
-            //            marketVars.buyPool.repayBorrowBehalf(trader, closeTradeVars.repayAmount);
             OpenLevV1Lib.repay(marketVars.buyPool, trader, closeTradeVars.repayAmount);
-
             closeTradeVars.depositReturn = closeTradeVars.closeAmountAfterFees.sub(closeTradeVars.sellAmount);
             require(OpenLevV1Lib.balanceOf(marketVars.sellToken) >= closeTradeVars.depositReturn, "ISB");
             doTransferOut(trader, marketVars.sellToken, closeTradeVars.depositReturn);
@@ -297,7 +294,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         uint24 taxRate = taxes[marketId][address(marketVars.buyToken)][0];
         uint firstAmount = Utils.toAmountBeforeTax(borrowed, taxRate);
         uint transferAmount = transferIn(msg.sender, marketVars.buyToken, Utils.toAmountBeforeTax(firstAmount, taxRate), true);
-        //        marketVars.buyPool.repayBorrowBehalf(msg.sender, transferAmount);
         OpenLevV1Lib.repay(marketVars.buyPool, msg.sender, transferAmount);
 
         require(marketVars.buyPool.borrowBalanceStored(msg.sender) == 0, "IRP");
@@ -362,7 +358,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             }
 
             liquidateVars.receiveAmount = OpenLevV1Lib.balanceOf(marketVars.buyToken).sub(marketVars.reserveBuyToken);
-            //            marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
             OpenLevV1Lib.repay(marketVars.buyPool, owner, liquidateVars.borrowed);
             liquidateVars.depositReturn = liquidateVars.remainAmountAfterFees.sub(liquidateVars.sellAmount);
             doTransferOut(owner, marketVars.sellToken, liquidateVars.depositReturn);
@@ -372,7 +367,6 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
             if (liquidateVars.receiveAmount >= liquidateVars.borrowed) {
                 // fail if buy failed but sell succeeded
                 require(longToken != trade.depositToken, "PH");
-                //                marketVars.buyPool.repayBorrowBehalf(owner, liquidateVars.borrowed);
                 OpenLevV1Lib.repay(marketVars.buyPool, owner, liquidateVars.borrowed);
                 liquidateVars.depositReturn = liquidateVars.receiveAmount.sub(liquidateVars.borrowed);
                 doTransferOut(owner, marketVars.buyToken, liquidateVars.depositReturn);
