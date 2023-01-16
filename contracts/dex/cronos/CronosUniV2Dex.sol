@@ -239,7 +239,8 @@ contract CronosUniV2Dex {
         }
     }
 
-    function getPairFees(DexInfo memory dexInfo, address pair) private view returns (uint16){
+    function getPairFees(DexInfo memory dexInfo, address pair) private pure returns (uint16){
+        pair;
         return dexInfo.fees;
     }
 
