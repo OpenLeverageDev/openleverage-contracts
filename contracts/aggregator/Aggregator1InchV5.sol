@@ -12,7 +12,7 @@ library Aggregator1InchV5 {
     using TransferHelper for IERC20;
     using DexData for bytes;
 
-    function swap1inch(address router, bytes memory data, address payee, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint returnAmount) {
+    function swap1inch(address router, bytes memory data, address payee, address buyToken, address sellToken, uint sellAmount, uint minBuyAmount) internal returns (uint boughtAmount) {
         // verify sell token
         require(data.to1InchSellToken() == sellToken, "sell token error");
         data = data.replace1InchSellAmount(sellAmount);
@@ -23,7 +23,7 @@ library Aggregator1InchV5 {
             if eq(success, 0) {revert(add(returnData, 0x20), returndatasize())}
         }
         IERC20(sellToken).safeApprove(router, 0);
-        returnAmount = IERC20(buyToken).balanceOf(payee).sub(buyTokenBalanceBefore);
-        require(returnAmount >= minBuyAmount, '1inch: buy amount less than min');
+        boughtAmount = IERC20(buyToken).balanceOf(payee).sub(buyTokenBalanceBefore);
+        require(boughtAmount >= minBuyAmount, '1inch: buy amount less than min');
     }
 }
