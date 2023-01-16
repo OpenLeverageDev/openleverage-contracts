@@ -106,7 +106,7 @@ module.exports = {
       excludeContracts: ['Migrations'],
       //outputFile: './eth-gas-report.md',
       // gasPrice: 45, //in gwei
-      // url:'https://kovan.infura.io/v3/603f6934a5aa4267b31bb9ef62b39dde'
+      // url:'https://kovan.infura.io/v3/YOUR-PROJECT-ID'
     },
   },
   /**
@@ -115,7 +115,7 @@ module.exports = {
    */
   plugins: ["truffle-contract-size", 'truffle-plugin-verify', "solidity-coverage", 'truffle-plugin-stdjsonin'],
   api_keys: {
-    etherscan: 'EWC3B6KX47HBUD1HHANE6E9TJNTAAP2BAM'
+    etherscan: ''
   },
   // Configure your compilers
   compilers: {
