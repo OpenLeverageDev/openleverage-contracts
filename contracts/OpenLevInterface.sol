@@ -61,6 +61,8 @@ abstract contract OpenLevStorage {
 
     address public opLimitOrder;
 
+    address public router1inch;
+
     event MarginTrade(
         address trader,
         uint16 marketId,
@@ -169,5 +171,7 @@ interface OpenLevInterface {
     function setTaxRate(uint16 marketId, address token, uint index, uint24 tax) external;
 
     function setOpLimitOrder(address _opLimitOrder) external;
+
+    function setRouter1inch(address _router1inch) external;
 
 }
