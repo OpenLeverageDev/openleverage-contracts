@@ -242,8 +242,14 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         } else {
             uint balance = OpenLevV1Lib.balanceOf(marketVars.buyToken);
             minOrMaxAmount = Utils.minOf(closeTradeVars.closeAmountAfterFees, minOrMaxAmount);
-            closeTradeVars.sellAmount = flashBuy(marketId, address(marketVars.buyToken), address(marketVars.sellToken), closeTradeVars.repayAmount,
-                minOrMaxAmount, closeTradeVars.closeAmountAfterFees, dexData, OpenLevV1Lib.toBytes(marketVars.dexs[0]));
+            closeTradeVars.sellAmount = flashBuy(marketId,
+                address(marketVars.buyToken),
+                address(marketVars.sellToken),
+                closeTradeVars.repayAmount,
+                minOrMaxAmount,
+                closeTradeVars.closeAmountAfterFees,
+                dexData,
+                OpenLevV1Lib.toBytes(marketVars.dexs[0]));
             closeTradeVars.receiveAmount = OpenLevV1Lib.balanceOf(marketVars.buyToken).sub(balance);
             require(closeTradeVars.receiveAmount >= closeTradeVars.repayAmount, "ISR");
 
