@@ -62,6 +62,7 @@ contract ControllerStorage {
 
     DexAggregatorInterface public dexAggregator;
 
+    //useless
     bool public suspend;
 
     //useless
@@ -84,6 +85,11 @@ contract ControllerStorage {
     mapping(LPoolInterface => mapping(bool => mapping(address => LPoolRewardByAccount))) public lPoolRewardByAccounts;
 
     bool public suspendAll;
+
+    //marketId=>isSuspend
+    mapping(uint => bool) public borrowingSuspend;
+
+    address public opBorrowing;
 
     event LPoolPairCreated(address token0, address pool0, address token1, address pool1, uint16 marketId, uint16 marginLimit, bytes dexData);
 
@@ -110,13 +116,24 @@ interface ControllerInterface {
 
     function liquidateAllowed(uint marketId, address liquidator, uint liquidateAmount, bytes memory dexData) external;
 
+    //useless
     function marginTradeAllowed(uint marketId) external view returns (bool);
+
+    function marginTradeAllowedV2(uint marketId, address trader, bool longToken) external view returns (bool);
 
     function closeTradeAllowed(uint marketId) external view returns (bool);
 
     function updatePriceAllowed(uint marketId, address to) external;
 
     function updateInterestAllowed(address payable sender) external;
+
+    function collBorrowAllowed(uint marketId, address borrower, bool collateralIndex) external view returns (bool);
+
+    function collRepayAllowed(uint marketId) external view returns (bool);
+
+    function collRedeemAllowed(uint marketId) external view returns (bool);
+
+    function collLiquidateAllowed(uint marketId) external view returns (bool);
 
     /*** Admin Functions ***/
 
@@ -138,6 +155,7 @@ interface ControllerInterface {
 
     function setOleWethDexData(bytes memory _oleWethDexData) external;
 
+    function setOpBorrowing(address _opBorrowing) external;
 
 }
 

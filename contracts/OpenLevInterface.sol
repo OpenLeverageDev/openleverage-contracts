@@ -174,4 +174,6 @@ interface OpenLevInterface {
 
     function setRouter1inch(address _router1inch) external;
 
+    function getMarketSupportDexs(uint16 marketId) external view returns (uint32[] memory);
+
 }
