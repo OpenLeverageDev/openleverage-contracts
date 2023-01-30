@@ -355,7 +355,7 @@ exports.assertThrows = async (promise, reason) => {
     assert.fail('Expected throw not received');
 }
 
-exports.getCall1inchData = (router, fromToken, toToken, receiver, amount, minReturnAmount) => {
+exports.getCall1inchSwapData = (router, fromToken, toToken, receiver, amount, minReturnAmount) => {
     let callData = router.contract.methods.swap("0x18101Ac1d35230F1A3c005e2aBaAEb25caE79e7f", [fromToken, toToken, "0x18101Ac1d35230F1A3c005e2aBaAEb25caE79e7f", receiver, amount, minReturnAmount, 4], "0x",
         "0x00000000000000000000000000000000000000000000000000015e00013051264ec3432d9443f05022e2ff4e54fc7514be2359e055d398326f99059ff775485246999027b3197955000438" +
         "ed173900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002934866f42048f2b0000000000000000000" +
