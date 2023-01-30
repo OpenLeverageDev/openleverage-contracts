@@ -220,6 +220,30 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Trade.held:", tradeAfter.held);
         assert.equal(tradeAfter.held, 0);
     })
+
+    it("LONG Token0, advance 1000 blocks, margin ratio updated  ", async () => {
+        let pairId = 0;
+        await printBlockNum();
+        await utils.mint(token1, trader, 10000);
+        await utils.mint(token1, saver, 10000);
+        let deposit = utils.toWei(400);
+        await token1.approve(openLev.address, deposit, {from: trader});
+        let saverSupply = utils.toWei(1000);
+        let pool1 = await LPool.at((await openLev.markets(pairId)).pool1);
+        await token1.approve(await pool1.address, utils.toWei(1000), {from: saver});
+        await pool1.mint(saverSupply, {from: saver});
+        let borrow = utils.toWei(500);
+        await advanceMultipleBlocksAndTime(100);
+        await openLev.updatePrice(pairId, Uni2DexData);
+        await openLev.marginTrade(pairId, false, true, deposit, borrow, 0, Uni2DexData, {from: trader});
+
+        let marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
+        assert.equal(marginRatio.current.toString(), 8052);
+        await advanceMultipleBlocksAndTime(1000);
+        marginRatio = await openLev.marginRatio(trader, pairId, 0, Uni2DexData);
+        assert.equal(marginRatio.current.toString(), 8044);
+    })
+
     it("LONG Token0, Price Diffience>10%, Not update pirce, Long Again", async () => {
         let pairId = 0;
         await printBlockNum();
