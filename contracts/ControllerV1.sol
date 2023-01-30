@@ -76,6 +76,9 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
         uint16 marketId = (OpenLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
+        if (opBorrowing != address(0)) {
+            IOPBorrowing(opBorrowing).addMarket(marketId, address(pool0), address(pool1), pairVar.dexData);
+        }
         emit LPoolPairCreated(pairVar.token0, address(pool0), pairVar.token1, address(pool1), marketId, pairVar.marginLimit, pairVar.dexData);
     }
 
@@ -211,6 +214,10 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         marketSuspend[marketId] = suspend;
     }
 
+    function setBorrowingSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
+        borrowingSuspend[marketId] = suspend;
+    }
+
     function setOleWethDexData(bytes memory _oleWethDexData) external override onlyAdminOrDeveloper {
         oleWethDexData = _oleWethDexData;
     }
@@ -244,6 +251,8 @@ interface IOPBorrowing {
         uint collateral;
         uint128 lastBlockNum;
     }
+
+    function addMarket(uint16 marketId, address pool0, address pool1, bytes memory dexData) external;
 
     function activeBorrows(address borrower, uint16 marketId, bool collateralIndex) external view returns (Borrow memory);
 }
