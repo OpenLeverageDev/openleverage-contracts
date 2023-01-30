@@ -102,7 +102,7 @@ library OpenLevV1Lib {
             tokenToLong,
             longToken ? market.token0 : market.token1,
             longToken ? market.pool0 : market.pool1,
-            true,
+            false,
             dexData
         );
     }
