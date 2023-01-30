@@ -147,11 +147,14 @@ interface ControllerInterface {
 
     function setLPoolUnAllowed(address lpool, bool unAllowed) external;
 
+    //useless
     function setSuspend(bool suspend) external;
 
     function setSuspendAll(bool suspend) external;
 
     function setMarketSuspend(uint marketId, bool suspend) external;
+
+    function setBorrowingSuspend(uint marketId, bool suspend) external;
 
     function setOleWethDexData(bytes memory _oleWethDexData) external;
 
