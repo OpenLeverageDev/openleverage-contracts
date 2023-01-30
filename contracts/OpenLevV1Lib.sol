@@ -158,7 +158,7 @@ library OpenLevV1Lib {
                 safeApprove(IERC20(sellToken), address(dexAggregator), sellAmount);
                 buyAmount = dexAggSell(dexAggregator, buyToken, sellToken, sellAmount, minBuyAmount, data);
             } else {
-                buyAmount = Aggregator1InchV5.swap1inch(router1inch, data.to1InchCallData(), address(this), buyToken, sellToken, sellAmount, minBuyAmount);
+                buyAmount = Aggregator1InchV5.swap1inch(router1inch, data, address(this), buyToken, sellToken, sellAmount, minBuyAmount);
             }
         }
     }
@@ -174,7 +174,7 @@ library OpenLevV1Lib {
                 safeApprove(IERC20(sellToken), address(dexAggregator), maxSellAmount);
                 sellAmount = dexAggregator.buy(buyToken, sellToken, buyTax, sellTax, buyAmount, maxSellAmount, data);
             } else {
-                uint firstBuyAmount = Aggregator1InchV5.swap1inch(router1inch, data.to1InchCallData(), address(this), buyToken, sellToken, closeAmount, 0);
+                uint firstBuyAmount = Aggregator1InchV5.swap1inch(router1inch, data, address(this), buyToken, sellToken, closeAmount, 0);
                 uint secondSellAmount = firstBuyAmount.sub(buyAmount);
                 safeApprove(IERC20(buyToken), address(dexAggregator), secondSellAmount);
                 uint secondBuyAmount = dexAggSell(dexAggregator, sellToken, buyToken, secondSellAmount, closeAmount.sub(maxSellAmount), marketDefaultDex);
