@@ -11,6 +11,11 @@ interface IAggregationExecutor {
 contract Mock1inchRouter {
 
     address mockExchangeAddress;
+    uint256 public verifyAmount;
+    uint256 public verifyMinReturn;
+    uint256[] public verifyPools;
+    IERC20 public verifySrcToken;
+    IERC20 public verifyDstToken;
 
     uint256 private constant _PARTIAL_FILL = 1 << 0;
     uint256 private constant _REQUIRES_EXTRA_ETH = 1 << 1;
@@ -73,6 +78,76 @@ contract Mock1inchRouter {
 
         address payable dstReceiver = (desc.dstReceiver == address(0)) ? payable(msg.sender) : desc.dstReceiver;
         dstToken.transfer(dstReceiver, returnAmount);
+    }
+
+    function uniswapV3Swap(
+        uint256 amount,
+        uint256 minReturn,
+        uint256[] calldata pools
+    ) external payable returns(uint256 returnAmount) {
+        require(amount == verifyAmount, "amount error");
+        require(minReturn == verifyMinReturn, "minReturn error");
+        uint len = verifyPools.length;
+        for(uint i = 0; i < len; i++){
+            require(pools[i] == verifyPools[i], "pools error");
+        }
+        _execute(verifyDstToken);
+        returnAmount = verifyDstToken.balanceOf(address(this));
+        verifyDstToken.transfer(payable(msg.sender), returnAmount);
+    }
+
+    function unoswap(
+        IERC20 srcToken,
+        uint256 amount,
+        uint256 minReturn,
+        uint256[] calldata pools
+    ) external payable returns(uint256 returnAmount) {
+        require(srcToken == verifySrcToken, "srcToken error");
+        require(amount == verifyAmount, "amount error");
+        require(minReturn == verifyMinReturn, "minReturn error");
+        uint len = verifyPools.length;
+        for(uint i = 0; i < len; i++){
+            require(pools[i] == verifyPools[i], "pools error");
+        }
+        _execute(verifyDstToken);
+        returnAmount = verifyDstToken.balanceOf(address(this));
+        verifyDstToken.transfer(payable(msg.sender), returnAmount);
+    }
+
+    function clipperSwap(
+        uint256 amount,
+        uint256 minReturn,
+        uint256[] calldata pools
+    ) external payable returns(uint256 returnAmount) {
+        require(amount == verifyAmount, "amount error");
+        require(minReturn == verifyMinReturn, "minReturn error");
+        uint len = verifyPools.length;
+        for(uint i = 0; i < len; i++){
+            require(pools[i] == verifyPools[i], "pools error");
+        }
+        _execute(verifyDstToken);
+        returnAmount = verifyDstToken.balanceOf(address(this));
+        verifyDstToken.transfer(payable(msg.sender), returnAmount);
+    }
+
+    function setVerifyAmount(uint amount) public {
+        verifyAmount = amount;
+    }
+
+    function setVerifyMinReturn(uint minReturn) public {
+        verifyMinReturn = minReturn;
+    }
+
+    function setVerifyPools(uint[] calldata pools) public {
+        verifyPools = pools;
+    }
+
+    function setVerifySrcToken(IERC20 srcToken) public {
+        verifySrcToken = srcToken;
+    }
+
+    function setVerifyDstToken(IERC20 dstToken) public {
+        verifyDstToken = dstToken;
     }
 
     function _execute(
