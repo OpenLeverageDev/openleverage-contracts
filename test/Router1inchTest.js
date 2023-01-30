@@ -2,7 +2,7 @@ const utils = require("./utils/OpenLevUtil");
 const {
     Uni2DexData,
     assertThrows,
-    getCall1inchData,
+    getCall1inchSwapData,
 } = require("./utils/OpenLevUtil");
 const {advanceMultipleBlocksAndTime, toBN} = require("./utils/EtheUtil");
 const OpenLevV1 = artifacts.require("OpenLevV1");
@@ -77,7 +77,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader});
 
@@ -90,7 +90,7 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "1000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), trade.held.toString());
+        let closeCallData = getCall1inchSwapData(router, token1.address, token0.address, openLev.address, trade.held.toString(), trade.held.toString());
         await utils.mint(token0, dev, 2);
         await openLev.closeTrade(pairId, true, trade.held, 0, closeCallData, {from: trader});
         let tradeAfter = await openLev.activeTrades(trader, pairId, 1);
@@ -107,7 +107,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, trader, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, trader, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
@@ -117,7 +117,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, weth.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, weth.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'sell token error');
     })
@@ -128,7 +128,7 @@ contract("1inch router", async accounts => {
         await openLev.updatePrice(pairId, Uni2DexData);
 
         await weth.approve(router.address, utils.toWei(10000000000), {from: dev});
-        let callData = getCall1inchData(router, token0.address, weth.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, weth.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(weth, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), '1inch: buy amount less than min');
     })
@@ -138,7 +138,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         m.log("set incoming sell amount more than actual sell amount");
         await utils.mint(token1, dev, 2);
         assert.equal(await token0.balanceOf(openLev.address), 0);
@@ -149,7 +149,7 @@ contract("1inch router", async accounts => {
         m.log("margin trade successful, current held = ", tradeAfter.held)
         assert.equal(tradeAfter.held.toString(), "1999999999999999999");
 
-        let callData2 = getCall1inchData(router, token1.address, token0.address, openLev.address, utils.toWei(1).toString(), "1999999999999999999");
+        let callData2 = getCall1inchSwapData(router, token1.address, token0.address, openLev.address, utils.toWei(1).toString(), "1999999999999999999");
         m.log("set incoming sell amount less than actual sell amount");
         await utils.mint(token0, dev, 2);
         assert.equal(await token1.balanceOf(openLev.address), "1999999999999999999");
@@ -166,7 +166,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "2000000000000000001");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "2000000000000000001");
         await utils.mint(token1, dev, 2);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader}), 'ReturnAmountIsNotEnough');
     })
@@ -176,7 +176,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
         await utils.mint(token1, dev, 1);
         await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, "1999999999999999999", callData, {from: trader}), '1inch: buy amount less than min');
     })
@@ -186,7 +186,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "999999999999999999");
         await utils.mint(token1, dev, 1);
         await openLev.marginTrade(pairId, true, true, deposit, borrow, "999999999999999999", callData, {from: trader});
 
@@ -199,7 +199,7 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "1000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "1999999999999999999");
+        let closeCallData = getCall1inchSwapData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "1999999999999999999");
         await utils.mint(token0, dev, 2);
         let token1BalanceBefore = await token1.balanceOf(trader);
         await openLev.closeTrade(pairId, true, trade.held, trade.held, closeCallData, {from: trader});
@@ -221,7 +221,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, true, deposit, borrow, "1999999999999999999", callData, {from: trader});
 
@@ -234,7 +234,7 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "2000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "1999999999999999999");
+        let closeCallData = getCall1inchSwapData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "1999999999999999999");
         await utils.mint(token0, dev, 2);
         await assertThrows(openLev.closeTrade(pairId, true, trade.held, trade.held, closeCallData, {from: trader}), 'SafeMath: subtraction overflow');
     })
@@ -246,7 +246,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, true, deposit, borrow, "1999999999999999999", callData, {from: trader});
 
@@ -259,7 +259,7 @@ contract("1inch router", async accounts => {
         assert.equal(borrowed, "2000000000000000000");
 
         await advanceMultipleBlocksAndTime(100);
-        let closeCallData = getCall1inchData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "2999999999999999999");
+        let closeCallData = getCall1inchSwapData(router, token1.address, token0.address, openLev.address, trade.held.toString(), "2999999999999999999");
         await utils.mint(token0, dev, 3);
         await assertThrows(openLev.closeTrade(pairId, true, trade.held, "2500000000000000000", closeCallData, {from: trader}), 'buy amount less than min');
     })
@@ -269,7 +269,7 @@ contract("1inch router", async accounts => {
         await advanceMultipleBlocksAndTime(100);
         await openLev.updatePrice(pairId, Uni2DexData);
 
-        let callData = getCall1inchData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
+        let callData = getCall1inchSwapData(router, token0.address, token1.address, openLev.address, sellAmount.toString(), "1999999999999999999");
         await utils.mint(token1, dev, 2);
         await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, callData, {from: trader});
 
@@ -285,6 +285,58 @@ contract("1inch router", async accounts => {
         assert.equal(await openLev.router1inch(), token1.address);
         console.log("1inch router update success by admin.");
         await assertThrows(openLev.setRouter1inch(router.address, {from: trader}), 'caller must be admin');
+    })
+
+    it("1inch router by function : unoswap", async () => {
+        let sellAmount = utils.toWei(2);
+        await advanceMultipleBlocksAndTime(100);
+        await openLev.updatePrice(pairId, Uni2DexData);
+        let callData = router.contract.methods.unoswap(token0.address, sellAmount.toString(), "1999999999999999999", ["1457117133357877736574669614693451329632719413002162662161"]).encodeABI();
+        await utils.mint(token1, dev, 2);
+
+        m.log("set verify info, start ---");
+        await router.setVerifyAmount(sellAmount);
+        await router.setVerifyMinReturn("1999999999999999999");
+        await router.setVerifyPools(["1457117133357877736574669614693451329632719413002162662161"]);
+        await router.setVerifySrcToken(token0.address);
+        await router.setVerifyDstToken(token1.address);
+        m.log("set verify info, finished ---");
+
+        await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, "0x1500000002" + callData.substring(2), {from: trader});
+        let trade = await openLev.activeTrades(trader, pairId, 1);
+        m.log("after marginTrade ---");
+        m.log("current held =", trade.held);
+        assert.equal(trade.held.toString(), sellAmount.toString());
+    })
+
+    it("1inch router by function : uniswapV3Swap", async () => {
+        let sellAmount = utils.toWei(2);
+        await advanceMultipleBlocksAndTime(100);
+        await openLev.updatePrice(pairId, Uni2DexData);
+        let callData = router.contract.methods.uniswapV3Swap(sellAmount.toString(), "1999999999999999999", ["1457117133357877736574669614693451329632719413002162662161"]).encodeABI();
+        await utils.mint(token1, dev, 2);
+
+        m.log("set verify info, start ---");
+        await router.setVerifyAmount(sellAmount);
+        await router.setVerifyMinReturn("1999999999999999999");
+        await router.setVerifyPools(["1457117133357877736574669614693451329632719413002162662161"]);
+        await router.setVerifySrcToken(token0.address);
+        await router.setVerifyDstToken(token1.address);
+        m.log("set verify info, finished ---");
+
+        await openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, "0x1500000002" + callData.substring(2), {from: trader});
+        let trade = await openLev.activeTrades(trader, pairId, 1);
+        m.log("after marginTrade ---");
+        m.log("current held =", trade.held);
+        assert.equal(trade.held.toString(), sellAmount.toString());
+    })
+
+    it("1inch router by not supported function, revert", async () => {
+        let sellAmount = utils.toWei(2);
+        await advanceMultipleBlocksAndTime(100);
+        await openLev.updatePrice(pairId, Uni2DexData);
+        let callData = router.contract.methods.clipperSwap(sellAmount.toString(), "1999999999999999999", ["1457117133357877736574669614693451329632719413002162662161"]).encodeABI();
+        await assertThrows(openLev.marginTrade(pairId, true, false, deposit, borrow, borrow, "0x1500000002" + callData.substring(2), {from: trader}), "USF");
     })
 
 })
