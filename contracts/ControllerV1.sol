@@ -135,7 +135,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
     function marginTradeAllowedV2(uint marketId, address trader, bool longToken) onlyNotSuspended external view override returns (bool){
         require(!marketSuspend[marketId], 'Market suspended');
         if (opBorrowing != address(0)) {
-            require(IOPBorrowing(opBorrowing).activeBorrows(trader, uint16(marketId), longToken) == 0, 'MBB');
+            require(IOPBorrowing(opBorrowing).activeCollaterals(trader, uint16(marketId), longToken) == 0, 'MBB');
         }
         return true;
     }
@@ -251,7 +251,7 @@ interface IOPBorrowing {
 
     function addMarket(uint16 marketId, address pool0, address pool1, bytes memory dexData) external;
 
-    function activeBorrows(address borrower, uint16 marketId, bool collateralIndex) external view returns (uint);
+    function activeCollaterals(address borrower, uint16 marketId, bool collateralIndex) external view returns (uint);
 }
 
 interface IOpenLev {
