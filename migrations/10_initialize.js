@@ -102,6 +102,10 @@ async function initializeLenderPool(accounts, network) {
             m.log("waiting controller create wcro - usdc market ......");
             await intializeMarket(accounts, network, '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23', '0xc21223249CA28397B4B6541dfFaEcC539BfF0c59', 3000, '0x1400000002');
             break;
+        case utils.arbitrumMainnet:
+            m.log("waiting controller create weth - usdc market ......");
+            await intializeMarket(accounts, network, '0x82af49447d8a07e3bd95bd0d56f35241523fbab1', '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8', 3000, '0x0400000002');
+            break;
     }
 }
 
