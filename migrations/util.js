@@ -6,6 +6,7 @@ let mainnet = exports.mainnet = 'mainnet';
 let kccMainnet = exports.kccMainnet = 'kccMainnet';
 let cronosTest = exports.cronosTest = 'cronosTest';
 let cronosMainnet = exports.cronosMainnet = 'cronosMainnet';
+let arbitrumMainnet = exports.arbitrumMainnet = "arbitrumMainnet"
 
 
 
@@ -35,6 +36,8 @@ exports.uniswapV2Address = function (network) {
         case cronosTest:
         case cronosMainnet:
             return "0x3B44B2a187a7b3824131F8db5a74194D0a42Fc15";
+        case arbitrumMainnet:
+            return "0xc35dadb65012ec5796536bd9864ed8773abc74c4";
         default:
             return zeroAddress;
     }
@@ -44,6 +47,7 @@ exports.uniswapV3Address = function (network) {
     switch (network){
         case kovan:
         case mainnet:
+        case arbitrumMainnet:
             return '0x1f98431c8ad98523631ae4a59f267346ea31f984';
         default:
             return zeroAddress;
@@ -100,6 +104,8 @@ exports.blocksPerYear = function (network) {
         case cronosTest:
         case cronosMainnet:
             return 31536000;
+        case arbitrumMainnet:
+            return 2628000;
     }
 }
 
@@ -142,6 +148,8 @@ exports.getWChainToken = function (network) {
         case cronosTest:
         case cronosMainnet:
             return "0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23";
+        case arbitrumMainnet:
+            return "0x82af49447d8a07e3bd95bd0d56f35241523fbab1";
         default:
             return zeroAddress;
     }
@@ -173,6 +181,8 @@ exports.getUniV2DexData = function (network){
         case cronosTest:
         case cronosMainnet:
             return "0x14"
+        case arbitrumMainnet:
+            return "0x04"
         default:
             return zeroAddress;
     }
