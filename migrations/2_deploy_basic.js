@@ -50,6 +50,9 @@ module.exports = async function (deployer, network, accounts) {
         case utils.cronosMainnet:
             oleAddr = '0x97a21A4f05b152a5D3cDf6273EE8b1d3D8fa8E40';
             break;
+        case utils.arbitrumMainnet:
+            oleAddr = '0xD4d026322C88C2d49942A75DfF920FCfbC5614C1';
+            break;
         default:
             await deployer.deploy(OLEToken, adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
             oleAddr = OLEToken.address;
