@@ -2,12 +2,14 @@ const OLEToken = artifacts.require("OLEToken");
 const xOLE = artifacts.require("XOLE");
 const xOLEDelegator = artifacts.require("XOLEDelegator");
 const EthDexAggregatorV1 = artifacts.require("EthDexAggregatorV1");
+const ArbitrumDexAggregatorV1 = artifacts.require("ArbitrumDexAggregatorV1");
 const BscDexAggregatorV1 = artifacts.require("BscDexAggregatorV1");
 const KccDexAggregatorV1 = artifacts.require("KccDexAggregatorV1");
 const CronosDexAggregatorV1 = artifacts.require("CronosDexAggregatorV1");
 const DexAggregatorDelegator = artifacts.require("DexAggregatorDelegator");
 const Gov = artifacts.require("GovernorAlpha");
 const QueryHelper = artifacts.require("QueryHelper");
+const BatchQueryHelper = artifacts.require("BatchQueryHelper");
 const Timelock = artifacts.require("Timelock");
 const ControllerV1 = artifacts.require("ControllerV1");
 const ControllerDelegator = artifacts.require("ControllerDelegator");
@@ -27,6 +29,8 @@ module.exports = async function (deployer, network, accounts) {
     if (utils.isSkip(network)) {
         return;
     }
+    m.log("is equal ......");
+    m.log(network == utils.arbitrumMainnet);
     let adminAccount = accounts[0];
     let dev = accounts[0];
     let weth9 = utils.getWChainToken(network);
@@ -46,6 +50,9 @@ module.exports = async function (deployer, network, accounts) {
         case utils.cronosMainnet:
             oleAddr = '0x97a21A4f05b152a5D3cDf6273EE8b1d3D8fa8E40';
             break;
+        case utils.arbitrumMainnet:
+            oleAddr = '0xD4d026322C88C2d49942A75DfF920FCfbC5614C1';
+            break;
         default:
             await deployer.deploy(OLEToken, adminAccount, adminCtr, utils.tokenName(network), utils.tokenSymbol(network), utils.deployOption(accounts));
             oleAddr = OLEToken.address;
@@ -53,6 +60,7 @@ module.exports = async function (deployer, network, accounts) {
 
     //queryHelper
     await deployer.deploy(QueryHelper, utils.deployOption(accounts));
+    await deployer.deploy(BatchQueryHelper, utils.deployOption(accounts));
     //airdrop
     await deployer.deploy(Airdrop, oleAddr, utils.deployOption(accounts));
     //dexAgg
@@ -71,6 +79,10 @@ module.exports = async function (deployer, network, accounts) {
             await deployer.deploy(CronosDexAggregatorV1, utils.deployOption(accounts));
             await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, CronosDexAggregatorV1.address, utils.deployOption(accounts));
             break;
+        case utils.arbitrumMainnet:
+            await deployer.deploy(ArbitrumDexAggregatorV1, utils.deployOption(accounts));
+            await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, ArbitrumDexAggregatorV1.address, utils.deployOption(accounts));
+            break;
         default:
             await deployer.deploy(EthDexAggregatorV1, utils.deployOption(accounts));
             await deployer.deploy(DexAggregatorDelegator, utils.uniswapV2Address(network), utils.uniswapV3Address(network), adminCtr, EthDexAggregatorV1.address, utils.deployOption(accounts));
@@ -84,8 +96,8 @@ module.exports = async function (deployer, network, accounts) {
     //reserve
     await deployer.deploy(Reserve, adminCtr, oleAddr, utils.deployOption(accounts));
     //controller
-    //await deployer.deploy(LPool, utils.deployOption(accounts));
-    await deployer.deploy(LTimePool, utils.deployOption(accounts));
+    await deployer.deploy(LPool, utils.deployOption(accounts));
+    //await deployer.deploy(LTimePool, utils.deployOption(accounts));
     await deployer.deploy(ControllerV1, utils.deployOption(accounts));
     switch (network) {
         case utils.bscIntegrationTest:
@@ -98,6 +110,9 @@ module.exports = async function (deployer, network, accounts) {
         case utils.cronosTest:
         case utils.cronosMainnet:
             await deployer.deploy(ControllerDelegator, oleAddr, xOLEDelegator.address, weth9, LTimePool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x14', adminCtr, ControllerV1.address, utils.deployOption(accounts));
+            break;
+        case utils.arbitrumMainnet:
+            await deployer.deploy(ControllerDelegator, oleAddr, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x04', adminCtr, ControllerV1.address, utils.deployOption(accounts));
             break;
         default:
             await deployer.deploy(ControllerDelegator, oleAddr, xOLEDelegator.address, weth9, LPool.address, utils.zeroAddress, DexAggregatorDelegator.address, '0x02000bb8', adminCtr, ControllerV1.address, utils.deployOption(accounts));
@@ -118,6 +133,9 @@ module.exports = async function (deployer, network, accounts) {
         case utils.cronosMainnet:
             await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [20], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
             break;
+        case utils.arbitrumMainnet:
+            await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [4, 2, 21], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
+            break;
         default:
             await deployer.deploy(OpenLevDelegator, ControllerDelegator.address, DexAggregatorDelegator.address, utils.getDepositTokens(network), weth9, xOLEDelegator.address, [1, 2], adminCtr, OpenLevV1.address, utils.deployOption(accounts));
     }
@@ -129,6 +147,8 @@ module.exports = async function (deployer, network, accounts) {
     await (await Timelock.at(Timelock.address)).executeTransaction(ControllerDelegator.address, 0, 'setOpenLev(address)', encodeParameters(['address'], [OpenLevDelegator.address]), 0);
     m.log("Waiting dexAgg setOpenLev......");
     await (await Timelock.at(Timelock.address)).executeTransaction(DexAggregatorDelegator.address, 0, 'setOpenLev(address)', encodeParameters(['address'], [OpenLevDelegator.address]), 0);
+
+
     if (network == utils.bscIntegrationTest || network == utils.bscTestnet) {
         m.log("Waiting dexAgg set factory ......");
         await (await Timelock.at(Timelock.address)).executeTransaction(DexAggregatorDelegator.address, 0, 'setDexInfo(uint8[],address[],uint16[])',
@@ -144,6 +164,11 @@ module.exports = async function (deployer, network, accounts) {
         await (await Timelock.at(Timelock.address)).executeTransaction(DexAggregatorDelegator.address, 0, 'setDexInfo(uint8[],address[],uint16[])',
             encodeParameters(['uint8[]', 'address[]', 'uint16[]'],
                 [[20], ['0x3B44B2a187a7b3824131F8db5a74194D0a42Fc15'], [30]]), 0);
+    } else if (network == utils.arbitrumMainnet) {
+        m.log("Waiting dexAgg set factory ......");
+        await (await Timelock.at(Timelock.address)).executeTransaction(DexAggregatorDelegator.address, 0, 'setDexInfo(uint8[],address[],uint16[])',
+            encodeParameters(['uint8[]', 'address[]', 'uint16[]'],
+                [[4], ['0xc35dadb65012ec5796536bd9864ed8773abc74c4'], [30]]), 0);
     }
 };
 
