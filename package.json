@@ -25,7 +25,7 @@
     "lodash.template": "^4.5.0",
     "merkletreejs": "^0.2.24",
     "solc": "^0.7.6",
-    "truffle": "^5.4.7",
+    "truffle": "^5.7.9",
     "truffle-contract-size": "^2.0.1"
   },
   "bundleDependencies": false,
