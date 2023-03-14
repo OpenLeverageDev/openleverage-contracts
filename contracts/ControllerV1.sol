@@ -115,7 +115,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         borrower;
         repayAmount;
         if (isEnd) {
-            require(openLev == payer, "Operator not openLev");
+            require(openLev == payer || opBorrowing == payer, "Operator not openLev");
         }
     }
 
@@ -241,7 +241,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         _;
     }
     modifier onlyOpenLevOperator(address operator) {
-        require(openLev == operator || openLev == address(0), "Operator not openLev");
+        require((openLev == operator || openLev == address(0)) || (opBorrowing == operator), "Operator not openLev");
         _;
     }
 }
