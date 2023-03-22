@@ -25,6 +25,8 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     mapping(uint8 => DexInfo) public dexInfo;
 
+    address public opBorrowing;
+
     //pancakeFactory: 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73
     function initialize(
         IUniswapV2Factory _pancakeFactory,
@@ -54,6 +56,10 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         openLev = _openLev;
     }
 
+    function setOpBorrowing(address _opBorrowing) external onlyAdmin {
+        require(address(0) != _opBorrowing, '0x');
+        opBorrowing = _opBorrowing;
+    }
     /// @notice Sell tokens 
     /// @dev Sell exact amount of token with tax applied
     /// @param buyToken Address of token transfer from Dex pair
@@ -175,7 +181,7 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param data dex parameters
     /// @return If updated
     function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external override returns (bool){
-        require(msg.sender == openLev, "Only openLev can update price");
+        require(msg.sender == openLev || msg.sender == opBorrowing, "Only openLev can update price");
         require(data.isUniV2Class(), "unsupported dex");
         address pair = getUniClassPair(desToken, quoteToken, dexInfo[data.toDex()].factory);
         V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
@@ -194,5 +200,17 @@ contract BscDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         // Shh - currently unused
         (desToken,quoteToken, data);
         revert("Not implemented");
+    }
+
+    function getToken0Liquidity(address token0, address token1, bytes memory dexData) external override view returns (uint){
+        require(dexData.isUniV2Class(), "unsupported dex");
+        address pair = getUniClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        return IERC20(token0).balanceOf(pair);
+    }
+
+    function getPairLiquidity(address token0, address token1, bytes memory dexData) external override view returns (uint token0Liq, uint token1Liq){
+        require(dexData.isUniV2Class(), "unsupported dex");
+        address pair = getUniClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        return (IERC20(token0).balanceOf(pair), IERC20(token1).balanceOf(pair));
     }
 }

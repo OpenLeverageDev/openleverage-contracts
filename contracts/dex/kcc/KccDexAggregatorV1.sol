@@ -25,6 +25,8 @@ contract KccDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     mapping(uint8 => DexInfo) public dexInfo;
 
+    address public opBorrowing;
+
     //mojitoSwapFactory: 0x79855A03426e15Ad120df77eFA623aF87bd54eF3 、kuSwapFactory: 0xAE46cBBCDFBa3bE0F02F463Ec5486eBB4e2e65Ae
     function initialize(
         IUniswapV2Factory _mojitoFactory,
@@ -53,6 +55,11 @@ contract KccDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         openLev = _openLev;
     }
 
+
+    function setOpBorrowing(address _opBorrowing) external onlyAdmin {
+        require(address(0) != _opBorrowing, '0x');
+        opBorrowing = _opBorrowing;
+    }
 
     /// @notice Sell tokens
     /// @dev Sell exact amount of token with tax applied
@@ -194,5 +201,17 @@ contract KccDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         // Shh - currently unused
         (desToken,quoteToken, data);
         revert("Not implemented");
+    }
+
+    function getToken0Liquidity(address token0, address token1, bytes memory dexData) external view override returns (uint){
+        require(dexData.isUniV2Class(), "unsupported dex");
+        address pair = getUniClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        return IERC20(token0).balanceOf(pair);
+    }
+
+    function getPairLiquidity(address token0, address token1, bytes memory dexData) external view override returns (uint token0Liq, uint token1Liq){
+        require(dexData.isUniV2Class(), "unsupported dex");
+        address pair = getUniClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        return (IERC20(token0).balanceOf(pair), IERC20(token1).balanceOf(pair));
     }
 }

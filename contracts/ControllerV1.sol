@@ -76,6 +76,9 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         lpoolPairs[token0][token1] = LPoolPair(address(pool0), address(pool1));
         lpoolPairs[token1][token0] = LPoolPair(address(pool0), address(pool1));
         uint16 marketId = (OpenLevInterface(openLev)).addMarket(LPoolInterface(address(pool0)), LPoolInterface(address(pool1)), pairVar.marginLimit, pairVar.dexData);
+        if (opBorrowing != address(0)) {
+            IOPBorrowing(opBorrowing).addMarket(marketId, address(pool0), address(pool1), pairVar.dexData);
+        }
         emit LPoolPairCreated(pairVar.token0, address(pool0), pairVar.token1, address(pool1), marketId, pairVar.marginLimit, pairVar.dexData);
     }
 
@@ -112,7 +115,7 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         borrower;
         repayAmount;
         if (isEnd) {
-            require(openLev == payer, "Operator not openLev");
+            require(openLev == payer || opBorrowing == payer, "Operator not openLev");
         }
     }
 
@@ -122,7 +125,6 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         liquidateAmount;
         dexData;
         require(!marketSuspend[marketId], 'Market suspended');
-
     }
 
     function marginTradeAllowed(uint marketId) external view override onlyNotSuspended returns (bool){
@@ -130,8 +132,16 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         return true;
     }
 
-    function closeTradeAllowed(uint marketId) external view override returns (bool){
-        require(!suspendAll, 'Suspended');
+    function marginTradeAllowedV2(uint marketId, address trader, bool longToken) onlyNotSuspended external view override returns (bool){
+        require(!marketSuspend[marketId], 'Market suspended');
+        if (opBorrowing != address(0)) {
+            require(IOPBorrowing(opBorrowing).activeCollaterals(trader, uint16(marketId), longToken) == 0, 'MBB');
+        }
+        return true;
+    }
+
+    function closeTradeAllowed(uint marketId) external view override onlyNotSuspended returns (bool){
+        marketId;
         return true;
     }
 
@@ -143,6 +153,25 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
 
     function updateInterestAllowed(address payable sender) external override {
         require(sender == admin || sender == developer, 'caller must be admin or developer');
+    }
+
+
+    function collBorrowAllowed(uint marketId, address borrower, bool collateralIndex) external view override onlyNotSuspended onlyOpBorrowingNotSuspended(marketId) returns (bool){
+        Types.Trade memory trade = IOpenLev(openLev).activeTrades(borrower, uint16(marketId), collateralIndex);
+        require(trade.held == 0, 'BMB');
+        return true;
+    }
+
+    function collRepayAllowed(uint marketId) external view override onlyNotSuspended onlyOpBorrowingNotSuspended(marketId) returns (bool){
+        return true;
+    }
+
+    function collRedeemAllowed(uint marketId) external view override onlyNotSuspended onlyOpBorrowingNotSuspended(marketId) returns (bool){
+        return true;
+    }
+
+    function collLiquidateAllowed(uint marketId) external view override onlyNotSuspended onlyOpBorrowingNotSuspended(marketId) returns (bool){
+        return true;
     }
 
 
@@ -185,8 +214,16 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
         marketSuspend[marketId] = suspend;
     }
 
+    function setBorrowingSuspend(uint marketId, bool suspend) external override onlyAdminOrDeveloper {
+        borrowingSuspend[marketId] = suspend;
+    }
+
     function setOleWethDexData(bytes memory _oleWethDexData) external override onlyAdminOrDeveloper {
         oleWethDexData = _oleWethDexData;
+    }
+
+    function setOpBorrowing(address _opBorrowing) external override onlyAdmin {
+        opBorrowing = _opBorrowing;
     }
 
     modifier onlyLPoolAllowed() {
@@ -195,14 +232,29 @@ contract ControllerV1 is DelegateInterface, Adminable, ControllerInterface, Cont
     }
 
     modifier onlyNotSuspended() {
-        require(!suspend, 'Suspended');
         require(!suspendAll, 'Suspended all');
         _;
     }
 
-    modifier onlyOpenLevOperator(address operator) {
-        require(openLev == operator || openLev == address(0), "Operator not openLev");
+    modifier onlyOpBorrowingNotSuspended(uint marketId) {
+        require(!borrowingSuspend[marketId], 'Suspended borrowing');
         _;
     }
+    modifier onlyOpenLevOperator(address operator) {
+        require((openLev == operator || openLev == address(0)) || (opBorrowing == operator), "Operator not openLev");
+        _;
+    }
+}
 
+interface IOPBorrowing {
+
+
+    function addMarket(uint16 marketId, address pool0, address pool1, bytes memory dexData) external;
+
+    function activeCollaterals(address borrower, uint16 marketId, bool collateralIndex) external view returns (uint);
+}
+
+interface IOpenLev {
+
+    function activeTrades(address trader, uint16 marketId, bool longToken) external view returns (Types.Trade memory);
 }

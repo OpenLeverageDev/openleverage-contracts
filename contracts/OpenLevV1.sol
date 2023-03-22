@@ -106,7 +106,7 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         {
             Types.Trade storage t = activeTrades[trader][marketId][longToken];
             OpenLevV1Lib.verifyTrade(vars, longToken, depositToken, deposit, borrow, dexData, addressConfig, t, msg.sender == opLimitOrder ? false : true);
-            (ControllerInterface(addressConfig.controller)).marginTradeAllowed(marketId);
+            (ControllerInterface(addressConfig.controller)).marginTradeAllowedV2(marketId, trader, longToken);
             if (dexData.isUniV2Class()) {
                 updatePrice(address(vars.buyToken), address(vars.sellToken), calPriceDexData);
             }
@@ -462,6 +462,9 @@ contract OpenLevV1 is DelegateInterface, Adminable, ReentrancyGuard, OpenLevInte
         opLimitOrder = _opLimitOrder;
     }
 
+    function getMarketSupportDexs(uint16 marketId) external override view returns (uint32[] memory){
+        return markets[marketId].dexs;
+    }
 
     function reduceInsurance(uint totalRepayment, uint remaining, uint16 marketId, bool longToken, address token, uint reserve) internal returns (uint maxCanRepayAmount) {
         Types.Market storage market = markets[marketId];

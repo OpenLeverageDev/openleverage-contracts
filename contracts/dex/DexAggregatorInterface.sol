@@ -28,4 +28,8 @@ interface DexAggregatorInterface {
     function updateV3Observation(address desToken, address quoteToken, bytes memory data) external;
 
     function setDexInfo(uint8[] memory dexName, IUniswapV2Factory[] memory factoryAddr, uint16[] memory fees) external;
+
+    function getToken0Liquidity(address token0, address token1, bytes memory dexData) external view returns (uint);
+
+    function getPairLiquidity(address token0, address token1, bytes memory dexData) external view returns (uint token0Liq, uint token1Liq);
 }

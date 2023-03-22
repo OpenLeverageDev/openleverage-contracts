@@ -27,6 +27,8 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
 
     mapping(uint8 => DexInfo) public dexInfo;
 
+    address public opBorrowing;
+
     //v2 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f
     //v3 0x1f98431c8ad98523631ae4a59f267346ea31f984
     function initialize(
@@ -54,6 +56,11 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     function setOpenLev(address _openLev) external onlyAdmin {
         require(address(0) != _openLev, '0x');
         openLev = _openLev;
+    }
+
+    function setOpBorrowing(address _opBorrowing) external onlyAdmin {
+        require(address(0) != _opBorrowing, '0x');
+        opBorrowing = _opBorrowing;
     }
 
     /// @notice Sell tokens 
@@ -249,5 +256,29 @@ contract EthDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
         if (data.toDex() == DexData.DEX_UNIV3) {
             increaseV3Observation(desToken, quoteToken, data.toFee());
         }
+    }
+
+    function getToken0Liquidity(address token0, address token1, bytes memory dexData) external override view returns (uint){
+        address pair;
+        if (dexData.isUniV2Class()) {
+            pair = getUniV2ClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        }
+        else if (dexData.toDex() == DexData.DEX_UNIV3) {
+            pair = address(getPool(token0, token1, dexData.toFee()));
+        }
+        require(pair != address(0), 'Ox');
+        return IERC20(token0).balanceOf(pair);
+    }
+
+    function getPairLiquidity(address token0, address token1, bytes memory dexData) external override view returns (uint token0Liq, uint token1Liq){
+        address pair;
+        if (dexData.isUniV2Class()) {
+            pair = getUniV2ClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        }
+        else if (dexData.toDex() == DexData.DEX_UNIV3) {
+            pair = address(getPool(token0, token1, dexData.toFee()));
+        }
+        require(pair != address(0), 'Ox');
+        return (IERC20(token0).balanceOf(pair), IERC20(token1).balanceOf(pair));
     }
 }
