@@ -25,6 +25,8 @@ contract CronosDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInt
 
     mapping(uint8 => DexInfo) public dexInfo;
 
+    address public opBorrowing;
+
     function initialize(
         IUniswapV2Factory _vvsFactory,
         address _unusedFactory
@@ -52,6 +54,10 @@ contract CronosDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInt
         openLev = _openLev;
     }
 
+    function setOpBorrowing(address _opBorrowing) external onlyAdmin {
+        require(address(0) != _opBorrowing, '0x');
+        opBorrowing = _opBorrowing;
+    }
 
     /// @notice Sell tokens
     /// @dev Sell exact amount of token with tax applied
@@ -193,5 +199,17 @@ contract CronosDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInt
         // Shh - currently unused
         (desToken,quoteToken, data);
         revert("Not implemented");
+    }
+
+    function getToken0Liquidity(address token0, address token1, bytes memory dexData) external override view returns (uint){
+        require(dexData.isUniV2Class(), "unsupported dex");
+        address pair = getUniClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        return IERC20(token0).balanceOf(pair);
+    }
+
+    function getPairLiquidity(address token0, address token1, bytes memory dexData) external  override view returns (uint token0Liq, uint token1Liq){
+        require(dexData.isUniV2Class(), "unsupported dex");
+        address pair = getUniClassPair(token0, token1, dexInfo[dexData.toDex()].factory);
+        return (IERC20(token0).balanceOf(pair), IERC20(token1).balanceOf(pair));
     }
 }

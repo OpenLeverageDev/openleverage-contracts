@@ -6,7 +6,8 @@ const timeMachine = require('ganache-time-traveler');
 const {mint, Uni3DexData, assertThrows} = require("./utils/OpenLevUtil");
 const Controller = artifacts.require('ControllerV1');
 const ControllerDelegator = artifacts.require('ControllerDelegator');
-
+const MockOpBorrowing = artifacts.require('MockOpBorrowing');
+const MockOpenLevV1 = artifacts.require('MockOpenLevV1');
 
 contract("ControllerV1", async accounts => {
     let admin = accounts[0];
@@ -58,7 +59,7 @@ contract("ControllerV1", async accounts => {
         await token0Ctr.approve(pool0, utils.toWei(10));
         await pool0Ctr.mint(utils.toWei(5));
         await token0Ctr.approve(openLev.address, utils.toWei(10));
-        await controller.setSuspend(true);
+        await controller.setSuspendAll(true);
         await assertThrows(openLev.marginTrade(0, true, false, utils.toWei(1), utils.toWei(1), 0, Uni3DexData), 'Suspended');
 
     });
@@ -137,7 +138,70 @@ contract("ControllerV1", async accounts => {
     });
 
 
+    it("Admin setOpBorrowing test", async () => {
+        let opBorrowing = accounts[2];
+        let {controller, timeLock} = await instanceSimpleController();
+        await timeLock.executeTransaction(controller.address, 0, 'setOpBorrowing(address)', web3.eth.abi.encodeParameters(['address'], [opBorrowing]), 0);
+        assert.equal(opBorrowing, (await controller.opBorrowing()));
+        await assertThrows(controller.setOpBorrowing(opBorrowing, {from: accounts[2]}), 'caller must be admin');
+    });
 
+    it("Admin setBorrowingSuspend test", async () => {
+        let {controller, timeLock} = await instanceSimpleController();
+        await timeLock.executeTransaction(controller.address, 0, 'setBorrowingSuspend(uint256,bool)', web3.eth.abi.encodeParameters(['uint256', 'bool'], [1, true]), 0);
+        assert.equal(true, (await controller.borrowingSuspend(1)));
+        await assertThrows(controller.setBorrowingSuspend(1, true, {from: accounts[2]}), 'caller must be admin or developer');
+    });
+
+    it("Over Collateralized Borrowing Allowed test", async () => {
+        let {controller, timeLock} = await instanceSimpleController();
+        await timeLock.executeTransaction(controller.address, 0, 'setBorrowingSuspend(uint256,bool)', web3.eth.abi.encodeParameters(['uint256', 'bool'], [1, true]), 0);
+        await assertThrows(controller.collBorrowAllowed(1, accounts[0], true), 'Suspended borrowing');
+        await assertThrows(controller.collRepayAllowed(1), 'Suspended borrowing');
+        await assertThrows(controller.collRedeemAllowed(1), 'Suspended borrowing');
+        await assertThrows(controller.collLiquidateAllowed(1), 'Suspended borrowing');
+        await timeLock.executeTransaction(controller.address, 0, 'setSuspendAll(bool)', web3.eth.abi.encodeParameters(['bool'], [true]), 0);
+
+        await assertThrows(controller.collBorrowAllowed(2, accounts[0], true), 'Suspended all');
+        await assertThrows(controller.collRepayAllowed(2), 'Suspended all');
+        await assertThrows(controller.collRedeemAllowed(2), 'Suspended all');
+        await assertThrows(controller.collLiquidateAllowed(2), 'Suspended all');
+    });
+
+    it("Create Over Collateralized Borrowing market succeed test", async () => {
+        let {controller, tokenA, tokenB} = await instanceController();
+        let opBorrowing = await MockOpBorrowing.new();
+        await controller.setOpBorrowing(opBorrowing.address, {from: admin});
+        let transaction = await createMarket(controller, tokenA, tokenB);
+        let pool0 = transaction.logs[0].args.pool0;
+        let pool1 = transaction.logs[0].args.pool1;
+        assert.equal(0, await opBorrowing.marketId());
+        assert.equal(pool0, await opBorrowing.pool0());
+        assert.equal(pool1, await opBorrowing.pool1());
+    });
+
+    it("MarginTrade AllowedV2 test", async () => {
+        let {controller} = await instanceController();
+        let opBorrowing = await MockOpBorrowing.new();
+        await controller.setOpBorrowing(opBorrowing.address, {from: admin});
+        let borrower = accounts[1];
+        let marketId = 0;
+        let longToken = false;
+        await opBorrowing.setActiveBorrows(borrower, marketId, longToken, 1);
+        await assertThrows(controller.marginTradeAllowedV2(marketId, borrower, longToken), 'MBB');
+    });
+
+    it("CollBorrow Allowed test", async () => {
+        let {controller} = await instanceController();
+        let openLev = await MockOpenLevV1.new();
+        await controller.setOpenLev(openLev.address);
+
+        let trader = accounts[1];
+        let marketId = 0;
+        let longToken = false;
+        await openLev.setActiveTrades(trader, marketId, longToken, 1);
+        await assertThrows(controller.collBorrowAllowed(marketId, trader, longToken), 'BMB');
+    });
 
     it("Admin setImplementation test", async () => {
         let instance = await Controller.new();

@@ -569,4 +569,11 @@ contract("OpenLev UniV2", async accounts => {
         m.log("Trade.held:", tradeAfter.held);
         assert.equal(tradeAfter.held, 0);
     })
+
+    it("Get Market supported dexs successful", async () => {
+        let pairId = 0;
+        let dexs = await openLev.getMarketSupportDexs(pairId);
+        assert.equal(1, dexs.length);
+        assert.equal(1, dexs[0]);
+    })
 })
