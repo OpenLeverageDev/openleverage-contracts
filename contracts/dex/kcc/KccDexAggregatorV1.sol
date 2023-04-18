@@ -182,7 +182,7 @@ contract KccDexAggregatorV1 is DelegateInterface, Adminable, DexAggregatorInterf
     /// @param data dex parameters
     /// @return If updated
     function updatePriceOracle(address desToken, address quoteToken, uint32 timeWindow, bytes memory data) external override returns (bool){
-        require(msg.sender == openLev, "Only openLev can update price");
+        require(msg.sender == openLev || msg.sender == opBorrowing, "Only openLev can update price");
         require(data.isUniV2Class(), "unsupported dex");
         address pair = getUniClassPair(desToken, quoteToken, dexInfo[data.toDex()].factory);
         V2PriceOracle memory priceOracle = uniV2PriceOracle[IUniswapV2Pair(pair)];
